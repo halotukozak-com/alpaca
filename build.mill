@@ -94,6 +94,7 @@ object `package` extends ScalaModule with ScoverageModule with SonatypeCentralPu
 
   object test extends ScalaTests with TestModule.ScalaTest with ScoverageTests:
     def scalaTestVersion = "3.2.19"
+    override def mvnDeps = super.mvnDeps() ++ Seq(mvn"org.scalameta::scalameta:4.16.0")
 
   object benchmarks extends Module:
 
