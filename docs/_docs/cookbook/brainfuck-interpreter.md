@@ -2,7 +2,7 @@
 
 This guide assembles the complete BrainFuck> interpreter that has been built incrementally across the documentation. It combines every Alpaca feature: custom lexer context, value-bearing tokens, EBNF operators, parser context, and semantic actions.
 
-**What you'll build:** a working interpreter for BrainFuck extended with named function definitions and calls.
+**What you'll build:** a working interpreter for BrainFuck extended with repeat counts, named cells, and named functions.
 
 ## The BrainFuck> Language
 
@@ -20,6 +20,8 @@ Standard BrainFuck has eight single-character commands operating on an array of 
 | `]` | Jump back to matching `[` if current cell is nonzero |
 
 BrainFuck> extends this with:
+- `N` (digits) -- repeat the next command N times (e.g., `3+` = `+++`)
+- `$name` -- go to a named cell (auto-allocated on first use)
 - `name(body)` -- define a function with the given name and body
 - `name!` -- call a previously defined function
 
@@ -31,6 +33,8 @@ Everything else is a comment.
 enum BrainAST:
   case Root(ops: List[BrainAST])
   case While(ops: List[BrainAST])
+  case Repeat(count: Int, op: BrainAST)
+  case GoToCell(name: String)
   case FunctionDef(name: String, ops: List[BrainAST])
   case FunctionCall(name: String)
   case Next, Prev, Inc, Dec, Print, Read
@@ -62,6 +66,8 @@ val BrainLexer = lexer[BrainLexContext]:
     require(ctx.squareBrackets > 0, "Mismatched brackets")
     ctx.squareBrackets -= 1
     Token["jumpBack"]
+  case count @ "[0-9]+" => Token["repeat"](count.toInt)
+  case cell @ "\\$[A-Za-z]+" => Token["cell"](cell.drop(1))
   case name @ "[A-Za-z]+" => Token["functionName"](name)
   case "\\(" =>
     ctx.brackets += 1
@@ -101,6 +107,8 @@ object BrainParser extends Parser[BrainParserCtx]:
     { case BrainLexer.dec(_) => BrainAST.Dec },
     { case BrainLexer.print(_) => BrainAST.Print },
     { case BrainLexer.read(_) => BrainAST.Read },
+    { case (BrainLexer.repeat(n), Operation(op)) => BrainAST.Repeat(n.value, op) },
+    { case BrainLexer.cell(name) => BrainAST.GoToCell(name.value) },
     { case While(whl) => whl },
     { case FunctionDef(fdef) => fdef },
     { case FunctionCall(call) => call },
@@ -127,6 +135,7 @@ class Memory(
   val cells: Array[Int] = new Array(256),
   var pointer: Int = 0,
   val functions: mutable.Map[String, List[BrainAST]] = mutable.Map.empty,
+  val namedCells: mutable.Map[String, Int] = mutable.Map.empty,
 )
 
 extension (ast: BrainAST)
@@ -138,6 +147,11 @@ extension (ast: BrainAST)
     case BrainAST.Dec        => mem.cells(mem.pointer) = (mem.cells(mem.pointer) - 1) & 0xff
     case BrainAST.Print      => print(mem.cells(mem.pointer).toChar)
     case BrainAST.Read       => mem.cells(mem.pointer) = scala.io.StdIn.readChar() & 0xff
+    case BrainAST.Repeat(n, op) => (1 to n).foreach(_ => op.eval(mem))
+    case BrainAST.GoToCell(name) =>
+      val idx = mem.namedCells.getOrElseUpdate(name, mem.namedCells.size)
+      require(idx < mem.cells.length, s"Too many named cells (max ${mem.cells.length})")
+      mem.pointer = idx
     case BrainAST.While(ops) => while mem.cells(mem.pointer) != 0 do ops.foreach(_.eval(mem))
     case BrainAST.FunctionDef(name, ops) => mem.functions += (name -> ops)
     case BrainAST.FunctionCall(name) =>
@@ -160,15 +174,28 @@ import alpaca.*
   // prints: Hello World!
 ```
 
-With function extensions:
+With repeat counts and named cells:
 
 ```scala sc:nocompile
-val program = "foo(+++)foo!foo!"
+val program = "$a 3+ $b 5+ $a ."
 val (ctx, lexemes) = BrainLexer.tokenize(program)
+require(ctx.squareBrackets == 0 && ctx.brackets == 0, "Mismatched brackets")
 val (_, ast) = BrainParser.parse(lexemes)
 val mem = Memory()
 ast.nn.eval(mem)
-// mem.cells(0) == 6  (two calls to foo, each incrementing 3 times)
+// cell 'a' (index 0) = 3, cell 'b' (index 1) = 5, pointer back to 'a', prints char 3
+```
+
+With functions:
+
+```scala sc:nocompile
+val program = "$a foo(3+)foo!foo!."
+val (ctx, lexemes) = BrainLexer.tokenize(program)
+require(ctx.squareBrackets == 0 && ctx.brackets == 0, "Mismatched brackets")
+val (_, ast) = BrainParser.parse(lexemes)
+val mem = Memory()
+ast.nn.eval(mem)
+// cell 'a' = 6 (two calls to foo, each adding 3), then prints char 6
 ```
 
 ## Testing
@@ -186,17 +213,25 @@ assert(ast == BrainAST.Root(List(
   BrainAST.While(List(BrainAST.Next, BrainAST.Inc, BrainAST.Prev, BrainAST.Dec))
 )))
 
-// Evaluator
+// Repeat count
+val (_, ast2) = BrainParser.parse(BrainLexer.tokenize("3+")._2)
+assert(ast2 == BrainAST.Root(List(BrainAST.Repeat(3, BrainAST.Inc))))
+
+// Named cells
 val mem = Memory()
-BrainParser.parse(BrainLexer.tokenize("+++++[-]")._2)._2.nn.eval(mem)
-assert(mem.cells(0) == 0)  // cell cleared by loop
+BrainParser.parse(BrainLexer.tokenize("$a 3+ $b 5+")._2)._2.nn.eval(mem)
+assert(mem.cells(0) == 3 && mem.cells(1) == 5)  // auto-allocated indices
+
+// Evaluator
+val mem2 = Memory()
+BrainParser.parse(BrainLexer.tokenize("+++++[-]")._2)._2.nn.eval(mem2)
+assert(mem2.cells(0) == 0)  // cell cleared by loop
 ```
 
 ## Extensions
 
-Ideas for extending the interpreter:
+Ideas for extending the interpreter further:
 
 - **Error recovery** -- use `ErrorHandling.Strategy.IgnoreChar` instead of a catch-all pattern
 - **Source positions** -- add `PositionTracking` and `LineTracking` to the lexer context for better error messages
 - **String literals** -- add a `"..."` token for inline string output
-- **Macros** -- add a `name{body}` syntax for compile-time expansion (no runtime function table)
