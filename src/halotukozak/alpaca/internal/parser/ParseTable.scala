@@ -174,11 +174,12 @@ private[parser] object ParseTable:
         empty = '{ Map.empty },
       )
 
-      avoidTooLargeMethod[Row, Array[Row], mutable.ArrayBuilder[Row]](
+      val arrayExpr = avoidTooLargeMethod[Row, Array[Row], mutable.ArrayBuilder[Row]](
         builder = '{ mutable.ArrayBuilder.ofRef[Row].tap(_.sizeHint(${ Expr(entries.length) })) },
         elements = entries.map(rowExpr),
         empty = '{ Array.empty[Row] },
       )
+      '{ $arrayExpr.asInstanceOf[ParseTable] }
 
   // No constructor for a raw ParseTable outside the algorithm above, hence write-only below.
   given MCodec[ParseTable] =

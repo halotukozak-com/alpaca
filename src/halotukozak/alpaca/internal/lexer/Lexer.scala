@@ -22,11 +22,6 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
 
   type TokenRefn = lexer.Token[?, Ctx, ?] { type LexemeTpe = Lexeme[?, ?] withFields lexemeFields }
 
-  val compileNameAndPattern = new CompileNameAndPattern[quotes.type]
-  val createLambda = new CreateLambda[quotes.type]
-  val replaceRefs = new ReplaceRefs[quotes.type]
-  val rewriteCtxMutations = new RewriteCtxMutations[quotes.type]
-
   val Lambda(oldCtx :: Nil, Lambda(_, Match(_, cases: List[CaseDef]))) = rules.asTerm.underlying.runtimeChecked
 
   if cases.isEmpty then report.errorAndAbort("Lexer definition must contain at least one case")

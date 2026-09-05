@@ -64,6 +64,11 @@ object `package` extends Module:
       val ciOnly = Seq(
         "-Xprint-inline",
         // "-Ycheck:all", // cannot be enabled when scoverage used :/
+        "-Xcheck-macros",
+        // Dotty misreports the position of synthesized Product/Mirror members as 0 for
+        // locally-scoped case classes/tuples under -Xcheck-macros -- a compiler-internal
+        // diagnostic bug, not a real code issue.
+        "-Wconf:msg=Missing symbol position.*:s",
         "-Ycheck:macros",
         // "-Ydebug-error",
         "-Ydebug-flags",

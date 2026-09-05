@@ -67,10 +67,6 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
       val ctxSymbol = parserSymbol.methodMember("ctx").head
       val parserName = declaredName(parserSymbol)
       val exportName = exportId(parserName)
-      val replaceRefs = new ReplaceRefs[quotes.type]
-      val createLambda = new CreateLambda[quotes.type]
-      val parserExtractor = new ParserExtractors[quotes.type, Ctx]
-      import parserExtractor.*
 
       def extractEBNF(ruleName: String)
         : PartialFunction[Expr[Rule[?]], Seq[(production: Production, action: Expr[Action[Ctx]])]] =
@@ -117,7 +113,7 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
                 None
               // Tuple1
               case (CaseDef(skipTypedOrTest(pattern @ Unapply(_, _, List(_))), None, rhs), name) =>
-                val (symbol, bind, others) = extractEBNFAndAction(pattern)
+                val (symbol, bind, others) = extractEBNFAndAction[Ctx](pattern)
                 (
                   production = Production.NonEmpty(NonTerminal(ruleName), NEL(symbol), name),
                   action = createAction(List(bind), rhs),
@@ -125,7 +121,7 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
 
               // TupleN, N > 1
               case (CaseDef(skipTypedOrTest(Unapply(_, _, patterns)), None, rhs), name) =>
-                val (symbols, binds, others) = patterns.map(extractEBNFAndAction).unzip3(using _.toTuple)
+                val (symbols, binds, others) = patterns.map(extractEBNFAndAction[Ctx]).unzip3(using _.toTuple)
                 (
                   production = Production.NonEmpty(NonTerminal(ruleName), NEL(symbols.head, symbols.tail*), name),
                   action = createAction(binds, rhs),
@@ -256,6 +252,6 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
         // parser object's own <init>) would deadlock against `given Resolutions[P]` instances
         // that refer back to the parser object (e.g. via `Production(MyParser.SomeRule, ...)`)
         lazy val _ = $givenResolutions
-        ($parseTable: ParseTable, ActionTable($actionTable.toMap))
+        ($parseTable.asInstanceOf[ParseTable], ActionTable($actionTable.toMap))
       }
 // $COVERAGE-ON$

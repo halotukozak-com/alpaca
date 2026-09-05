@@ -8,32 +8,42 @@ import alpaca.internal.parser.ParserExtractors.*
 
 import scala.reflect.NameTransformer
 
-/**
- * Internal utility class for extracting and transforming parser patterns.
- *
- * This class is used during macro expansion to analyze parser rule definitions
- * and extract information about terminals, non-terminals, and EBNF operators
- * (optional, repeated) from pattern matching expressions.
- *
- * @tparam Q the Quotes type
- * @tparam Ctx the parser context type
- */
 // $COVERAGE-OFF$
-private[parser] final class ParserExtractors[Q <: Quotes, Ctx <: ParserCtx: Type](using val quotes: Q):
+
+/**
+ * Strips a `TypedOrTest` wrapper (a `: SomeType` type-test in a pattern) down to
+ * the pattern underneath, used during macro expansion of parser rule definitions.
+ */
+private[parser] object skipTypedOrTest:
+  def unapply(using quotes: Quotes)(tree: quotes.reflect.Tree): Some[quotes.reflect.Tree] =
+    import quotes.reflect.*
+    tree match
+      case TypedOrTest(inner, _) => Some(inner)
+      case other => Some(other)
+
+/**
+ * Analyzes a single pattern from a parser rule definition during macro expansion,
+ * extracting the grammar symbol it matches (terminal or non-terminal) together
+ * with any EBNF desugaring (`Option`, `List`, `SeparatedBy`) it requires.
+ */
+private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using quotes: Quotes): PartialFunction[
+  quotes.reflect.Tree,
+  (
+    symbol: parser.Symbol.NonEmpty,
+    bind: Option[quotes.reflect.Bind],
+    others: List[(production: Production, action: Expr[Action[Ctx]])],
+  ),
+] =
   import quotes.reflect.*
 
-  private def symbolFromType(tpe: TypeRepr): parser.Symbol.NonEmpty = tpe.dealias.widen.asType match
+  def symbolFromType(tpe: TypeRepr): parser.Symbol.NonEmpty = tpe.dealias.widen.asType match
     case '[type name <: ValidName; Token[name, ?, ?]] => Terminal(ValidName.from[name])
     case '[Rule[?]] => NonTerminal(NameTransformer.decode(tpe.termSymbol.name))
     case _ => report.errorAndAbort(show"SeparatedBy separator must be a Token or Rule type, but got: ${tpe.show}")
 
-  val skipTypedOrTest: PartialFunction[Tree, Tree] =
-    case TypedOrTest(tree, _) => tree
-    case tree => tree
+  type SymbolExtractor = PartialFunction[Tree, (name: String, bind: Option[Bind], extractor: String | Null)]
 
-  private type SymbolExtractor = PartialFunction[Tree, (name: String, bind: Option[Bind], extractor: String | Null)]
-
-  private enum Extractor[T: Type] extends SymbolExtractor:
+  enum Extractor[T: Type] extends SymbolExtractor:
     case Terminal extends Extractor[Token[?, ?, ?]]
     case NonTerminal extends Extractor[Rule[?]]
 
@@ -45,7 +55,7 @@ private[parser] final class ParserExtractors[Q <: Quotes, Ctx <: ParserCtx: Type
     override def isDefinedAt(x: Tree): Boolean = underlying.isDefinedAt(x)
     override def apply(x: Tree): (name: String, bind: Option[Bind], extractor: String | Null) = underlying.apply(x)
 
-  private object Extractor:
+  object Extractor:
     private val Name: PartialFunction[Term, String] =
       case Select(_, name) => name
       case Ident(name) => name
@@ -73,14 +83,7 @@ private[parser] final class ParserExtractors[Q <: Quotes, Ctx <: ParserCtx: Type
       case Extractor.Terminal(name, bind, extractor) => (name, bind, extractor)
       case Extractor.NonTerminal(name, bind, extractor) => (name, bind, extractor)
 
-  val extractEBNFAndAction: PartialFunction[
-    Tree,
-    (
-      symbol: parser.Symbol.NonEmpty,
-      bind: Option[Bind],
-      others: List[(production: Production, action: Expr[Action[Ctx]])],
-    ),
-  ] =
+  {
     case skipTypedOrTest(
           Unapply(Select(Extractor.SeparatedBy(_, name, separator), Names.Unapply), Nil, List(Extractor.Bind(bind))),
         ) =>
@@ -142,11 +145,12 @@ private[parser] final class ParserExtractors[Q <: Quotes, Ctx <: ParserCtx: Type
           ),
         ),
       )
+  }
 
 // $COVERAGE-ON$
 
 private object ParserExtractors:
-  private object Names:
+  private[parser] object Names:
     final val SelectDynamic = "selectDynamic"
     final val Unapply = "unapply"
     final val List = "List"

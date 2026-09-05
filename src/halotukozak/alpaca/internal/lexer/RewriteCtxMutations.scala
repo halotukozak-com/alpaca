@@ -52,76 +52,37 @@ import scala.reflect.NameTransformer
  * declared type is frozen at whatever `ctx`'s macro produced (the facade
  * type) when it was first elaborated, and doesn't get updated just because a
  * later pass rewrites its initializer — so those trivial aliasing lets are
- * inlined away and dropped (see the `aliases` set built up in `apply`'s
- * `Block` case) rather than left in place with a now-stale declared type.
+ * inlined away and dropped (see the `aliases` set built up in the `Block` case
+ * below) rather than left in place with a now-stale declared type.
+ *
+ * @param ctxVar the local `var` (of type `Ctx`) that accumulates the updates
+ * @param body the rule statements to rewrite
+ * @param owner the owner to use when transforming the body
  */
-private[lexer] final class RewriteCtxMutations[Q <: Quotes](using val quotes: Q):
+private[lexer] def rewriteCtxMutations(
+  using quotes: Quotes,
+)(
+  ctxVar: quotes.reflect.Symbol,
+)(
+  body: quotes.reflect.Term,
+)(
+  owner: quotes.reflect.Symbol,
+): quotes.reflect.Term =
   import quotes.reflect.*
 
-  private val Cast: PartialFunction[Term, Term] =
+  val Cast: PartialFunction[Term, Term] =
     case TypeApply(Select(inner, "asInstanceOf" | "$asInstanceOf$"), _) => inner
     case Select(inner, "$asInstanceOf$") => inner
 
-  private val SetterName: PartialFunction[String, String] = Function.unlift: encoded =>
+  val SetterName: PartialFunction[String, String] = Function.unlift: encoded =>
     val decoded = NameTransformer.decode(encoded)
     Option.when(decoded.endsWith("_="))(decoded.stripSuffix("_="))
 
-  private val ApplyDynamicCall: PartialFunction[Term, (recv: Term, name: String, args: Term)] =
+  val ApplyDynamicCall: PartialFunction[Term, (recv: Term, name: String, args: Term)] =
     case Apply(Apply(Select(recv, "applyDynamic"), List(Literal(StringConstant(name)))), List(args)) =>
       (recv, name, args)
 
-  /**
-   * @param ctxVar the local `var` (of type `Ctx`) that accumulates the updates
-   * @param body the rule statements to rewrite
-   * @param owner the owner to use when transforming the body
-   */
-  def apply(ctxVar: Symbol)(body: Term)(owner: Symbol): Term =
-    val ctxRef = Ref(ctxVar)
-    val aliases = scala.collection.mutable.Set(ctxVar)
-
-    def isCtxRef(t: Term): Boolean = aliases(unwrap(t).symbol)
-
-    val SetterCall: PartialFunction[Term, (String, Term)] =
-      case unwrap(ApplyDynamicCall(recv, SetterName(field), argSeq)) if isCtxRef(recv) =>
-        val rhs = argSeq match
-          case Typed(Repeated(List(r), _), _) => r
-          case other => other
-        (field, rhs)
-
-    object rewriter extends TreeMap:
-      override def transformTerm(tree: Term)(owner: Symbol): Term = tree match
-        case SetterCall(field, rhs) =>
-          Assign(ctxRef, carry(copyWith(ctxRef, field, transformTerm(rhs)(owner)), ctxRef))
-        case Cast(unwrap(inner)) if isCtxRef(inner) =>
-          inner
-        case Ident(_) if aliases(tree.symbol) =>
-          ctxRef
-        case Block(stats, expr) if stats.nonEmpty =>
-          val kept = stats.filter:
-            case vd @ ValDef(_, _, Some(rhs)) if isCtxRef(transformTerm(rhs)(owner)) =>
-              aliases += vd.symbol
-              false
-            case _ => true
-          val newStats = kept.map(transformStatement(_)(owner))
-          val newExpr = transformTerm(expr)(owner)
-          if newStats.isEmpty then newExpr else Block(newStats, newExpr)
-        case _ => super.transformTerm(tree)(owner)
-
-    rewriter.transformTerm(body)(owner)
-
-  private def copyWith(recv: Term, field: String, value: Term): Term =
-    val cls = recv.tpe.typeSymbol
-    val copySym = cls.methodMember("copy").head
-    val args = cls.caseFields.map(f => if f.name == field then value else Select.unique(recv, f.name))
-    val applied = recv.tpe.typeArgs match
-      case Nil => recv.select(copySym)
-      case targs => TypeApply(recv.select(copySym), targs.map(Inferred(_)))
-    applied.appliedToArgs(args)
-
-  private def carry(newCtx: Term, oldCtx: Term): Term =
-    '{ ${ newCtx.asExprOf[LexerCtx] }.carryEngineStateFrom(${ oldCtx.asExprOf[LexerCtx] }) }.asTerm
-
-  private object unwrap:
+  object unwrap:
     def apply(t: Term): Term = unapply(t).value
 
     @tailrec def unapply(t: Term): Some[Term] = t match
@@ -130,5 +91,54 @@ private[lexer] final class RewriteCtxMutations[Q <: Quotes](using val quotes: Q)
       case Block(Nil, e) => unapply(e)
       case Cast(e) => unapply(e)
       case _ => Some(t)
+
+  def copyWith(recv: Term, field: String, value: Term): Term =
+    val cls = recv.tpe.typeSymbol
+    val copySym = cls.methodMember("copy").head
+    val args = cls.caseFields.map(f => if f.name == field then value else Select.unique(recv, f.name))
+    val applied = recv.tpe.typeArgs match
+      case Nil => recv.select(copySym)
+      case targs => TypeApply(recv.select(copySym), targs.map(Inferred(_)))
+    applied.appliedToArgs(args)
+
+  def carry(newCtx: Term, oldCtx: Term): Term =
+    '{ ${ newCtx.asExprOf[LexerCtx] }.carryEngineStateFrom(${ oldCtx.asExprOf[LexerCtx] }) }.asTerm
+
+  val ctxRef = Ref(ctxVar)
+  val aliases = scala.collection.mutable.Set(ctxVar)
+
+  def isCtxRef(t: Term): Boolean = aliases(unwrap(t).symbol)
+
+  val SetterCall: PartialFunction[Term, (String, Term)] =
+    case unwrap(ApplyDynamicCall(recv, SetterName(field), argSeq)) if isCtxRef(recv) =>
+      val rhs = argSeq match
+        case Typed(Repeated(List(r), _), _) => r
+        case other => other
+      (field, rhs)
+
+  object rewriter extends TreeMap:
+    override def transformTerm(tree: Term)(owner: Symbol): Term = tree match
+      case SetterCall(field, rhs) =>
+        // `carry` builds its result via a fresh `'{...}` quote, which re-homes the whole
+        // spliced-in subtree (including any lambda nested in `rhs`, e.g. `s.count(_ == '\n')`)
+        // to the ambient macro-body owner instead of `owner` -- confirmed under -Xcheck-macros
+        // ("Block contains definition with different owners"). changeOwner puts it back.
+        Assign(ctxRef, carry(copyWith(ctxRef, field, transformTerm(rhs)(owner)), ctxRef).changeOwner(owner))
+      case Cast(unwrap(inner)) if isCtxRef(inner) =>
+        inner
+      case Ident(_) if aliases(tree.symbol) =>
+        ctxRef
+      case Block(stats, expr) if stats.nonEmpty =>
+        val kept = stats.filter:
+          case vd @ ValDef(_, _, Some(rhs)) if isCtxRef(transformTerm(rhs)(owner)) =>
+            aliases += vd.symbol
+            false
+          case _ => true
+        val newStats = kept.map(transformStatement(_)(owner))
+        val newExpr = transformTerm(expr)(owner)
+        if newStats.isEmpty then newExpr else Block(newStats, newExpr)
+      case _ => super.transformTerm(tree)(owner)
+
+  rewriter.transformTerm(body)(owner)
 
 // $COVERAGE-ON$
