@@ -3,19 +3,25 @@ name: Publish IntelliJ Plugin
 # Manual-only: the repo's `v*` tags already drive the Scala library's Sonatype publish
 # and any tag drives the docs deploy, so the plugin gets its own explicitly-triggered
 # workflow instead of a tag pattern. Release flow, entirely from the Actions tab:
-#   1. Run this workflow with the "version" input set to the new version (e.g. 0.2.0).
-#   2. The workflow bumps ij-plugin/gradle.properties, runs `patchChangelog`
-#      (moves [Unreleased] -> [x.y.z]), commits that to main, then builds, signs,
+#   1. Run this workflow, picking "bump" (patch/minor/major).
+#   2. The workflow computes the next x.y.z from the current
+#      ij-plugin/gradle.properties, bumps it, runs `patchChangelog` (moves
+#      [Unreleased] -> [x.y.z]), commits that to main, then builds, signs,
 #      verifies and publishes the plugin built from that commit.
-# Leave "version" empty to re-run a publish for whatever version is already committed
+# Pick "none" to re-run a publish for whatever version is already committed
 # (e.g. to retry a failed upload) without creating a new bump commit.
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'New version to release (e.g. 0.2.0). Leave empty to publish the version already in gradle.properties.'
-        type: string
-        required: false
+      bump:
+        description: 'Version part to bump (none = republish the current version as-is)'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - none
+        default: patch
       dry_run:
         description: 'Build, sign and verify but do NOT upload to the Marketplace'
         type: boolean
@@ -52,19 +58,32 @@ jobs:
         with:
           cache-read-only: true
 
-      - name: Bump version and patch changelog
-        if: ${{ inputs.version != '' }}
+      - name: Compute next version
+        if: ${{ inputs.bump != 'none' }}
+        id: next_version
         run: |
-          sed -i "s/^version = .*/version = ${{ inputs.version }}/" gradle.properties
+          current="$(grep -oP '^version = \K.*' gradle.properties)"
+          IFS='.' read -r major minor patch <<< "$current"
+          case "${{ inputs.bump }}" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+          echo "version=$major.$minor.$patch" >> "$GITHUB_OUTPUT"
+
+      - name: Bump version and patch changelog
+        if: ${{ inputs.bump != 'none' }}
+        run: |
+          sed -i "s/^version = .*/version = ${{ steps.next_version.outputs.version }}/" gradle.properties
           ./gradlew patchChangelog
 
       - name: Commit version bump
-        if: ${{ inputs.version != '' }}
+        if: ${{ inputs.bump != 'none' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add gradle.properties CHANGELOG.md
-          git commit -m "Release IntelliJ plugin v${{ inputs.version }}"
+          git commit -m "Release IntelliJ plugin v${{ steps.next_version.outputs.version }}"
           git push origin HEAD:main
 
       - name: Verify plugin
