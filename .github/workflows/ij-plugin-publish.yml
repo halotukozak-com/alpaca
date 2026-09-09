@@ -2,21 +2,27 @@ name: Publish IntelliJ Plugin
 
 # Manual-only: the repo's `v*` tags already drive the Scala library's Sonatype publish
 # and any tag drives the docs deploy, so the plugin gets its own explicitly-triggered
-# workflow instead of a tag pattern. Release flow:
-#   1. bump `version` in ij-plugin/gradle.properties
-#   2. run `./gradlew patchChangelog` in ij-plugin/ (moves [Unreleased] -> [x.y.z])
-#   3. commit + merge to main
-#   4. run this workflow from the Actions tab
+# workflow instead of a tag pattern. Release flow, entirely from the Actions tab:
+#   1. Run this workflow with the "version" input set to the new version (e.g. 0.2.0).
+#   2. The workflow bumps ij-plugin/gradle.properties, runs `patchChangelog`
+#      (moves [Unreleased] -> [x.y.z]), commits that to main, then builds, signs,
+#      verifies and publishes the plugin built from that commit.
+# Leave "version" empty to re-run a publish for whatever version is already committed
+# (e.g. to retry a failed upload) without creating a new bump commit.
 on:
   workflow_dispatch:
     inputs:
+      version:
+        description: 'New version to release (e.g. 0.2.0). Leave empty to publish the version already in gradle.properties.'
+        type: string
+        required: false
       dry_run:
         description: 'Build, sign and verify but do NOT upload to the Marketplace'
         type: boolean
         default: false
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ij-plugin-publish
@@ -34,6 +40,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          ref: main
       - name: Set up JDK
         uses: actions/setup-java@v6
         with:
@@ -42,8 +50,22 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
-          build-root-directory: ij-plugin
           cache-read-only: true
+
+      - name: Bump version and patch changelog
+        if: ${{ inputs.version != '' }}
+        run: |
+          sed -i "s/^version = .*/version = ${{ inputs.version }}/" gradle.properties
+          ./gradlew patchChangelog
+
+      - name: Commit version bump
+        if: ${{ inputs.version != '' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gradle.properties CHANGELOG.md
+          git commit -m "Release IntelliJ plugin v${{ inputs.version }}"
+          git push origin HEAD:main
 
       - name: Verify plugin
         run: ./gradlew verifyPlugin
