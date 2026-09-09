@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-09
+
 ### Added
 
 - Initial release: IDE support for languages defined with the [Alpaca](https://github.com/halotukozak-com/alpaca) lexer/parser library, driven entirely by the grammar data Alpaca exports at compile time (`ALPACA_GRAMMAR_EXPORT_DIR`).
@@ -14,3 +16,6 @@
 - Grammar-driven autocompletion of the fixed-spelling terminals valid at the caret.
 - Line comment toggling (`Ctrl+/`) for grammars that ignore a `prefix.*`-shaped rule.
 - Settings panel (**Settings | Tools | Alpaca**) for the grammar export directory and per-extension language mappings.
+
+[Unreleased]: https://github.com/halotukozak-com/alpaca/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/halotukozak-com/alpaca/commits/v0.2.0
