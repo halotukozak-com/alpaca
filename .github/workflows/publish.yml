@@ -19,7 +19,7 @@ jobs:
       - uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
-          java-version: '21'
+          java-version: '21.0.12+101.0.LTS'
       # Mill's SonatypeCentralPublishModule reads MILL_PGP_SECRET_BASE64 (base64);
       # PGP_PRIVATE_KEY (shared org secret) is stored armored, so derive the
       # base64 form at runtime rather than keeping a second copy of the key.
