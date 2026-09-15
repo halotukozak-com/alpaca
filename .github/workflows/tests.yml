@@ -21,7 +21,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v6
         with:
-          java-version: 21
+          java-version: 21.0.12+101.0.LTS
           distribution: 'temurin'
       - name: Cache Mill dependencies
         uses: actions/cache@v6
@@ -44,7 +44,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v6
         with:
-          java-version: 21
+          java-version: 21.0.12+101.0.LTS
           distribution: 'temurin'
       - name: Cache Mill dependencies
         uses: actions/cache@v6
@@ -70,7 +70,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v6
         with:
-          java-version: 21
+          java-version: 21.0.12+101.0.LTS
           distribution: 'temurin'
       - name: Cache Mill dependencies
         uses: actions/cache@v6
@@ -106,7 +106,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v6
         with:
-          java-version: 21
+          java-version: 21.0.12+101.0.LTS
           distribution: 'temurin'
       - name: Cache Mill dependencies
         uses: actions/cache@v6
