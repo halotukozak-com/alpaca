@@ -146,6 +146,19 @@
       ],
       "depNameTemplate": "org.scalatest:scalatest",
       "datasourceTemplate": "maven"
+    },
+    {
+      "customType": "regex",
+      "description": "mima-core version pin in .mima/bin-compat-check.scala — a dedicated entry, not the generic cross-built manager above, because that manager's packageNameTemplate assumes a `_3` (Scala 3) artifact suffix, and mima-core is only published for Scala 2.13 (see the `//> using scala 2.13` pin in the same file)",
+      "managerFilePatterns": [
+        "/(^|/)\\.mima/bin-compat-check\\.scala$/"
+      ],
+      "matchStrings": [
+        "//> using dep com\\.typesafe::mima-core:(?<currentValue>[\\w.-]+)"
+      ],
+      "depNameTemplate": "com.typesafe:mima-core_2.13",
+      "packageNameTemplate": "com.typesafe:mima-core_2.13",
+      "datasourceTemplate": "maven"
     }
   ]
 }
