@@ -3,14 +3,14 @@ package alpaca
 package internal
 package lexer
 
-import halotukozak.alpaca.{LexerCtx, SepValue}
 import halotukozak.alpaca.internal.{Default, RuleOnly, Showable, ValidName}
+import halotukozak.alpaca.{LexerCtx, SepValue}
 import halotukozak.mcodec.MCodec
 import halotukozak.regex.{RegexParseError, RegexParser}
 
 import java.util.concurrent.atomic.AtomicInteger
-import scala.annotation.{compileTimeOnly, publicInBinary, unused}
 import scala.annotation.unchecked.uncheckedVariance as uv
+import scala.annotation.{compileTimeOnly, publicInBinary, unused}
 import scala.quoted.{Quotes, ToExprFactory}
 
 /**
@@ -63,12 +63,11 @@ private[lexer] object TokenInfo:
    */
 // $COVERAGE-OFF$
   def apply(
+    using quotes: Quotes,
+  )(
     name: String,
     pattern: String,
     ignored: Boolean,
-  )(using quotes: Quotes,
-  )(using
-    source: Source,
     pos: quotes.reflect.Position,
   ): (Type[? <: ValidName], TokenInfo) =
     import quotes.reflect.*
@@ -78,7 +77,7 @@ private[lexer] object TokenInfo:
       case Right(_) =>
     (
       ConstantType(StringConstant(name)).asType.asInstanceOf[Type[? <: ValidName]],
-      TokenInfo(name, nextRegexGroupName(), pattern, ignored, source),
+      TokenInfo(name, nextRegexGroupName(), pattern, ignored, Source(pos)),
     )
 
   private[lexer] def regexErrorMessage(name: String, err: RegexParseError): String =

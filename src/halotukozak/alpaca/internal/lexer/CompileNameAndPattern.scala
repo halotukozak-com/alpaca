@@ -31,33 +31,29 @@ private[lexer] def compileNameAndPattern[T: Type](
   // branches below); every other call site passes the token's own name as T.
   val ignored = TypeRepr.of[T] =:= TypeRepr.of[Nothing]
 
-  val casePos: Position = pattern.pos
-  given Source = Source(casePos.startLine, casePos.sourceFile.path)
-  given Position = casePos
-
-  @tailrec def loop(tpe: TypeRepr, pattern: Tree): List[(Type[? <: ValidName], TokenInfo)] = (tpe, pattern) match
+  @tailrec def loop(tpe: TypeRepr, pattern: Tree): List[(Type[? <: ValidName], TokenInfo)] = (tpe, pattern) match {
     // case x @ "regex" => Token[x.type]
     case (TermRef(_, name), Bind(bind, Literal(StringConstant(regex)))) if name == bind =>
-      TokenInfo(regex, regex, ignored) :: Nil
+      TokenInfo(regex, regex, ignored, pattern.pos) :: Nil
     // case x @ ("regex" | "regex2") => Token[x.type]
     case (TermRef(_, name), Bind(bind, Alternatives(alternatives))) if name == bind =>
       alternatives.map:
-        case Literal(StringConstant(str)) => TokenInfo(str, str, ignored)
+        case Literal(StringConstant(str)) => TokenInfo(str, str, ignored, pattern.pos)
         case other => raiseShouldNeverBeCalled(other)
     // case x @ <?> => Token[<?>]
     case (tpe, Bind(_, tree)) =>
       loop(tpe, tree)
     // case x : "regex" => Token.Ignored
     case (tpe, Literal(StringConstant(str))) if tpe =:= TypeRepr.of[Nothing] =>
-      TokenInfo(str, str, ignored) :: Nil
+      TokenInfo(str, str, ignored, pattern.pos) :: Nil
     // case x : ("regex" | "regex2") => Token.Ignored
     case (tpe, Alternatives(alternatives)) if tpe =:= TypeRepr.of[Nothing] =>
       alternatives.map:
-        case Literal(StringConstant(str)) => TokenInfo(str, str, ignored)
+        case Literal(StringConstant(str)) => TokenInfo(str, str, ignored, pattern.pos)
         case other => raiseShouldNeverBeCalled(other)
     // case x : "regex" => Token["name"]
     case (ConstantType(StringConstant(name)), Literal(StringConstant(regex))) =>
-      TokenInfo(name, regex, ignored) :: Nil
+      TokenInfo(name, regex, ignored, pattern.pos) :: Nil
     // case x : ("regex" | "regex2") => Token["name"]
     case (ConstantType(StringConstant(str)), Alternatives(alternatives)) =>
       val patterns = alternatives.map:
@@ -66,20 +62,21 @@ private[lexer] def compileNameAndPattern[T: Type](
       val items = patterns.map: alt =>
         Subset.parse(alt) match
           case Right(subset) => (name = alt, subset = subset.withAnySuffix)
-          case Left(err) => report.errorAndAbort(TokenInfo.regexErrorMessage(str, err), casePos)
-      try
-        SubsetChecker.checkRegexes(items)
-        SubsetChecker.checkRegexes(items.reverse)
-      catch
-        case ShadowException(first, second) =>
+          case Left(err) => report.errorAndAbort(TokenInfo.regexErrorMessage(str, err), pattern.pos)
+
+      SubsetChecker
+        .checkRegexes(items)
+        .orElse(SubsetChecker.checkRegexes(items.reverse))
+        .foreach: (first, second) =>
           report.errorAndAbort(
             s"""Alternative "$first" in token "$str" is redundant: everything it matches is already
                |matched by "$second" in the same case.
                |Consider removing "$first" or merging the two patterns.""".stripMargin,
-            casePos,
+            pattern.pos,
           )
-      TokenInfo(str, patterns.mkShow("|"), ignored) :: Nil
+      TokenInfo(str, patterns.mkShow("|"), ignored, pattern.pos) :: Nil
     case x => raiseShouldNeverBeCalled[List[(Type[? <: ValidName], TokenInfo)]](x.toString)
+  }
 
   loop(TypeRepr.of[T], pattern)
 }

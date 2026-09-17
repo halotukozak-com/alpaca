@@ -3,7 +3,7 @@ package alpaca
 package internal
 package lexer
 
-import alpaca.Token as TokenDef
+import halotukozak.alpaca.Token as TokenDef
 import halotukozak.regex.{Regex, RegexParser, Subset, TokenMatcher}
 
 import scala.NamedTuple.{AnyNamedTuple, NamedTuple}
@@ -127,13 +127,12 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
       case Right(regex) => regex
       case Left(err) => report.errorAndAbort(TokenInfo.regexErrorMessage(token.info.name, err), token.pos)
 
-  try
-    SubsetChecker.checkRegexes(
+  SubsetChecker
+    .checkRegexes(
       for (token, regex) <- tokens.zip(parsedRegexes)
       yield (token.info.name, Subset.of(regex).withAnySuffix),
     )
-  catch
-    case ShadowException(first, second) =>
+    .foreach: (first, second) =>
       val shadowedPos = tokens.find(_.info.name == first).map(_.pos).getOrElse(Position.ofMacroExpansion)
       report.errorAndAbort(
         s"""Token "$first" can never match: every input it matches is already matched by "$second",
