@@ -7,6 +7,8 @@ import halotukozak.alpaca.internal.{DebugSettings, Showable}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
+import scala.quoted.quotes
+
 /**
  * Type representing a key in the conflict resolution table.
  *
