@@ -121,12 +121,11 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
         duplicates(1).pos,
       )
 
-  // Defensive: compileNameAndPattern already validated every pattern.
+  // compileNameAndPattern already validated every pattern, so this is unreachable.
   val parsedRegexes = tokens.map: token =>
     RegexParser.parse(token.info.pattern) match
       case Right(regex) => regex
-      case Left(err) =>
-        report.errorAndAbort(s"""Invalid regex pattern for token "${token.info.name}": $err""", token.pos)
+      case Left(err) => raiseShouldNeverBeCalled(err)
 
   SubsetChecker
     .checkRegexes(
