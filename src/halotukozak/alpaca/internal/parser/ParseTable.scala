@@ -3,14 +3,14 @@ package alpaca
 package internal
 package parser
 
-import alpaca.internal.parser.ParseAction.*
+import halotukozak.alpaca.internal.parser.ParseAction.*
 import halotukozak.mcodec.MCodec
 
 import scala.annotation.tailrec
 import scala.collection.immutable.SortedSet
 import scala.collection.mutable
 import scala.util.boundary
-import boundary.break
+import scala.util.boundary.break
 
 /**
  * An opaque type representing the LR parse table.
@@ -80,10 +80,33 @@ private[parser] object ParseTable:
    * automaton's already-computed goto transitions.
    *
    * @param productions the grammar productions
-   * @return the constructed parse table, or the conflict that prevented building it
+   * @return the constructed parse table
    */
-  def apply(productions: List[Production], conflictResolutionTable: ConflictResolutionTable)(using DebugSettings)
-    : Either[ConflictException, ParseTable] = boundary {
+  def apply(
+    productions: List[Production],
+    conflictResolutionTable: ConflictResolutionTable,
+  )(using
+    DebugSettings,
+    Quotes,
+  ): ParseTable = {
+    def raiseReduceReduceConflict(red1: Reduction, red2: Reduction, path: List[Symbol]): Nothing =
+      quotes.reflect.report.errorAndAbort:
+        show"""
+              |Reduce $red1 vs Reduce $red2
+              |In situation like:
+              |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
+              |Consider marking one of the productions to be before or after the other
+              |""".stripMargin
+
+    def raiseShiftReduceConflict(symbol: Symbol, red: Reduction, path: List[Symbol]): Nothing =
+      quotes.reflect.report.errorAndAbort:
+        show"""
+              |Shift \"$symbol\" vs Reduce $red
+              |In situation like:
+              |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
+              |Consider marking production $red to be before or after "$symbol"
+              |""".stripMargin
+
     val firstSet = FirstSet(productions)
     val productionsByLhs = productions.groupBy(_.lhs)
     val automaton = LR0Automaton(productionsByLhs)
@@ -101,9 +124,9 @@ private[parser] object ParseTable:
             case None =>
               val path = toPath(stateId, List(symbol))
               (existingAction, action) match
-                case (red1: Reduction, red2: Reduction) => break(Left(ReduceReduceConflict(red1, red2, path)))
-                case (Shift(_), red: Reduction) => break(Left(ShiftReduceConflict(symbol, red, path)))
-                case (red: Reduction, Shift(_)) => break(Left(ShiftReduceConflict(symbol, red, path)))
+                case (red1: Reduction, red2: Reduction) => raiseReduceReduceConflict(red1, red2, path)
+                case (Shift(_), red: Reduction) => raiseShiftReduceConflict(symbol, red, path)
+                case (red: Reduction, Shift(_)) => raiseShiftReduceConflict(symbol, red, path)
                 case (Shift(_), Shift(_)) => throw AlgorithmError("Shift-Shift conflict should never happen")
 
     // noinspection ScalaUnreachableCode
@@ -135,7 +158,7 @@ private[parser] object ParseTable:
       for (stepSymbol, targetStateId) <- automaton.goto(stateId) do addToTable(stateId, stepSymbol, Shift(targetStateId))
     }
 
-    Right(Array.better.tabulate(tableRows.length)(tableRows(_).toMap))
+    Array.better.tabulate(tableRows.length)(tableRows(_).toMap)
   }
 
   given Showable[ParseTable] = table => {

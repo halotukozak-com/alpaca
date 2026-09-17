@@ -7,7 +7,6 @@ import halotukozak.alpaca.internal.{DebugSettings, Showable}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
-
 /**
  * Type representing a key in the conflict resolution table.
  *
@@ -80,7 +79,7 @@ private[parser] object ConflictResolutionTable:
       winsOver(first, second).orElse(winsOver(second, first))
     }
 
-    def verifyNoConflicts()(using DebugSettings): Option[InconsistentConflictResolution] = {
+    def verifyNoConflicts()(using DebugSettings, Quotes): Unit = {
       enum VisitState:
         case Unvisited, Visited, Processed
 
@@ -91,8 +90,8 @@ private[parser] object ConflictResolutionTable:
       val visited = mutable.Map.empty[ConflictKey, VisitState].withDefaultValue(VisitState.Unvisited)
 
       @tailrec
-      def loop(stack: List[Action]): Option[InconsistentConflictResolution] = stack match {
-        case Nil => None
+      def loop(stack: List[Action]): Unit = stack match {
+        case Nil => // Done
 
         case Action.Leave(node) :: rest =>
           visited(node) = VisitState.Processed
@@ -101,14 +100,22 @@ private[parser] object ConflictResolutionTable:
         case Action.Enter(node, path) :: rest =>
           visited(node) match
             case VisitState.Processed => loop(rest)
-            case VisitState.Visited => Some(InconsistentConflictResolution(node, path.reverse))
+            case VisitState.Visited =>
+              quotes.reflect.report.errorAndAbort(
+                show"""
+                      |Inconsistent conflict resolution detected:
+                      |${path.reverseIterator.dropWhile(_ != node).mkShow(" before ")} before $node
+                      |There are elements being both before and after $node at the same time.
+                      |Consider revising the before/after rules to eliminate cycles
+                      |""".stripMargin,
+              )
             case VisitState.Unvisited =>
               visited(node) = VisitState.Visited
               val neighbors = table.getOrElse(node, Set.empty).map(Action.Enter(_, node :: path)).toList
               loop(neighbors ::: List(Action.Leave(node)) ::: rest)
       }
 
-      table.keys.iterator.flatMap(node => loop(Action.Enter(node) :: Nil)).nextOption()
+      for node <- table.keys do loop(Action.Enter(node) :: Nil)
     }
 
     def toMermaid: String = {
