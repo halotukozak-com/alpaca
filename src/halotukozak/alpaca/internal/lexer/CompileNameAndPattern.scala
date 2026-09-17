@@ -4,7 +4,7 @@ package internal
 package lexer
 
 import halotukozak.alpaca.internal.ValidName
-import halotukozak.regex.Subset
+import halotukozak.regex.{Regex, Subset}
 
 import scala.annotation.tailrec
 
@@ -19,19 +19,19 @@ import scala.annotation.tailrec
  *
  * @tparam T the type of the pattern
  * @param pattern the pattern tree to compile
- * @return a list of TokenInfo expressions
+ * @return a list of TokenInfo expressions, each paired with its already-parsed [[Regex]]
  */
 private[lexer] def compileNameAndPattern[T: Type](
   using quotes: Quotes,
 )(
   pattern: quotes.reflect.Tree,
-): List[(Type[? <: ValidName], TokenInfo)] = {
+): List[(Type[? <: ValidName], TokenInfo, Regex)] = {
   import quotes.reflect.*
   // T is Nothing exactly when compiling a `Token.Ignored` case (see the two Nothing-guarded
   // branches below); every other call site passes the token's own name as T.
   val ignored = TypeRepr.of[T] =:= TypeRepr.of[Nothing]
 
-  @tailrec def loop(tpe: TypeRepr, pattern: Tree): List[(Type[? <: ValidName], TokenInfo)] = (tpe, pattern) match {
+  @tailrec def loop(tpe: TypeRepr, pattern: Tree): List[(Type[? <: ValidName], TokenInfo, Regex)] = (tpe, pattern) match {
     // case x @ "regex" => Token[x.type]
     case (TermRef(_, name), Bind(bind, Literal(StringConstant(regex)))) if name == bind =>
       TokenInfo(regex, regex, ignored, pattern.pos) :: Nil
@@ -75,7 +75,7 @@ private[lexer] def compileNameAndPattern[T: Type](
             pattern.pos,
           )
       TokenInfo(str, patterns.mkShow("|"), ignored, pattern.pos) :: Nil
-    case x => raiseShouldNeverBeCalled[List[(Type[? <: ValidName], TokenInfo)]](x.toString)
+    case x => raiseShouldNeverBeCalled[List[(Type[? <: ValidName], TokenInfo, Regex)]](x.toString)
   }
 
   loop(TypeRepr.of[T], pattern)

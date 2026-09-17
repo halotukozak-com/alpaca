@@ -6,7 +6,7 @@ package lexer
 import halotukozak.alpaca.internal.{Default, RuleOnly, Showable, ValidName}
 import halotukozak.alpaca.{LexerCtx, SepValue}
 import halotukozak.mcodec.MCodec
-import halotukozak.regex.{RegexParseError, RegexParser}
+import halotukozak.regex.{Regex, RegexParseError, RegexParser}
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.unchecked.uncheckedVariance as uv
@@ -59,7 +59,8 @@ private[lexer] object TokenInfo:
    * @param pattern the regex pattern
    * @param ignored whether matches of this token are dropped from the lexeme stream
    * @param quotes the Quotes instance
-   * @return a TokenInfo expression
+   * @return a TokenInfo expression, together with the pattern's already-parsed [[Regex]] so
+   *         callers don't have to parse it again
    */
 // $COVERAGE-OFF$
   def apply(
@@ -69,15 +70,16 @@ private[lexer] object TokenInfo:
     pattern: String,
     ignored: Boolean,
     pos: quotes.reflect.Position,
-  ): (Type[? <: ValidName], TokenInfo) =
+  ): (Type[? <: ValidName], TokenInfo, Regex) =
     import quotes.reflect.*
     ValidName.check(name)
-    RegexParser.parse(pattern) match
+    val regex = RegexParser.parse(pattern) match
       case Left(err) => report.errorAndAbort(s"""Invalid regex pattern for token "$name": $err""", pos)
-      case Right(_) =>
+      case Right(regex) => regex
     (
       ConstantType(StringConstant(name)).asType.asInstanceOf[Type[? <: ValidName]],
       TokenInfo(name, nextRegexGroupName(), pattern, ignored, Source(pos)),
+      regex,
     )
 
   /**
