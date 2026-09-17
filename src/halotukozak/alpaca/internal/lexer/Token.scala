@@ -73,15 +73,12 @@ private[lexer] object TokenInfo:
     import quotes.reflect.*
     ValidName.check(name)
     RegexParser.parse(pattern) match
-      case Left(err) => report.errorAndAbort(regexErrorMessage(name, err), pos)
+      case Left(err) => report.errorAndAbort(s"""Invalid regex pattern for token "$name": $err""", pos)
       case Right(_) =>
     (
       ConstantType(StringConstant(name)).asType.asInstanceOf[Type[? <: ValidName]],
       TokenInfo(name, nextRegexGroupName(), pattern, ignored, Source(pos)),
     )
-
-  private[lexer] def regexErrorMessage(name: String, err: RegexParseError): String =
-    s"""Invalid regex pattern for token "$name": $err"""
 
   /**
    * Generates a unique name for a regex capture group.

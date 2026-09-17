@@ -62,7 +62,7 @@ private[lexer] def compileNameAndPattern[T: Type](
       val items = patterns.map: alt =>
         Subset.parse(alt) match
           case Right(subset) => (name = alt, subset = subset.withAnySuffix)
-          case Left(err) => report.errorAndAbort(TokenInfo.regexErrorMessage(str, err), pattern.pos)
+          case Left(err) => report.errorAndAbort(s"""Invalid regex pattern for token "$str": $err""", pattern.pos)
 
       SubsetChecker
         .checkRegexes(items)

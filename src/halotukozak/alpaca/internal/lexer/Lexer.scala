@@ -125,12 +125,12 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
   val parsedRegexes = tokens.map: token =>
     RegexParser.parse(token.info.pattern) match
       case Right(regex) => regex
-      case Left(err) => report.errorAndAbort(TokenInfo.regexErrorMessage(token.info.name, err), token.pos)
+      case Left(err) =>
+        report.errorAndAbort(s"""Invalid regex pattern for token "${token.info.name}": $err""", token.pos)
 
   SubsetChecker
     .checkRegexes(
-      for (token, regex) <- tokens.zip(parsedRegexes)
-      yield (token.info.name, Subset.of(regex).withAnySuffix),
+      for (token, regex) <- tokens.zip(parsedRegexes) yield (token.info.name, Subset.of(regex).withAnySuffix),
     )
     .foreach: (first, second) =>
       val shadowedPos = tokens.find(_.info.name == first).map(_.pos).getOrElse(Position.ofMacroExpansion)
