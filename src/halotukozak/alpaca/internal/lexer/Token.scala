@@ -76,12 +76,6 @@ private[lexer] object TokenInfo:
       TokenInfo(name, nextRegexGroupName(), pattern, ignored, source),
     )
 
-  /**
-   * Builds a diagnostic for a token whose pattern isn't a valid regex. `err` already names the
-   * offending character and position and, for the common case of an unescaped metacharacter
-   * meant to be matched literally, suggests the fix -- see `RegexParser`'s `expectClose` and
-   * the `parseAtom` catch-all in the `regex` library.
-   */
   private[lexer] def regexErrorMessage(name: String, err: RegexParseError): String =
     s"""Invalid regex pattern for token "$name": $err"""
 

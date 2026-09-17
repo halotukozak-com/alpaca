@@ -31,9 +31,6 @@ private[lexer] def compileNameAndPattern[T: Type](
   // branches below); every other call site passes the token's own name as T.
   val ignored = TypeRepr.of[T] =:= TypeRepr.of[Nothing]
 
-  // Case-level granularity: every branch below reports against the position of the whole
-  // pattern (e.g. `"(" | ")"`), not the specific alternative, matching what `Source` already
-  // tracks for the JSON export.
   val casePos: Position = pattern.pos
   given Source = Source(casePos.startLine, casePos.sourceFile.path)
   given Position = casePos

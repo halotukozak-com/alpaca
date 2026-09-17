@@ -121,8 +121,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
         duplicates(1).pos,
       )
 
-  // Every pattern was already validated (with a token-pointing error) as it was compiled by
-  // compileNameAndPattern, so this can only fail if that validation was somehow bypassed.
+  // Defensive: compileNameAndPattern already validated every pattern.
   val parsedRegexes = tokens.map: token =>
     RegexParser.parse(token.info.pattern) match
       case Right(regex) => regex
