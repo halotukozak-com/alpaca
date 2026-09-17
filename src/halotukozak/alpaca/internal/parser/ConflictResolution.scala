@@ -80,7 +80,7 @@ private[parser] object ConflictResolutionTable:
       winsOver(first, second).orElse(winsOver(second, first))
     }
 
-    def verifyNoConflicts()(using DebugSettings): Unit = {
+    def verifyNoConflicts()(using DebugSettings): Option[InconsistentConflictResolution] = {
       enum VisitState:
         case Unvisited, Visited, Processed
 
@@ -91,8 +91,8 @@ private[parser] object ConflictResolutionTable:
       val visited = mutable.Map.empty[ConflictKey, VisitState].withDefaultValue(VisitState.Unvisited)
 
       @tailrec
-      def loop(stack: List[Action]): Unit = stack match {
-        case Nil => // Done
+      def loop(stack: List[Action]): Option[InconsistentConflictResolution] = stack match {
+        case Nil => None
 
         case Action.Leave(node) :: rest =>
           visited(node) = VisitState.Processed
@@ -101,14 +101,14 @@ private[parser] object ConflictResolutionTable:
         case Action.Enter(node, path) :: rest =>
           visited(node) match
             case VisitState.Processed => loop(rest)
-            case VisitState.Visited => throw InconsistentConflictResolution(node, path.reverse)
+            case VisitState.Visited => Some(InconsistentConflictResolution(node, path.reverse))
             case VisitState.Unvisited =>
               visited(node) = VisitState.Visited
               val neighbors = table.getOrElse(node, Set.empty).map(Action.Enter(_, node :: path)).toList
               loop(neighbors ::: List(Action.Leave(node)) ::: rest)
       }
 
-      for node <- table.keys do loop(Action.Enter(node) :: Nil)
+      table.keys.iterator.flatMap(node => loop(Action.Enter(node) :: Nil)).nextOption()
     }
 
     def toMermaid: String = {

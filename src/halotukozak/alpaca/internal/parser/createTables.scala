@@ -224,7 +224,7 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
       ).tap: table =>
         logger.toFile(show"$parserName/conflictResolutions.dbg", true)(table)
         logger.toFile(show"$parserName/conflictResolutions.mmd", true)(table.toMermaid)
-        table.verifyNoConflicts()
+        table.verifyNoConflicts().foreach(err => report.errorAndAbort(err.getMessage))
 
       val root = table
         .collectFirst:
@@ -238,9 +238,13 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
         ParseTable(
           Production.NonEmpty(parser.Symbol.Start, NEL(root.lhs)) :: table.map(_.production),
           conflictResolutionTable,
-        ).tap: parseTable =>
-          logger.toFile(s"$parserName/parseTable.dbg.csv", true)(parseTable.toCsv)
-        .tap(JsonExport.maybeWrite(exportName, "table", _))
+        ) match
+          case Left(err) => report.errorAndAbort(err.getMessage)
+          case Right(parseTable) =>
+            parseTable
+              .tap: parseTable =>
+                logger.toFile(s"$parserName/parseTable.dbg.csv", true)(parseTable.toCsv)
+              .tap(JsonExport.maybeWrite(exportName, "table", _))
 
       val actionTable = Expr.ofList:
         table.map:

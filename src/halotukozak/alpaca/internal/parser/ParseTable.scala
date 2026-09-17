@@ -80,11 +80,10 @@ private[parser] object ParseTable:
    * automaton's already-computed goto transitions.
    *
    * @param productions the grammar productions
-   * @return the constructed parse table
-   * @throws ConflictException if the grammar has shift/reduce or reduce/reduce conflicts
+   * @return the constructed parse table, or the conflict that prevented building it
    */
   def apply(productions: List[Production], conflictResolutionTable: ConflictResolutionTable)(using DebugSettings)
-    : ParseTable = {
+    : Either[ConflictException, ParseTable] = boundary {
     val firstSet = FirstSet(productions)
     val productionsByLhs = productions.groupBy(_.lhs)
     val automaton = LR0Automaton(productionsByLhs)
@@ -102,9 +101,9 @@ private[parser] object ParseTable:
             case None =>
               val path = toPath(stateId, List(symbol))
               (existingAction, action) match
-                case (red1: Reduction, red2: Reduction) => throw ReduceReduceConflict(red1, red2, path)
-                case (Shift(_), red: Reduction) => throw ShiftReduceConflict(symbol, red, path)
-                case (red: Reduction, Shift(_)) => throw ShiftReduceConflict(symbol, red, path)
+                case (red1: Reduction, red2: Reduction) => break(Left(ReduceReduceConflict(red1, red2, path)))
+                case (Shift(_), red: Reduction) => break(Left(ShiftReduceConflict(symbol, red, path)))
+                case (red: Reduction, Shift(_)) => break(Left(ShiftReduceConflict(symbol, red, path)))
                 case (Shift(_), Shift(_)) => throw AlgorithmError("Shift-Shift conflict should never happen")
 
     // noinspection ScalaUnreachableCode
@@ -136,7 +135,7 @@ private[parser] object ParseTable:
       for (stepSymbol, targetStateId) <- automaton.goto(stateId) do addToTable(stateId, stepSymbol, Shift(targetStateId))
     }
 
-    Array.better.tabulate(tableRows.length)(tableRows(_).toMap)
+    Right(Array.better.tabulate(tableRows.length)(tableRows(_).toMap))
   }
 
   given Showable[ParseTable] = table => {

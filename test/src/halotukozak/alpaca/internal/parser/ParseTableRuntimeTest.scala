@@ -28,14 +28,18 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers:
     Production.NonEmpty(E, NEL(Num), "ENum"),
   )
 
+  private def buildTable(): ParseTable = ParseTable(productions, emptyResolutions) match
+    case Right(table) => table
+    case Left(err) => fail(s"expected no conflict, got ${err.getMessage}")
+
   test("builds a parse table for a simple LR(1) grammar") {
-    val table = ParseTable(productions, emptyResolutions)
+    val table = buildTable()
 
     table(0, Num) shouldBe a[Shift]
   }
 
   test("apply raises AlgorithmError when no action exists for (state, symbol)") {
-    val table = ParseTable(productions, emptyResolutions)
+    val table = buildTable()
     val unknown = Terminal("<unknown>")
 
     val ex = intercept[AlgorithmError](table(0, unknown))
@@ -43,7 +47,7 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers:
   }
 
   test("toCsv headers start with State and include all grammar symbols seen in the table") {
-    val csv = ParseTable(productions, emptyResolutions).toCsv
+    val csv = buildTable().toCsv
 
     csv.headers.head should include("State")
     val headerNames = csv.headers
@@ -52,7 +56,7 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers:
   }
 
   test("Showable renders a non-empty textual representation with multiple rows") {
-    val rendered = ParseTable(productions, emptyResolutions).show
+    val rendered = buildTable().show
 
     rendered should include("State")
     rendered.linesIterator.size should be > 1
