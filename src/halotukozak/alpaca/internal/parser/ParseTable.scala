@@ -100,7 +100,7 @@ private[parser] object ParseTable:
     def raiseShiftReduceConflict(symbol: Symbol, red: Reduction, path: List[Symbol]): Nothing =
       quotes.reflect.report.errorAndAbort:
         show"""
-              |Shift \"$symbol\" vs Reduce $red
+              |Shift "$symbol" vs Reduce $red
               |In situation like:
               |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
               |Consider marking production $red to be before or after "$symbol"

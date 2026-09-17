@@ -59,21 +59,14 @@ private[lexer] def compileNameAndPattern[T: Type](
       val patterns = alternatives.map:
         case Literal(StringConstant(str)) => str
         case other => raiseShouldNeverBeCalled[String](other)
-      val items = patterns.map: alt =>
+      // Alternatives are merged into a single regex (below) and matched via longest-match, not
+      // priority order, so unlike cross-case shadowing (Lexer.scala) there's no "earlier wins"
+      // relationship to check here: one alternative being a prefix of another (e.g. ">" and ">=")
+      // is normal and both remain reachable.
+      patterns.foreach: alt =>
         Subset.parse(alt) match
-          case Right(subset) => (name = alt, subset = subset.withAnySuffix)
+          case Right(_) => ()
           case Left(err) => report.errorAndAbort(s"""Invalid regex pattern for token "$str": $err""", pattern.pos)
-
-      SubsetChecker
-        .checkRegexes(items)
-        .orElse(SubsetChecker.checkRegexes(items.reverse))
-        .foreach: (first, second) =>
-          report.errorAndAbort(
-            s"""Alternative "$first" in token "$str" is redundant: everything it matches is already
-               |matched by "$second" in the same case.
-               |Consider removing "$first" or merging the two patterns.""".stripMargin,
-            pattern.pos,
-          )
       TokenInfo(str, patterns.mkShow("|"), ignored, pattern.pos) :: Nil
     case x => raiseShouldNeverBeCalled[List[(Type[? <: ValidName], TokenInfo, Regex)]](x.toString)
   }

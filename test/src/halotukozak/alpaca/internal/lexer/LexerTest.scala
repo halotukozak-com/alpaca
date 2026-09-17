@@ -118,24 +118,22 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
         |alternatives, e.g.: case x @ ("IDENTIFIER" | "ALPHABETIC") => Token[x]""".stripMargin
   }
 
-  test("within-case shadowing among alternatives - longer first") {
-    typeCheckErrors("""
-      val Lexer = lexer:
-        case ">=" | ">" => Token["GREATER"]
-      """).loneElement.message shouldBe
-      """Alternative ">=" in token "GREATER" is redundant: everything it matches is already
-        |matched by ">" in the same case.
-        |Consider removing ">=" or merging the two patterns.""".stripMargin
+  test("within-case alternatives where one is a prefix of another both stay reachable - longer first") {
+    val Lexer = lexer:
+      case ">=" | ">" => Token["GREATER"]
+      case "\\s+" => Token.Ignored
+
+    val (_, lexemes) = Lexer.tokenize(">= >")
+    assert(lexemes.map(_.shape.fields("text")) == List(">=", ">"))
   }
 
-  test("within-case shadowing among alternatives - shorter first") {
-    typeCheckErrors("""
-      val Lexer = lexer:
-        case ">" | ">=" => Token["GREATER"]
-      """).loneElement.message shouldBe
-      """Alternative ">=" in token "GREATER" is redundant: everything it matches is already
-        |matched by ">" in the same case.
-        |Consider removing ">=" or merging the two patterns.""".stripMargin
+  test("within-case alternatives where one is a prefix of another both stay reachable - shorter first") {
+    val Lexer = lexer:
+      case ">" | ">=" => Token["GREATER"]
+      case "\\s+" => Token.Ignored
+
+    val (_, lexemes) = Lexer.tokenize(">= >")
+    assert(lexemes.map(_.shape.fields("text")) == List(">=", ">"))
   }
 
   test("invalid regex in a named single pattern names the token") {
