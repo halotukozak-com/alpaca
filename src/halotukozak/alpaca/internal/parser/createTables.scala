@@ -114,14 +114,14 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
               // Tuple1
               case (c @ CaseDef(skipTypedOrTest(pattern @ Unapply(_, _, List(_))), None, rhs), name) =>
                 val (symbol, bind, others) = extractEBNFAndAction[Ctx](pattern)
-                val source = Source(c.pos.startLine, c.pos.sourceFile.path)
+                val source = Source(c.pos)
                 val production = Production.NonEmpty(NonTerminal(ruleName), NEL(symbol), name, source)
                 (production = production, action = createAction(List(bind), rhs)) :: others
 
               // TupleN, N > 1
               case (c @ CaseDef(skipTypedOrTest(Unapply(_, _, patterns)), None, rhs), name) =>
                 val (symbols, binds, others) = patterns.map(extractEBNFAndAction[Ctx]).unzip3(using _.toTuple)
-                val source = Source(c.pos.startLine, c.pos.sourceFile.path)
+                val source = Source(c.pos)
                 val production =
                   Production.NonEmpty(NonTerminal(ruleName), NEL(symbols.head, symbols.tail*), name, source)
                 (production = production, action = createAction(binds, rhs)) :: others.flatten
