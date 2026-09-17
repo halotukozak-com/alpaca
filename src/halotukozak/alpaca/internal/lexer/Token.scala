@@ -6,7 +6,7 @@ package lexer
 import halotukozak.alpaca.internal.{Default, RuleOnly, Showable, ValidName}
 import halotukozak.alpaca.{LexerCtx, SepValue}
 import halotukozak.mcodec.MCodec
-import halotukozak.regex.{Regex, RegexParseError, RegexParser}
+import halotukozak.regex.{Regex, RegexParser}
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.unchecked.uncheckedVariance as uv
