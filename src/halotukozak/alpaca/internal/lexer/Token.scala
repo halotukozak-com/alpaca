@@ -6,6 +6,7 @@ package lexer
 import halotukozak.alpaca.{LexerCtx, SepValue}
 import halotukozak.alpaca.internal.{Default, RuleOnly, Showable, ValidName}
 import halotukozak.mcodec.MCodec
+import halotukozak.regex.{RegexParseError, RegexParser}
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.{compileTimeOnly, publicInBinary, unused}
@@ -61,14 +62,28 @@ private[lexer] object TokenInfo:
    * @return a TokenInfo expression
    */
 // $COVERAGE-OFF$
-  def apply(name: String, pattern: String, ignored: Boolean)(using source: Source)(using quotes: Quotes)
-    : (Type[? <: ValidName], TokenInfo) =
+  def apply(name: String, pattern: String, ignored: Boolean)(using quotes: Quotes)(
+    using source: Source,
+    pos: quotes.reflect.Position,
+  ): (Type[? <: ValidName], TokenInfo) =
     import quotes.reflect.*
     ValidName.check(name)
+    RegexParser.parse(pattern) match
+      case Left(err) => report.errorAndAbort(regexErrorMessage(name, err), pos)
+      case Right(_) =>
     (
       ConstantType(StringConstant(name)).asType.asInstanceOf[Type[? <: ValidName]],
       TokenInfo(name, nextRegexGroupName(), pattern, ignored, source),
     )
+
+  /**
+   * Builds a diagnostic for a token whose pattern isn't a valid regex. `err` already names the
+   * offending character and position and, for the common case of an unescaped metacharacter
+   * meant to be matched literally, suggests the fix -- see `RegexParser`'s `expectClose` and
+   * the `parseAtom` catch-all in the `regex` library.
+   */
+  private[lexer] def regexErrorMessage(name: String, err: RegexParseError): String =
+    s"""Invalid regex pattern for token "$name": $err"""
 
   /**
    * Generates a unique name for a regex capture group.

@@ -31,7 +31,12 @@ private[lexer] def compileNameAndPattern[T: Type](
   // branches below); every other call site passes the token's own name as T.
   val ignored = TypeRepr.of[T] =:= TypeRepr.of[Nothing]
 
-  given Source = Source(pattern.pos.startLine, pattern.pos.sourceFile.path)
+  // Case-level granularity: every branch below reports against the position of the whole
+  // pattern (e.g. `"(" | ")"`), not the specific alternative, matching what `Source` already
+  // tracks for the JSON export.
+  val casePos: Position = pattern.pos
+  given Source = Source(casePos.startLine, casePos.sourceFile.path)
+  given Position = casePos
 
   @tailrec def loop(tpe: TypeRepr, pattern: Tree): List[(Type[? <: ValidName], TokenInfo)] = (tpe, pattern) match
     // case x @ "regex" => Token[x.type]
@@ -61,12 +66,21 @@ private[lexer] def compileNameAndPattern[T: Type](
       val patterns = alternatives.map:
         case Literal(StringConstant(str)) => str
         case other => raiseShouldNeverBeCalled[String](other)
-      val items = patterns.map: pattern =>
-        Subset.parse(pattern) match
-          case Right(subset) => (name = pattern, subset = subset.withAnySuffix)
-          case Left(err) => report.errorAndAbort(err.message)
-      SubsetChecker.checkRegexes(items)
-      SubsetChecker.checkRegexes(items.reverse)
+      val items = patterns.map: alt =>
+        Subset.parse(alt) match
+          case Right(subset) => (name = alt, subset = subset.withAnySuffix)
+          case Left(err) => report.errorAndAbort(TokenInfo.regexErrorMessage(str, err), casePos)
+      try
+        SubsetChecker.checkRegexes(items)
+        SubsetChecker.checkRegexes(items.reverse)
+      catch
+        case ShadowException(first, second) =>
+          report.errorAndAbort(
+            s"""Alternative "$first" in token "$str" is redundant: everything it matches is already
+               |matched by "$second" in the same case.
+               |Consider removing "$first" or merging the two patterns.""".stripMargin,
+            casePos,
+          )
       TokenInfo(str, patterns.mkShow("|"), ignored) :: Nil
     case x => raiseShouldNeverBeCalled[List[(Type[? <: ValidName], TokenInfo)]](x.toString)
 

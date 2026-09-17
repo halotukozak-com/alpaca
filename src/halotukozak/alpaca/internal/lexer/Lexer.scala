@@ -27,7 +27,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
   if cases.isEmpty then report.errorAndAbort("Lexer definition must contain at least one case")
 
   val tokens = cases.foldLeft(
-    List.empty[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?] & TokenRefn])],
+    List.empty[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?] & TokenRefn], pos: Position)],
   ):
     case (acc, CaseDef(tree, None, body)) =>
       def replaceWithNewCtx(newCtx: Term) = replaceRefs(
@@ -107,29 +107,42 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
         case (info, expr) =>
           expr match
             case '{ type tokenTpe <: lexer.Token[?, Ctx, ?]; $token: tokenTpe } =>
-              (info = info, expr = '{ $token.asInstanceOf[tokenTpe & TokenRefn] })
+              (info = info, expr = '{ $token.asInstanceOf[tokenTpe & TokenRefn] }, pos = tree.pos)
 
     case (_, CaseDef(_, Some(_), body)) => report.errorAndAbort("Guards are not supported yet")
 
   tokens
-    .map(_.info)
-    .groupBy(_.name)
+    .groupBy(_.info.name)
     .iterator
     .filter(_._2.sizeIs > 1)
     .foreach: (name, duplicates) =>
       report.errorAndAbort(
         show"Token name \"$name\" is defined ${duplicates.size.toString} times. Combine the patterns into a single case using alternatives, e.g.: case x @ (\"pattern1\" | \"pattern2\") => Token[x]",
+        duplicates(1).pos,
       )
 
+  // Every pattern was already validated (with a token-pointing error) as it was compiled by
+  // compileNameAndPattern, so this can only fail if that validation was somehow bypassed.
   val parsedRegexes = tokens.map: token =>
     RegexParser.parse(token.info.pattern) match
       case Right(regex) => regex
-      case Left(err) => report.errorAndAbort(err.toString)
+      case Left(err) => report.errorAndAbort(TokenInfo.regexErrorMessage(token.info.name, err), token.pos)
 
-  SubsetChecker.checkRegexes(
-    for (token, regex) <- tokens.zip(parsedRegexes)
-    yield (token.info.pattern, Subset.of(regex).withAnySuffix),
-  )
+  try
+    SubsetChecker.checkRegexes(
+      for (token, regex) <- tokens.zip(parsedRegexes)
+      yield (token.info.name, Subset.of(regex).withAnySuffix),
+    )
+  catch
+    case ShadowException(first, second) =>
+      val shadowedPos = tokens.find(_.info.name == first).map(_.pos).getOrElse(Position.ofMacroExpansion)
+      report.errorAndAbort(
+        s"""Token "$first" can never match: every input it matches is already matched by "$second",
+           |which is tried first because it's defined earlier.
+           |Consider reordering the cases so "$first" comes first, or merging them into one case with
+           |alternatives, e.g.: case x @ ("$second" | "$first") => Token[x]""".stripMargin,
+        shadowedPos,
+      )
 
   // Symbol.spliceOwner is a synthetic "macro" method dotty introduces to host the transparent
   // inline def's expansion; the val this `lexer{...}` call is actually bound to is one owner hop
