@@ -62,8 +62,13 @@ private[lexer] object TokenInfo:
    * @return a TokenInfo expression
    */
 // $COVERAGE-OFF$
-  def apply(name: String, pattern: String, ignored: Boolean)(using quotes: Quotes)(
-    using source: Source,
+  def apply(
+    name: String,
+    pattern: String,
+    ignored: Boolean,
+  )(using quotes: Quotes,
+  )(using
+    source: Source,
     pos: quotes.reflect.Position,
   ): (Type[? <: ValidName], TokenInfo) =
     import quotes.reflect.*
