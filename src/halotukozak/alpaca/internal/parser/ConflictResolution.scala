@@ -3,7 +3,7 @@ package alpaca
 package internal
 package parser
 
-import halotukozak.alpaca.internal.{DebugSettings, Showable}
+import halotukozak.alpaca.internal.Showable
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -81,7 +81,9 @@ private[parser] object ConflictResolutionTable:
       winsOver(first, second).orElse(winsOver(second, first))
     }
 
-    def verifyNoConflicts()(using DebugSettings, Quotes): Unit = {
+    def verifyNoConflicts()(using Quotes): Unit = {
+      import ConflictKey.given
+
       enum VisitState:
         case Unvisited, Visited, Processed
 
@@ -106,7 +108,7 @@ private[parser] object ConflictResolutionTable:
               quotes.reflect.report.errorAndAbort(
                 show"""
                       |Inconsistent conflict resolution detected:
-                      |${path.reverseIterator.dropWhile(_ != node).mkShow(" before ")} before $node
+                      |${path.reverse.dropWhile(_ != node).mkShow(" before ")} before $node
                       |There are elements being both before and after $node at the same time.
                       |Consider revising the before/after rules to eliminate cycles
                       |""".stripMargin,

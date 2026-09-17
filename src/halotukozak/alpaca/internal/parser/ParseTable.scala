@@ -9,6 +9,7 @@ import halotukozak.mcodec.MCodec
 import scala.annotation.tailrec
 import scala.collection.immutable.SortedSet
 import scala.collection.mutable
+import scala.quoted.quotes
 import scala.util.boundary
 import scala.util.boundary.break
 
@@ -85,9 +86,7 @@ private[parser] object ParseTable:
   def apply(
     productions: List[Production],
     conflictResolutionTable: ConflictResolutionTable,
-  )(using
-    DebugSettings,
-    Quotes,
+  )(using Quotes,
   ): ParseTable = {
     def raiseReduceReduceConflict(red1: Reduction, red2: Reduction, path: List[Symbol]): Nothing =
       quotes.reflect.report.errorAndAbort:
