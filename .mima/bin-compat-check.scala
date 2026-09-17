@@ -1,5 +1,5 @@
 //> using scala 2.13
-//> using dep com.typesafe::mima-core:1.1.6
+//> using dep com.typesafe::mima-core:1.2.0
 
 // Binary-compatibility check between a released artifact and the current
 // build, via MiMa's core API (there is no scala-cli MiMa plugin).
