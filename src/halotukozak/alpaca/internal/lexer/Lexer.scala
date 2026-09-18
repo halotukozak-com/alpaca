@@ -3,8 +3,8 @@ package alpaca
 package internal
 package lexer
 
-import alpaca.Token as TokenDef
-import halotukozak.regex.{Regex, RegexParser, Subset, TokenMatcher}
+import halotukozak.alpaca.Token as TokenDef
+import halotukozak.regex.{Regex, Subset, TokenMatcher}
 
 import scala.NamedTuple.{AnyNamedTuple, NamedTuple}
 import scala.annotation.{publicInBinary, switch}
@@ -27,7 +27,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
   if cases.isEmpty then report.errorAndAbort("Lexer definition must contain at least one case")
 
   val tokens = cases.foldLeft(
-    List.empty[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?] & TokenRefn])],
+    List.empty[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?] & TokenRefn], pos: Position, regex: Regex)],
   ):
     case (acc, CaseDef(tree, None, body)) =>
       def replaceWithNewCtx(newCtx: Term) = replaceRefs(
@@ -37,38 +37,44 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
 
       def extractSimple(ctxManipulation: Expr[CtxManipulation[Ctx]]): PartialFunction[
         Expr[TokenDef[ValidName, Ctx, Any]],
-        List[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]])],
+        List[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Regex)],
       ] = {
         case '{ Token.Ignored(using $_) } =>
           compileNameAndPattern[Nothing](tree).map:
-            case ('[type name <: ValidName; name], tokenInfo) =>
-              (info = tokenInfo, expr = '{ IgnoredToken[name, Ctx](${ Expr(tokenInfo) }, $ctxManipulation) })
+            case ('[type name <: ValidName; name], tokenInfo, regex) =>
+              (
+                info = tokenInfo,
+                expr = '{ IgnoredToken[name, Ctx](${ Expr(tokenInfo) }, $ctxManipulation) },
+                regex = regex,
+              )
             case other =>
               raiseShouldNeverBeCalled(other)
 
         case '{ type name <: ValidName; Token[name](using $_) } =>
           compileNameAndPattern[name](tree).map:
-            case ('[type name <: ValidName; name], tokenInfo) =>
+            case ('[type name <: ValidName; name], tokenInfo, regex) =>
               (
                 info = tokenInfo,
                 expr = '{ DefinedToken[name, Ctx, Unit](${ Expr(tokenInfo) }, $ctxManipulation, _ => ()) },
+                regex = regex,
               )
             case other =>
               raiseShouldNeverBeCalled(other)
 
         case '{ type name <: ValidName; Token[name]($value: String)(using $_) } if value.asTerm.symbol == tree.symbol =>
           compileNameAndPattern[name](tree).map:
-            case ('[type name <: ValidName; name], tokenInfo) =>
+            case ('[type name <: ValidName; name], tokenInfo, regex) =>
               (
                 info = tokenInfo,
                 expr = '{ DefinedToken[name, Ctx, String](${ Expr(tokenInfo) }, $ctxManipulation, _.lastRawMatched) },
+                regex = regex,
               )
             case other =>
               raiseShouldNeverBeCalled(other)
 
         case '{ type name <: ValidName; Token[name]($value: value)(using $_) } =>
           compileNameAndPattern[name](tree).map:
-            case ('[type name <: ValidName; name], tokenInfo) =>
+            case ('[type name <: ValidName; name], tokenInfo, regex) =>
               // we need to widen here to avoid weird types
               TypeRepr.of[value].widen.asType match
                 case '[result] =>
@@ -79,9 +85,10 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
                   (
                     info = tokenInfo,
                     expr = '{ DefinedToken[name, Ctx, result](${ Expr(tokenInfo) }, $ctxManipulation, $remapping) },
+                    regex = regex,
                   )
-            case (_, tokenInfo) =>
-              raiseShouldNeverBeCalled[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]])](tokenInfo)
+            case (_, tokenInfo, _) =>
+              raiseShouldNeverBeCalled[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Regex)](tokenInfo)
       }
 
       val pairs = extractSimple('{ (c: Ctx) => c })
@@ -101,35 +108,39 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
               extractSimple(ctxManipulation).lift(expr.asExprOf[TokenDef[ValidName, Ctx, Any]])
           }
         .getOrElse:
-          raiseShouldNeverBeCalled[List[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]])]](body)
+          raiseShouldNeverBeCalled[List[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Regex)]](body)
 
       acc ::: pairs.map:
-        case (info, expr) =>
+        case (info, expr, regex) =>
           expr match
             case '{ type tokenTpe <: lexer.Token[?, Ctx, ?]; $token: tokenTpe } =>
-              (info = info, expr = '{ $token.asInstanceOf[tokenTpe & TokenRefn] })
+              (info = info, expr = '{ $token.asInstanceOf[tokenTpe & TokenRefn] }, pos = tree.pos, regex = regex)
 
     case (_, CaseDef(_, Some(_), body)) => report.errorAndAbort("Guards are not supported yet")
 
   tokens
-    .map(_.info)
-    .groupBy(_.name)
+    .groupBy(_.info.name)
     .iterator
     .filter(_._2.sizeIs > 1)
     .foreach: (name, duplicates) =>
       report.errorAndAbort(
         show"Token name \"$name\" is defined ${duplicates.size.toString} times. Combine the patterns into a single case using alternatives, e.g.: case x @ (\"pattern1\" | \"pattern2\") => Token[x]",
+        duplicates(1).pos,
       )
 
-  val parsedRegexes = tokens.map: token =>
-    RegexParser.parse(token.info.pattern) match
-      case Right(regex) => regex
-      case Left(err) => report.errorAndAbort(err.toString)
-
-  SubsetChecker.checkRegexes(
-    for (token, regex) <- tokens.zip(parsedRegexes)
-    yield (token.info.pattern, Subset.of(regex).withAnySuffix),
-  )
+  SubsetChecker
+    .checkRegexes(
+      tokens.map(token => (name = token.info.name, subset = Subset.of(token.regex).withAnySuffix)),
+    )
+    .foreach: (first, second) =>
+      val shadowedPos = tokens.find(_.info.name == first).map(_.pos).getOrElse(Position.ofMacroExpansion)
+      report.errorAndAbort(
+        s"""Token "$first" can never match: every input it matches is already matched by "$second",
+           |which is tried first because it's defined earlier.
+           |Consider reordering the cases so "$first" comes first, or merging them into one case with
+           |alternatives, e.g.: case x @ ("$second" | "$first") => Token[x]""".stripMargin,
+        shadowedPos,
+      )
 
   // Symbol.spliceOwner is a synthetic "macro" method dotty introduces to host the transparent
   // inline def's expansion; the val this `lexer{...}` call is actually bound to is one owner hop
@@ -153,7 +164,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
   (refinementTpeFrom(fields).asType, fieldsTpeFrom(fields).asType, types.asType).runtimeChecked match {
     case ('[refinedTpe], '[fields], '[types]) =>
       val tokensExpr = Expr.ofList(tokens.map(_.expr))
-      val matcherExpr = '{ TokenMatcher.fromRegexes(${ Varargs(parsedRegexes.map(Expr(_))) }*) }
+      val matcherExpr = '{ TokenMatcher.fromRegexes(${ Varargs(tokens.map(t => Expr(t.regex))) }*) }
 
       '{
         {

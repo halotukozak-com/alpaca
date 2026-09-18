@@ -3,13 +3,14 @@ package alpaca
 package internal
 package lexer
 
-import halotukozak.alpaca.{LexerCtx, SepValue}
 import halotukozak.alpaca.internal.{Default, RuleOnly, Showable, ValidName}
+import halotukozak.alpaca.{LexerCtx, SepValue}
 import halotukozak.mcodec.MCodec
+import halotukozak.regex.{Regex, RegexParser}
 
 import java.util.concurrent.atomic.AtomicInteger
-import scala.annotation.{compileTimeOnly, publicInBinary, unused}
 import scala.annotation.unchecked.uncheckedVariance as uv
+import scala.annotation.{compileTimeOnly, publicInBinary, unused}
 import scala.quoted.{Quotes, ToExprFactory}
 
 /**
@@ -58,16 +59,27 @@ private[lexer] object TokenInfo:
    * @param pattern the regex pattern
    * @param ignored whether matches of this token are dropped from the lexeme stream
    * @param quotes the Quotes instance
-   * @return a TokenInfo expression
+   * @return a TokenInfo expression, together with the pattern's already-parsed [[Regex]] so
+   *         callers don't have to parse it again
    */
 // $COVERAGE-OFF$
-  def apply(name: String, pattern: String, ignored: Boolean)(using source: Source)(using quotes: Quotes)
-    : (Type[? <: ValidName], TokenInfo) =
+  def apply(
+    using quotes: Quotes,
+  )(
+    name: String,
+    pattern: String,
+    ignored: Boolean,
+    pos: quotes.reflect.Position,
+  ): (Type[? <: ValidName], TokenInfo, Regex) =
     import quotes.reflect.*
     ValidName.check(name)
+    val regex = RegexParser.parse(pattern) match
+      case Left(err) => report.errorAndAbort(s"""Invalid regex pattern for token "$name": $err""", pos)
+      case Right(regex) => regex
     (
       ConstantType(StringConstant(name)).asType.asInstanceOf[Type[? <: ValidName]],
-      TokenInfo(name, nextRegexGroupName(), pattern, ignored, source),
+      TokenInfo(name, nextRegexGroupName(), pattern, ignored, Source(pos)),
+      regex,
     )
 
   /**

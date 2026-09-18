@@ -3,57 +3,43 @@ package alpaca
 package internal
 package parser
 
-import halotukozak.alpaca.internal.parser.ParseAction.*
-import halotukozak.alpaca.internal.{AlgorithmError, DebugSettings, NEL}
-import halotukozak.alpaca.internal.parser.{ConflictResolutionTable, NonTerminal, ParseTable, Production, Symbol, Terminal}
+import halotukozak.alpaca.internal.AlgorithmError
+import halotukozak.alpaca.{lexer, rule, ParserCtx, Rule, Token}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
+// ParseTable.apply now requires a real macro Quotes (it calls report.errorAndAbort directly on
+// conflict instead of returning a value), so it can no longer be called directly from a plain
+// unit test -- these tests go through the actual lexer/parser DSL instead, same as ParseTableTest.
 final class ParseTableRuntimeTest extends AnyFunSuite with Matchers:
-  private given DebugSettings = DebugSettings.default
 
-  private val emptyResolutions = ConflictResolutionTable(Map.empty)
+  private val CalcLexer = lexer:
+    case "\\+" => Token["+"]
+    case value @ "[1-9][0-9]*" => Token["Num"](value.toInt)
 
-  // Grammar:
-  //   S' -> E
-  //   E  -> E + Num
-  //   E  -> Num
-  private val E = NonTerminal("E")
-  private val Num = Terminal("Num")
-  private val Plus = Terminal("+")
+  case class CalcContext() extends ParserCtx
 
-  private val productions: List[Production] = List(
-    Production.NonEmpty(Symbol.Start, NEL(E)),
-    Production.NonEmpty(E, NEL(E, Plus, Num), "EAdd"),
-    Production.NonEmpty(E, NEL(Num), "ENum"),
-  )
+  // E -> E + Num | Num: left-recursive but unambiguous (no shift/reduce conflict, unlike
+  // ParseTableTest's Expr -> Expr + Expr, where both operands recursing creates real ambiguity).
+  object CalcParser extends Parser[CalcContext]:
+    val Expr: Rule[Int] = rule(
+      { case (Expr(sum), CalcLexer.`+`(_), CalcLexer.Num(lexeme)) => sum + lexeme.value },
+      { case CalcLexer.Num(lexeme) => lexeme.value },
+    )
 
-  test("builds a parse table for a simple LR(1) grammar") {
-    val table = ParseTable(productions, emptyResolutions)
+    val root: Rule[Int] = rule:
+      case Expr(result) => result
 
-    table(0, Num) shouldBe a[Shift]
+  test("builds a parse table for a simple LR(1) grammar without a false-positive conflict") {
+    val (_, lexemes) = CalcLexer.tokenize("1+2+3")
+    val (_, result) = CalcParser.parse(lexemes)
+
+    result shouldBe 6
   }
 
-  test("apply raises AlgorithmError when no action exists for (state, symbol)") {
-    val table = ParseTable(productions, emptyResolutions)
-    val unknown = Terminal("<unknown>")
+  test("unexpected token raises AlgorithmError naming the offending symbol") {
+    val (_, lexemes) = CalcLexer.tokenize("+")
 
-    val ex = intercept[AlgorithmError](table(0, unknown))
+    val ex = intercept[AlgorithmError](CalcParser.parse(lexemes))
     ex.getMessage should (include("Unexpected symbol").and(include("Expected one of:")))
-  }
-
-  test("toCsv headers start with State and include all grammar symbols seen in the table") {
-    val csv = ParseTable(productions, emptyResolutions).toCsv
-
-    csv.headers.head should include("State")
-    val headerNames = csv.headers
-    headerNames should contain(Num.name)
-    headerNames should contain(Plus.name)
-  }
-
-  test("Showable renders a non-empty textual representation with multiple rows") {
-    val rendered = ParseTable(productions, emptyResolutions).show
-
-    rendered should include("State")
-    rendered.linesIterator.size should be > 1
   }

@@ -17,14 +17,15 @@ private[lexer] object SubsetChecker:
   /**
    * Checks a priority-ordered sequence of pre-parsed regexes for shadowing.
    *
-   * @throws ShadowException if any pattern is shadowed by an earlier one.
+   * @return the shadowed/shadowing pair, if any pattern is shadowed by an earlier one.
    */
-  def checkRegexes(items: List[(name: String, subset: Subset)]): Unit = items match
-    case Nil => ()
+  def checkRegexes(items: List[(name: String, subset: Subset)]): Option[(first: String, second: String)] = items match
+    case Nil => None
     case _ =>
-      for
+      (for
         suffix <- items.tails
         if suffix.nonEmpty
         (earlierName, earlierSub) :: laters = suffix.runtimeChecked
         (laterName, laterSub) <- laters
-      do if laterSub.subset(earlierSub) then throw ShadowException(laterName, earlierName)
+        if laterSub.subset(earlierSub)
+      yield (laterName, earlierName)).nextOption()

@@ -3,10 +3,11 @@ package alpaca
 package internal
 package parser
 
-import halotukozak.alpaca.internal.{DebugSettings, Showable}
+import halotukozak.alpaca.internal.Showable
 
 import scala.annotation.tailrec
 import scala.collection.mutable
+import scala.quoted.quotes
 
 /**
  * Type representing a key in the conflict resolution table.
@@ -80,7 +81,9 @@ private[parser] object ConflictResolutionTable:
       winsOver(first, second).orElse(winsOver(second, first))
     }
 
-    def verifyNoConflicts()(using DebugSettings): Unit = {
+    def verifyNoConflicts()(using Quotes): Unit = {
+      import ConflictKey.given
+
       enum VisitState:
         case Unvisited, Visited, Processed
 
@@ -101,7 +104,15 @@ private[parser] object ConflictResolutionTable:
         case Action.Enter(node, path) :: rest =>
           visited(node) match
             case VisitState.Processed => loop(rest)
-            case VisitState.Visited => throw InconsistentConflictResolution(node, path.reverse)
+            case VisitState.Visited =>
+              quotes.reflect.report.errorAndAbort(
+                show"""
+                      |Inconsistent conflict resolution detected:
+                      |${path.reverse.dropWhile(_ != node).mkShow(" before ")} before $node
+                      |There are elements being both before and after $node at the same time.
+                      |Consider revising the before/after rules to eliminate cycles
+                      |""".stripMargin,
+              )
             case VisitState.Unvisited =>
               visited(node) = VisitState.Visited
               val neighbors = table.getOrElse(node, Set.empty).map(Action.Enter(_, node :: path)).toList

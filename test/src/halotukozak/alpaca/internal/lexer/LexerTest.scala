@@ -3,10 +3,13 @@ package alpaca.internal.lexer
 
 import halotukozak.alpaca.internal.lexer.Lexeme
 import halotukozak.alpaca.{lexer, withLazyReader, Token}
+import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
-final class LexerTest extends AnyFunSuite with Matchers:
+import scala.compiletime.testing.typeCheckErrors
+
+final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
 
   extension (lexeme: Lexeme[?, ?])
     private def shape = (
@@ -103,23 +106,58 @@ final class LexerTest extends AnyFunSuite with Matchers:
     )
   }
 
-  test("throws on overlapping regex patterns") {
-    """val Lexer = lexer:
-      case "[a-zA-Z_][a-zA-Z0-9_]*" => Token["IDENTIFIER"]
-      case "[a-zA-Z]+" => Token["ALPHABETIC"]
-    """ shouldNot compile
+  test("cross-case shadowing names both tokens and suggests a fix") {
+    typeCheckErrors("""
+      val Lexer = lexer:
+        case "[a-zA-Z_][a-zA-Z0-9_]*" => Token["IDENTIFIER"]
+        case "[a-zA-Z]+" => Token["ALPHABETIC"]
+      """).loneElement.message shouldBe
+      """Token "ALPHABETIC" can never match: every input it matches is already matched by "IDENTIFIER",
+        |which is tried first because it's defined earlier.
+        |Consider reordering the cases so "ALPHABETIC" comes first, or merging them into one case with
+        |alternatives, e.g.: case x @ ("IDENTIFIER" | "ALPHABETIC") => Token[x]""".stripMargin
   }
 
-  test("throws on overlapping alternatives in same case - longer first") {
-    """val Lexer = lexer:
+  test("within-case alternatives where one is a prefix of another both stay reachable - longer first") {
+    val Lexer = lexer:
       case ">=" | ">" => Token["GREATER"]
-    """ shouldNot compile
+      case "\\s+" => Token.Ignored
+
+    val (_, lexemes) = Lexer.tokenize(">= >")
+    assert(lexemes.map(_.shape.fields("text")) == List(">=", ">"))
   }
 
-  test("throws on overlapping alternatives in same case - shorter first") {
-    """val Lexer = lexer:
+  test("within-case alternatives where one is a prefix of another both stay reachable - shorter first") {
+    val Lexer = lexer:
       case ">" | ">=" => Token["GREATER"]
-    """ shouldNot compile
+      case "\\s+" => Token.Ignored
+
+    val (_, lexemes) = Lexer.tokenize(">= >")
+    assert(lexemes.map(_.shape.fields("text")) == List(">=", ">"))
+  }
+
+  test("invalid regex in a named single pattern names the token") {
+    typeCheckErrors("""
+      val Lexer = lexer:
+        case "(" => Token["LPAREN"]
+      """).loneElement.message should startWith("""Invalid regex pattern for token "LPAREN": """)
+  }
+
+  test("invalid regex in a bound alternative names the offending alternative") {
+    typeCheckErrors("""
+      val Lexer = lexer:
+        case x @ ("a" | "(") => Token[x.type]
+      """).loneElement.message should startWith("""Invalid regex pattern for token "(": """)
+  }
+
+  test("duplicate token name points at the redefinition and suggests alternatives") {
+    typeCheckErrors("""
+      val Lexer = lexer:
+        case "a" => Token["X"]
+        case "b" => Token["X"]
+      """).loneElement.message shouldBe
+      """Token name "X" is defined 2 times. Combine the patterns into a single case using alternatives, """ +
+      """e.g.: case x @ ("pattern1" | "pattern2") => Token[x]"""
   }
 
   test("track line and position across newlines") {
