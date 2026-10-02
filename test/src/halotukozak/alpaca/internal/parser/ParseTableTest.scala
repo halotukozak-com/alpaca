@@ -68,12 +68,12 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
        case Expr(expr) => expr
     """).loneElement
     conflict.message should include("""
-                                   |Reduce Float -> Num vs Reduce Integer -> Num
-                                   |In situation like:
-                                   |Num ...
-                                   |Conflicting production: Float -> Num (line 7)
-                                   |Consider marking one of the productions to be before or after the other
-                                   |""".stripMargin)
+                                      |Reduce Float -> Num vs Reduce Integer -> Num
+                                      |In situation like:
+                                      |Num ...
+                                      |Conflicting production: Float -> Num (line 7)
+                                      |Consider marking one of the productions to be before or after the other
+                                      |""".stripMargin)
     conflict.lineContent.trim shouldBe "case CalcLexer.Num(lexem) => lexem.value"
   }
 
@@ -91,10 +91,14 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
       )
       val root = rule:
        case Expr(e) => e
-    """).map(e => (e.message.linesIterator.find(_.nonEmpty).get, e.lineContent.trim)) should contain theSameElementsAs List(
-      ("Shift \"+ ($plus)\" vs Reduce Expr -> Expr + ($plus) Expr", "{ case (Expr(a), CalcLexer.`+`(_), Expr(b)) => a + b },"),
-      ("Reduce Float -> Num vs Reduce Integer -> Num", "case CalcLexer.Num(lexem) => lexem.value"),
-    )
+    """).map(e => (e.message.linesIterator.find(_.nonEmpty).get, e.lineContent.trim)) should contain theSameElementsAs
+      List(
+        (
+          "Shift \"+ ($plus)\" vs Reduce Expr -> Expr + ($plus) Expr",
+          "{ case (Expr(a), CalcLexer.`+`(_), Expr(b)) => a + b },",
+        ),
+        ("Reduce Float -> Num vs Reduce Integer -> Num", "case CalcLexer.Num(lexem) => lexem.value"),
+      )
   }
 
   test("conflict resolution cycle detection") {
@@ -112,13 +116,12 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
         P(CalcLexer.`+`).before(production.A),
       )
     """).loneElement
-    cycle.message should
-      include("""
-                |Inconsistent conflict resolution detected:
-                |Reduction(A) before Shift(+) before Reduction(B -> + ($plus)) before Reduction(A)
-                |There are elements being both before and after Reduction(A) at the same time.
-                |Consider revising the before/after rules to eliminate cycles
-                |""".stripMargin)
+    cycle.message should include("""
+                                   |Inconsistent conflict resolution detected:
+                                   |Reduction(A) before Shift(+) before Reduction(B -> + ($plus)) before Reduction(A)
+                                   |There are elements being both before and after Reduction(A) at the same time.
+                                   |Consider revising the before/after rules to eliminate cycles
+                                   |""".stripMargin)
     // points at the rule closing the cycle, not at the parser declaration
     cycle.lineContent.trim shouldBe "P(CalcLexer.`+`).before(production.A),"
     cycle.column shouldBe 32
@@ -193,9 +196,9 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
     )
     """).loneElement
     ambiguous.message should include("""Production with RHS 'Num' is ambiguous, it matches:
-                                        |  Integer -> Num
-                                        |  Float -> Num
-                                        |""".stripMargin)
+                                       |  Integer -> Num
+                                       |  Float -> Num
+                                       |""".stripMargin)
     ambiguous.lineContent.trim shouldBe "P(CalcLexer.Num).before(P(AmbiguousParser.Integer)),"
     ambiguous.column shouldBe 7 // the point of `P(...)` is its argument list
   }
