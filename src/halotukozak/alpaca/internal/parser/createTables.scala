@@ -134,12 +134,9 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
 
       val table = rules
         .flatMap:
-          case ValDef(ruleName, _, Some(rhs)) => extractEBNF(ruleName)(rhs.asExprOf[Rule[?]])
-          case DefDef(ruleName, _, _, Some(rhs)) =>
-            extractEBNF(ruleName)(
-              rhs.asExprOf[Rule[?]],
-            ) // todo: or error? https://github.com/halotukozak/alpaca/issues/230
-          case other: ValOrDefDef if other.rhs.isEmpty =>
+          // todo: def rules, or error? https://github.com/halotukozak/alpaca/issues/230
+          case DefinitionRhs(ruleName, rhs) => extractEBNF(ruleName)(rhs.asExprOf[Rule[?]])
+          case other: ValOrDefDef =>
             errorAndAbort(
               show"Cannot read the definition of rule ${other.name}. Enable -Yretain-trees compiler flag",
               other.pos,
@@ -220,11 +217,9 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
             pos,
           )
 
-          // Symbol.tree may throw for definitions whose trees weren't retained
-          val rhs = scala.util.Try(givenSymbol.tree).toOption match
-            case Some(ValDef(_, _, Some(rhs))) => rhs
-            case Some(DefDef(_, _, _, Some(rhs))) => rhs
-            case _ => unsupported(givenSymbol.pos.getOrElse(Position.ofMacroExpansion))
+          val rhs = givenSymbol.tree match
+            case DefinitionRhs(_, rhs) => rhs
+            case definition => unsupported(definition.pos)
 
           rhs.asExprOf[Resolutions[p]] match
             case '{ resolutions[p & Parser[?]](${ Varargs(resolutionExprs) }*) } => resolutionExprs

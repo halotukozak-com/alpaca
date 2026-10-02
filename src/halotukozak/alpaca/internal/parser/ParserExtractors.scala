@@ -3,8 +3,8 @@ package alpaca
 package internal
 package parser
 
-import alpaca.internal.lexer.Token
-import alpaca.internal.parser.ParserExtractors.*
+import halotukozak.alpaca.internal.lexer.Token
+import halotukozak.alpaca.internal.parser.ParserExtractors.*
 
 import scala.reflect.NameTransformer
 
@@ -20,6 +20,17 @@ private[parser] object skipTypedOrTest:
     tree match
       case TypedOrTest(inner, _) => Some(inner)
       case other => Some(other)
+
+/**
+ * Matches a `val` or `def` definition with its right-hand side, which is only there when the definition's tree was
+ * retained (`-Yretain-trees`).
+ */
+private[parser] object DefinitionRhs:
+  def unapply(using quotes: Quotes)(tree: quotes.reflect.Tree): Option[(String, quotes.reflect.Term)] =
+    import quotes.reflect.*
+    tree match
+      case definition: ValOrDefDef => definition.rhs.map((definition.name, _))
+      case _ => None
 
 /**
  * Analyzes a single pattern from a parser rule definition during macro expansion,
