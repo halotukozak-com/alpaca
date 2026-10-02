@@ -97,7 +97,7 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
             .map:
               case (Lambda(_, Match(_, List(caseDef))), name) => (caseDef, name)
               case (l @ Lambda(_, Match(_, _)), _) =>
-                report.errorAndAbort(
+                errorAndAbort(
                   """Each production must have exactly one case. Split multiple cases into separate productions:
                     |  rule(
                     |    { case (a(x)) => ... },
@@ -106,10 +106,10 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
                   l.pos,
                 )
               case (other, _) =>
-                report.errorAndAbort(show"Unexpected production definition: $other", other.pos)
+                errorAndAbort(show"Unexpected production definition: $other", other.pos)
             .flatMap:
               case (c @ CaseDef(_, Some(_), _), _) =>
-                report.error("Guards are not supported yet", c.pos)
+                error("Guards are not supported yet", c.pos)
                 None
               // Tuple1
               case (c @ CaseDef(skipTypedOrTest(pattern @ Unapply(_, _, List(_))), None, rhs), name) =>
@@ -144,7 +144,7 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
               rhs.asExprOf[Rule[?]],
             ) // todo: or error? https://github.com/halotukozak/alpaca/issues/230
           case other: ValOrDefDef if other.rhs.isEmpty =>
-            report.errorAndAbort(
+            errorAndAbort(
               show"Cannot read the definition of rule ${other.name}. Enable -Yretain-trees compiler flag",
               other.pos,
             )
@@ -184,7 +184,7 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
           val decodedName = NameTransformer.decode(name)
           productionsByName.getOrElse(
             decodedName,
-            report.errorAndAbort(show"Production with name '$decodedName' not found", call),
+            errorAndAbort(show"Production with name '$decodedName' not found", call.asTerm.pos),
           )
 
         case '{ alpaca.Production(${ Varargs(rhs) }*) } =>
@@ -193,24 +193,24 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
               case '{ type ruleType <: Rule[?]; $_ : ruleType } => NonTerminal(TypeRepr.of[ruleType].termSymbol.name)
               case '{ type name <: ValidName; $_ : Token[name, ?, ?] } => Terminal(ValidName.from[name])
               case other =>
-                report.errorAndAbort("Arguments of `Production(...)` must be rules or tokens of this parser", other)
+                errorAndAbort("Arguments of `Production(...)` must be rules or tokens of this parser", other.asTerm.pos)
             .toList
 
           productionsByRhs.getOrElse(NEL.unsafe(args), Nil) match
             case production :: Nil => production
-            case Nil => report.errorAndAbort(show"Production with RHS '${args.mkShow(" ")}' not found", call)
+            case Nil => errorAndAbort(show"Production with RHS '${args.mkShow(" ")}' not found", call.asTerm.pos)
             case candidates =>
-              report.errorAndAbort(
+              errorAndAbort(
                 show"""Production with RHS '${args.mkShow(" ")}' is ambiguous, it matches:
                       |${candidates.mkShow("  ", "\n  ", "")}
                       |Name the production you mean and refer to it with `production.<name>`""".stripMargin,
-                call,
+                call.asTerm.pos,
               )
 
         case definition =>
-          report.errorAndAbort(
+          errorAndAbort(
             "Refer to a production with `production.<name>` or `Production(<symbols>...)`",
-            definition,
+            definition.asTerm.pos,
           )
       }
 
@@ -220,12 +220,12 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
       // since silently ignoring them would surface later as a seemingly unresolved conflict
       val resolutionExprs = Implicits.search(TypeRepr.of[Resolutions[p]]) match
         case _: NoMatchingImplicits => Nil
-        case failure: ImplicitSearchFailure => report.errorAndAbort(failure.explanation)
+        case failure: ImplicitSearchFailure => errorAndAbort(failure.explanation, Position.ofMacroExpansion)
         case success: ImplicitSearchSuccess =>
           givenResolutions = success.tree.asExprOf[Resolutions[p]]
           val givenSymbol = success.tree.symbol
 
-          def unsupported(pos: Position): Nothing = report.errorAndAbort(
+          def unsupported(pos: Position): Nothing = errorAndAbort(
             show"""Cannot read the conflict resolutions of $parserName.
                   |Define them directly with a call to `resolutions`, e.g.:
                   |  given Resolutions[$parserName.type] = resolutions(...)""".stripMargin,
@@ -256,9 +256,9 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
               } =>
             afters.map(after => (before = extractKey(before), after = extractKey(after), pos = after.asTerm.pos))
           case other =>
-            report.errorAndAbort(
+            errorAndAbort(
               "Each conflict resolution must be a direct `x.before(...)` or `x.after(...)` call",
-              other,
+              other.asTerm.pos,
             )
         .toList
 
@@ -278,8 +278,10 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
         .collectFirst:
           case (p @ Production.NonEmpty(NonTerminal("root"), _, _, _), _) => p
         .getOrElse:
-          report.errorAndAbort(
+          errorAndAbort(
             show"No root rule defined in $parserName. Define a root rule: val root: Rule[Any] = rule { ... }",
+            // the parser declaration itself, which is where the root rule is missing
+            Position.ofMacroExpansion,
           )
 
       val parseTable = Expr:

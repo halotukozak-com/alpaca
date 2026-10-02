@@ -88,7 +88,7 @@ private[parser] object ParseTable:
     conflictResolutionTable: ConflictResolutionTable,
     positionOf: Production => Option[quotes.reflect.Position],
   ): ParseTable = {
-    import quotes.reflect.{report, Position}
+    import quotes.reflect.Position
 
     def posOf(production: Production): Position = positionOf(production).getOrElse(Position.ofMacroExpansion)
 
@@ -101,7 +101,7 @@ private[parser] object ParseTable:
 
     def raiseReduceReduceConflict(red1: Reduction, red2: Reduction, path: List[Symbol]): Unit =
       if reported.add(Set(red1.production, red2.production)) then
-        report.error(
+        error(
           show"""
                 |Reduce $red1 vs Reduce $red2
                 |In situation like:
@@ -114,7 +114,7 @@ private[parser] object ParseTable:
 
     def raiseShiftReduceConflict(symbol: Symbol, red: Reduction, path: List[Symbol]): Unit =
       if reported.add((symbol, red.production)) then
-        report.error(
+        error(
           show"""
                 |Shift "$symbol" vs Reduce $red
                 |In situation like:

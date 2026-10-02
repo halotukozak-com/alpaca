@@ -30,4 +30,22 @@ private[alpaca] final val RuleOnly = "Should never be called outside the rule de
  */
 private[alpaca] final val ConflictResolutionOnly = "Should never be called outside the conflict resolution definition"
 
+/**
+ * Reports a compile error at `pos`.
+ *
+ * Use this instead of `quotes.reflect.report.error`: the position is mandatory, so an error can't silently land on
+ * the macro expansion site. Pass `Position.ofMacroExpansion` explicitly when that really is the right place.
+ */
+private[internal] def error(using quotes: Quotes)(message: Shown, pos: quotes.reflect.Position): Unit =
+  quotes.reflect.report.error(message, pos)
+
+/**
+ * Reports a compile error at `pos` and aborts the macro expansion.
+ *
+ * Use this instead of `quotes.reflect.report.errorAndAbort`: the position is mandatory, so an error can't silently
+ * land on the macro expansion site. Pass `Position.ofMacroExpansion` explicitly when that really is the right place.
+ */
+private[internal] def errorAndAbort(using quotes: Quotes)(message: Shown, pos: quotes.reflect.Position): Nothing =
+  quotes.reflect.report.errorAndAbort(message, pos)
+
 // $COVERAGE-ON$

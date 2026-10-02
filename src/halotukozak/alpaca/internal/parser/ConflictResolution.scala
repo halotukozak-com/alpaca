@@ -89,7 +89,7 @@ private[parser] object ConflictResolutionTable:
       positionOf: ((ConflictKey, ConflictKey)) => Option[quotes.reflect.Position],
     ): Unit = {
       import ConflictKey.given
-      import quotes.reflect.{report, Position}
+      import quotes.reflect.Position
 
       enum VisitState:
         case Unvisited, Visited, Processed
@@ -112,7 +112,7 @@ private[parser] object ConflictResolutionTable:
           visited(node) match
             case VisitState.Processed => loop(rest)
             case VisitState.Visited =>
-              report.errorAndAbort(
+              errorAndAbort(
                 show"""
                       |Inconsistent conflict resolution detected:
                       |${path.reverse.dropWhile(_ != node).mkShow(" before ")} before $node
