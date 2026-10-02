@@ -7,7 +7,6 @@ import halotukozak.alpaca.internal.Showable
 
 import scala.annotation.tailrec
 import scala.collection.mutable
-import scala.quoted.quotes
 
 /**
  * Type representing a key in the conflict resolution table.
@@ -20,18 +19,18 @@ private[parser] object ConflictKey:
   inline def apply(key: Production | String): ConflictKey = key
 
   given Showable[ConflictKey] =
-    case Production.NonEmpty(lhs, rhs, null, _) => show"Reduction(${rhs.mkShow(" ")} -> $lhs)"
-    case Production.Empty(lhs, null, _) => show"Reduction(${Symbol.Empty} -> $lhs)"
+    case Production.NonEmpty(lhs, rhs, null, _) => show"Reduction($lhs -> ${rhs.mkShow(" ")})"
+    case Production.Empty(lhs, null, _) => show"Reduction($lhs -> ${Symbol.Empty})"
     case p: Production => show"Reduction(${p.name.nn})"
     case s: String => show"Shift($s)"
 
 /**
  * Opaque type representing a table of conflict resolution rules.
  *
- * This maps each production/token to a set of productions/tokens that it has
- * precedence over.
+ * This maps each production/token to the productions/tokens that it has precedence over, each with the source of the
+ * rule that declared it.
  */
-opaque private[parser] type ConflictResolutionTable = Map[ConflictKey, Set[ConflictKey]]
+opaque private[parser] type ConflictResolutionTable = Map[ConflictKey, Map[ConflictKey, Source]]
 
 private[parser] object ConflictResolutionTable:
 
@@ -41,7 +40,7 @@ private[parser] object ConflictResolutionTable:
    * @param resolutions the resolution map
    * @return a new ConflictResolutionTable
    */
-  def apply(resolutions: Map[ConflictKey, Set[ConflictKey]]): ConflictResolutionTable = resolutions
+  def apply(resolutions: Map[ConflictKey, Map[ConflictKey, Source]]): ConflictResolutionTable = resolutions
 
   extension (table: ConflictResolutionTable) {
 
@@ -72,7 +71,7 @@ private[parser] object ConflictResolutionTable:
           case Some(`to`) => Some(first)
           case Some(head) if visited contains head => loop(visited)
           case Some(head) =>
-            table.get(head).foreach(queue.appendAll)
+            table.get(head).foreach(afters => queue.appendAll(afters.keys))
             loop(visited + head)
 
         loop(Set.empty)
@@ -105,17 +104,18 @@ private[parser] object ConflictResolutionTable:
           visited(node) match
             case VisitState.Processed => loop(rest)
             case VisitState.Visited =>
-              quotes.reflect.report.errorAndAbort(
+              errorAndAbort(
                 show"""
                       |Inconsistent conflict resolution detected:
                       |${path.reverse.dropWhile(_ != node).mkShow(" before ")} before $node
                       |There are elements being both before and after $node at the same time.
                       |Consider revising the before/after rules to eliminate cycles
                       |""".stripMargin,
+                table(path.head)(node),
               )
             case VisitState.Unvisited =>
               visited(node) = VisitState.Visited
-              val neighbors = table.getOrElse(node, Set.empty).map(Action.Enter(_, node :: path)).toList
+              val neighbors = table.getOrElse(node, Map.empty).keys.map(Action.Enter(_, node :: path)).toList
               loop(neighbors ::: List(Action.Leave(node)) ::: rest)
       }
 
@@ -154,12 +154,12 @@ private[parser] object ConflictResolutionTable:
         case p: Production => show"$p"
         case s: String => show"Token($s)"
 
-      val nodes = (table.keySet ++ table.values.flatten).toList.sortBy(nodeLabel)
+      val nodes = (table.keySet ++ table.values.flatMap(_.keys)).toList.sortBy(nodeLabel)
       for node <- nodes do sb.append(s"  ${nodeId(node)}[\"${escapeLabel(nodeLabel(node))}\"]\n")
 
       for
-        (from, toSet) <- table.toList.sortBy { case (fromKey, _) => nodeLabel(fromKey) }
-        to <- toSet.toList.sortBy(nodeLabel)
+        (from, afters) <- table.toList.sortBy { case (fromKey, _) => nodeLabel(fromKey) }
+        to <- afters.keys.toList.sortBy(nodeLabel)
       do sb.append(s"  ${nodeId(from)} --> ${nodeId(to)}\n")
 
       sb.toString
@@ -175,6 +175,6 @@ private[parser] object ConflictResolutionTable:
       case s: String => show"Token[$s]"
 
     table
-      .map((k, v) => show"$k before ${v.mkShow(", ")}")
+      .map((k, v) => show"$k before ${v.keys.mkShow(", ")}")
       .mkShow("\n")
   }

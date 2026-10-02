@@ -8,7 +8,7 @@ import halotukozak.alpaca.{lexer, rule, ParserCtx, Rule, Token}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
-// ParseTable.apply now requires a real macro Quotes (it calls report.errorAndAbort directly on
+// ParseTable.apply now requires a real macro Quotes (it reports compile errors on
 // conflict instead of returning a value), so it can no longer be called directly from a plain
 // unit test -- these tests go through the actual lexer/parser DSL instead, same as ParseTableTest.
 final class ParseTableRuntimeTest extends AnyFunSuite with Matchers:

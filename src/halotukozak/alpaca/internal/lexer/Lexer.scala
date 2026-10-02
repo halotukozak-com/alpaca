@@ -24,7 +24,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
 
   val Lambda(oldCtx :: Nil, Lambda(_, Match(_, cases: List[CaseDef]))) = rules.asTerm.underlying.runtimeChecked
 
-  if cases.isEmpty then report.errorAndAbort("Lexer definition must contain at least one case")
+  if cases.isEmpty then errorAndAbort("Lexer definition must contain at least one case", rules.asTerm.pos)
 
   val tokens = cases.foldLeft(
     List.empty[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?] & TokenRefn], pos: Position, regex: Regex)],
@@ -116,14 +116,14 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
             case '{ type tokenTpe <: lexer.Token[?, Ctx, ?]; $token: tokenTpe } =>
               (info = info, expr = '{ $token.asInstanceOf[tokenTpe & TokenRefn] }, pos = tree.pos, regex = regex)
 
-    case (_, CaseDef(_, Some(_), body)) => report.errorAndAbort("Guards are not supported yet")
+    case (_, CaseDef(_, Some(guard), _)) => errorAndAbort("Guards are not supported yet", guard.pos)
 
   tokens
     .groupBy(_.info.name)
     .iterator
     .filter(_._2.sizeIs > 1)
     .foreach: (name, duplicates) =>
-      report.errorAndAbort(
+      errorAndAbort(
         show"Token name \"$name\" is defined ${duplicates.size.toString} times. Combine the patterns into a single case using alternatives, e.g.: case x @ (\"pattern1\" | \"pattern2\") => Token[x]",
         duplicates(1).pos,
       )
@@ -134,7 +134,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
     )
     .foreach: (first, second) =>
       val shadowedPos = tokens.find(_.info.name == first).map(_.pos).getOrElse(Position.ofMacroExpansion)
-      report.errorAndAbort(
+      errorAndAbort(
         s"""Token "$first" can never match: every input it matches is already matched by "$second",
            |which is tried first because it's defined earlier.
            |Consider reordering the cases so "$first" comes first, or merging them into one case with

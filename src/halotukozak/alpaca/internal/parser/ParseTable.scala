@@ -9,7 +9,7 @@ import halotukozak.mcodec.MCodec
 import scala.annotation.tailrec
 import scala.collection.immutable.SortedSet
 import scala.collection.mutable
-import scala.quoted.quotes
+import scala.quoted.runtime.StopMacroExpansion
 import scala.util.boundary
 import scala.util.boundary.break
 
@@ -84,27 +84,37 @@ private[parser] object ParseTable:
    * @return the constructed parse table
    */
   def apply(
+    using quotes: Quotes,
+  )(
     productions: List[Production],
     conflictResolutionTable: ConflictResolutionTable,
-  )(using Quotes,
   ): ParseTable = {
-    def raiseReduceReduceConflict(red1: Reduction, red2: Reduction, path: List[Symbol]): Nothing =
-      quotes.reflect.report.errorAndAbort:
-        show"""
-              |Reduce $red1 vs Reduce $red2
-              |In situation like:
-              |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
-              |Consider marking one of the productions to be before or after the other
-              |""".stripMargin
+    val reported = mutable.HashSet.empty[Set[Production] | (Symbol, Production)]
 
-    def raiseShiftReduceConflict(symbol: Symbol, red: Reduction, path: List[Symbol]): Nothing =
-      quotes.reflect.report.errorAndAbort:
-        show"""
-              |Shift "$symbol" vs Reduce $red
-              |In situation like:
-              |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
-              |Consider marking production $red to be before or after "$symbol"
-              |""".stripMargin
+    def raiseReduceReduceConflict(red1: Reduction, red2: Reduction, path: List[Symbol]): Unit =
+      if reported.add(Set(red1.production, red2.production)) then
+        error(
+          show"""
+                |Reduce $red1 vs Reduce $red2
+                |In situation like:
+                |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
+                |Conflicting production: ${red1.production} (line ${red1.production.source.line + 1})
+                |Consider marking one of the productions to be before or after the other
+                |""".stripMargin,
+          red2.production.source,
+        )
+
+    def raiseShiftReduceConflict(symbol: Symbol, red: Reduction, path: List[Symbol]): Unit =
+      if reported.add((symbol, red.production)) then
+        error(
+          show"""
+                |Shift "$symbol" vs Reduce $red
+                |In situation like:
+                |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
+                |Consider marking production $red to be before or after "$symbol"
+                |""".stripMargin,
+          red.production.source,
+        )
 
     val firstSet = FirstSet(productions)
     val productionsByLhs = productions.groupBy(_.lhs)
@@ -156,6 +166,9 @@ private[parser] object ParseTable:
 
       for (stepSymbol, targetStateId) <- automaton.goto(stateId) do addToTable(stateId, stepSymbol, Shift(targetStateId))
     }
+
+    // every conflict is already reported at its own production; abort without an extra error at the call site
+    if reported.nonEmpty then throw StopMacroExpansion()
 
     Array.better.tabulate(tableRows.length)(tableRows(_).toMap)
   }

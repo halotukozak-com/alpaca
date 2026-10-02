@@ -64,3 +64,6 @@ __pycache__/
 .gradle/
 .intellijPlatform/
 
+
+### Claude Code ###
+.claude/

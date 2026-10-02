@@ -12,11 +12,11 @@ final class FirstSetTest extends AnyFunSuite:
   test("FirstSet should correctly identify first sets for simple grammar") {
 
     val productions: List[Production] = List(
-      NEP(NonTerminal("S"), NEL(NonTerminal("L"), Terminal("="), NonTerminal("R"))),
-      NEP(NonTerminal("S"), NEL(NonTerminal("R"))),
-      NEP(NonTerminal("L"), NEL(Terminal("1"), NonTerminal("R"))),
-      NEP(NonTerminal("L"), NEL(Terminal("2"))),
-      NEP(NonTerminal("R"), NEL(Terminal("3"), NonTerminal("L"))),
+      NEP(NonTerminal("S"), NEL(NonTerminal("L"), Terminal("="), NonTerminal("R")), source = TestSource),
+      NEP(NonTerminal("S"), NEL(NonTerminal("R")), source = TestSource),
+      NEP(NonTerminal("L"), NEL(Terminal("1"), NonTerminal("R")), source = TestSource),
+      NEP(NonTerminal("L"), NEL(Terminal("2")), source = TestSource),
+      NEP(NonTerminal("R"), NEL(Terminal("3"), NonTerminal("L")), source = TestSource),
     )
 
     val expected = Map(
@@ -31,14 +31,14 @@ final class FirstSetTest extends AnyFunSuite:
   test("FirstSet should handle epsilon productions") {
 
     val productions: List[Production] = List(
-      NEP(NonTerminal("E"), NEL(NonTerminal("T"), NonTerminal("E'"))),
-      NEP(NonTerminal("E'"), NEL(Terminal("+"), NonTerminal("T"), NonTerminal("E'"))),
-      Production.Empty(NonTerminal("E'")),
-      NEP(NonTerminal("T"), NEL(NonTerminal("F"), NonTerminal("T'"))),
-      NEP(NonTerminal("T'"), NEL(Terminal("*"), NonTerminal("F"), NonTerminal("T'"))),
-      Production.Empty(NonTerminal("T'")),
-      NEP(NonTerminal("F"), NEL(Terminal("("), NonTerminal("E"), Terminal(")"))),
-      NEP(NonTerminal("F"), NEL(Terminal("id"))),
+      NEP(NonTerminal("E"), NEL(NonTerminal("T"), NonTerminal("E'")), source = TestSource),
+      NEP(NonTerminal("E'"), NEL(Terminal("+"), NonTerminal("T"), NonTerminal("E'")), source = TestSource),
+      Production.Empty(NonTerminal("E'"), source = TestSource),
+      NEP(NonTerminal("T"), NEL(NonTerminal("F"), NonTerminal("T'")), source = TestSource),
+      NEP(NonTerminal("T'"), NEL(Terminal("*"), NonTerminal("F"), NonTerminal("T'")), source = TestSource),
+      Production.Empty(NonTerminal("T'"), source = TestSource),
+      NEP(NonTerminal("F"), NEL(Terminal("("), NonTerminal("E"), Terminal(")")), source = TestSource),
+      NEP(NonTerminal("F"), NEL(Terminal("id")), source = TestSource),
     )
 
     val expected = Map(

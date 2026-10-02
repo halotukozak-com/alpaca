@@ -150,11 +150,10 @@ def productionImpl[P <: Parser[?]: Type](using quotes: Quotes): Expr[ProductionS
 
         val fields = rules
           .flatMap:
-            case ValDef(name, _, Some(rhs)) => extractName(rhs.asExprOf[Rule[?]])
-            case DefDef(name, _, _, Some(rhs)) =>
-              extractName(rhs.asExprOf[Rule[?]]) // todo: or error? https://github.com/halotukozak/alpaca/issues/230
+            // todo: def rules, or error? https://github.com/halotukozak/alpaca/issues/230
+            case DefinitionRhs(_, rhs) => extractName(rhs.asExprOf[Rule[?]])
             case _ =>
-              report.error("Define resolutions as the last field of the parser.")
+              error("Define resolutions as the last field of the parser.", Position.ofMacroExpansion)
               Nil
           .map(name => (name, TypeRepr.of[Production]))
           .toList
