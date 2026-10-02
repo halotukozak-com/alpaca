@@ -74,7 +74,8 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using quotes: Q
     val SeparatedBy: PartialFunction[Tree, (element: parser.Symbol.NonEmpty, separator: parser.Symbol.NonEmpty)] =
       case TypeApply(Select(q @ Extractor.Name(name), Names.SeparatedBy), List(separator)) =>
         val decoded = NameTransformer.decode(name)
-        val element: parser.Symbol.NonEmpty = if q.tpe <:< TypeRepr.of[Token[?, ?, ?]] then parser.Terminal(decoded) else parser.NonTerminal(decoded)
+        val element: parser.Symbol.NonEmpty =
+          if q.tpe <:< TypeRepr.of[Token[?, ?, ?]] then parser.Terminal(decoded) else parser.NonTerminal(decoded)
         (element, symbolFromType(separator.tpe))
 
     val Bind: PartialFunction[Tree, Option[Bind]] =
