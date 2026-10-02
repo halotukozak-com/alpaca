@@ -188,6 +188,8 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
             .map[parser.Symbol.NonEmpty]:
               case '{ type ruleType <: Rule[?]; $_ : ruleType } => NonTerminal(TypeRepr.of[ruleType].termSymbol.name)
               case '{ type name <: ValidName; $_ : Token[name, ?, ?] } => Terminal(ValidName.from[name])
+              case other =>
+                report.errorAndAbort("Arguments of `Production(...)` must be rules or tokens of this parser", other)
             .toList
 
           productionsByRhs.getOrElse(NEL.unsafe(args), Nil) match
@@ -201,7 +203,11 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
                 call,
               )
 
-        case definition => raiseShouldNeverBeCalled(definition)
+        case definition =>
+          report.errorAndAbort(
+            "Refer to a production with `production.<name>` or `Production(<symbols>...)`",
+            definition,
+          )
       }
 
       var givenResolutions: Expr[Resolutions[p] | Null] = '{ null }
@@ -245,7 +251,11 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
                 ($before: Production | Token[?, ?, ?]).before(${ Varargs(afters) }*)
               } =>
             afters.map(after => (before = extractKey(before), after = extractKey(after), pos = after.asTerm.pos))
-          case other => raiseShouldNeverBeCalled(other)
+          case other =>
+            report.errorAndAbort(
+              "Each conflict resolution must be a direct `x.before(...)` or `x.after(...)` call",
+              other,
+            )
         .toList
 
       val resolutionPositions = resolutionEdges.reverseIterator.map(e => ((e.before, e.after), e.pos)).toMap

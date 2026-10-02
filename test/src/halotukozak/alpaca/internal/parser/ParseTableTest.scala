@@ -199,3 +199,22 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
     ambiguous.lineContent.trim shouldBe "P(CalcLexer.Num).before(P(AmbiguousParser.Integer)),"
     ambiguous.column shouldBe 7 // the point of `P(...)` is its argument list
   }
+
+  test("conflict resolution that is not a direct before/after call is reported at the resolution") {
+    val indirect: scala.compiletime.testing.Error = typeCheckErrors("""
+    object IndirectParser extends Parser[CalcContext]:
+      val Expr: Rule[Int] = rule(
+        { case (Expr(a), CalcLexer.`+`(_), Expr(b)) => a + b },
+        { case CalcLexer.Num(lexem) => lexem.value },
+      )
+      val root = rule:
+       case Expr(e) => e
+
+    given Resolutions[IndirectParser.type] = resolutions(
+      if true then CalcLexer.`+`.before(CalcLexer.Num) else CalcLexer.Num.before(CalcLexer.`+`),
+    )
+    """).loneElement
+    indirect.message should include("Each conflict resolution must be a direct `x.before(...)` or `x.after(...)` call")
+    indirect.lineContent.trim shouldBe
+      "if true then CalcLexer.`+`.before(CalcLexer.Num) else CalcLexer.Num.before(CalcLexer.`+`),"
+  }
