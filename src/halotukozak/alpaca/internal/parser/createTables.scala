@@ -199,19 +199,31 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
 
       var givenResolutions: Expr[Resolutions[p] | Null] = '{ null }
 
-      val resolutionExprs = scala.util
-        .Try:
-          Implicits.search(TypeRepr.of[Resolutions[p]]).runtimeChecked match
-            case success: ImplicitSearchSuccess =>
-              val tree = success.tree
-              givenResolutions = tree.asExprOf[Resolutions[p]]
-              tree.symbol.tree
-        .map:
-          case ValDef(_, _, Some(rhs)) =>
-            rhs.asExprOf[Resolutions[p]]
-        .map:
-          case '{ resolutions[p & Parser[?]](${ Varargs(resolutionExprs) }*) } => resolutionExprs
-        .getOrElse(Nil)
+      // a missing given just means no resolutions; any other failure to read them is reported where they're defined,
+      // since silently ignoring them would surface later as a seemingly unresolved conflict
+      val resolutionExprs = Implicits.search(TypeRepr.of[Resolutions[p]]) match
+        case _: NoMatchingImplicits => Nil
+        case failure: ImplicitSearchFailure => report.errorAndAbort(failure.explanation)
+        case success: ImplicitSearchSuccess =>
+          givenResolutions = success.tree.asExprOf[Resolutions[p]]
+          val givenSymbol = success.tree.symbol
+
+          def unsupported(pos: Position): Nothing = report.errorAndAbort(
+            show"""Cannot read the conflict resolutions of $parserName.
+                  |Define them directly with a call to `resolutions`, e.g.:
+                  |  given Resolutions[$parserName.type] = resolutions(...)""".stripMargin,
+            pos,
+          )
+
+          // Symbol.tree may throw for definitions whose trees weren't retained
+          val rhs = scala.util.Try(givenSymbol.tree).toOption match
+            case Some(ValDef(_, _, Some(rhs))) => rhs
+            case Some(DefDef(_, _, _, Some(rhs))) => rhs
+            case _ => unsupported(givenSymbol.pos.getOrElse(Position.ofMacroExpansion))
+
+          rhs.asExprOf[Resolutions[p]] match
+            case '{ resolutions[p & Parser[?]](${ Varargs(resolutionExprs) }*) } => resolutionExprs
+            case _ => unsupported(rhs.pos)
 
       def extractKey(expr: Expr[Production | Token[?, ?, ?]]): ConflictKey = expr match
         case '{ $prod: Production } => ConflictKey(findProduction(prod))

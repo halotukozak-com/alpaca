@@ -123,3 +123,53 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
     cycle.lineContent.trim shouldBe "P(CalcLexer.`+`).before(production.A),"
     cycle.column shouldBe 32
   }
+
+  test("resolutions not defined by a direct `resolutions` call are reported at the given, not ignored") {
+    val alias: scala.compiletime.testing.Error = typeCheckErrors("""
+    object AliasParser extends Parser[CalcContext]:
+      val Expr: Rule[Int] = rule(
+        { case (Expr(a), CalcLexer.`+`(_), Expr(b)) => a + b },
+        { case CalcLexer.Num(lexem) => lexem.value },
+      )
+      val root = rule:
+       case Expr(e) => e
+
+    val myResolutions = resolutions[AliasParser.type](P(AliasParser.Expr, CalcLexer.`+`, AliasParser.Expr).before(CalcLexer.`+`))
+    given Resolutions[AliasParser.type] = myResolutions
+    """).loneElement
+    alias.message should include("Cannot read the conflict resolutions of AliasParser.")
+    alias.lineContent.trim shouldBe "given Resolutions[AliasParser.type] = myResolutions"
+    alias.column shouldBe 42
+
+    val block: scala.compiletime.testing.Error = typeCheckErrors("""
+    object BlockParser extends Parser[CalcContext]:
+      val Expr: Rule[Int] = rule(
+        { case (Expr(a), CalcLexer.`+`(_), Expr(b)) => a + b },
+        { case CalcLexer.Num(lexem) => lexem.value },
+      )
+      val root = rule:
+       case Expr(e) => e
+
+    given Resolutions[BlockParser.type] = {
+      val unused = 1
+      resolutions(P(BlockParser.Expr, CalcLexer.`+`, BlockParser.Expr).before(CalcLexer.`+`))
+    }
+    """).loneElement
+    block.message should include("Cannot read the conflict resolutions of BlockParser.")
+    block.lineContent.trim shouldBe "given Resolutions[BlockParser.type] = {"
+  }
+
+  test("resolutions given with a using clause are read") {
+    typeCheckErrors("""
+    object UsingParser extends Parser[CalcContext]:
+      val Expr: Rule[Int] = rule(
+        { case (Expr(a), CalcLexer.`+`(_), Expr(b)) => a + b },
+        { case CalcLexer.Num(lexem) => lexem.value },
+      )
+      val root = rule:
+       case Expr(e) => e
+
+    given (using DummyImplicit): Resolutions[UsingParser.type] =
+      resolutions(P(UsingParser.Expr, CalcLexer.`+`, UsingParser.Expr).before(CalcLexer.`+`))
+    """) shouldBe empty
+  }
