@@ -85,11 +85,13 @@ private[parser] object ConflictResolutionTable:
      *
      * @param positionOf where the rule `before -> after` was declared; the error points at the rule closing the cycle
      */
-    def verifyNoConflicts(using quotes: Quotes)(
-      positionOf: ((ConflictKey, ConflictKey)) => Option[quotes.reflect.Position],
+    def verifyNoConflicts(
+      using quotes: Quotes,
+    )(
+      positionOf: Map[(ConflictKey, ConflictKey), quotes.reflect.Position],
     ): Unit = {
       import ConflictKey.given
-      import quotes.reflect.Position
+      import quotes.reflect.*
 
       enum VisitState:
         case Unvisited, Visited, Processed
@@ -119,7 +121,7 @@ private[parser] object ConflictResolutionTable:
                       |There are elements being both before and after $node at the same time.
                       |Consider revising the before/after rules to eliminate cycles
                       |""".stripMargin,
-                path.headOption.flatMap(parent => positionOf((parent, node))).getOrElse(Position.ofMacroExpansion),
+                path.headOption.flatMap(parent => positionOf.get((parent, node))).getOrElse(Position.ofMacroExpansion),
               )
             case VisitState.Unvisited =>
               visited(node) = VisitState.Visited

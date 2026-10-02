@@ -176,7 +176,6 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
           case p if p.name != null => (p.name, p)
         .toMap
 
-      // several rules can share a right-hand side, so a lookup by RHS alone may be ambiguous
       val productionsByRhs = productions.groupBy(_.rhs)
 
       def findProduction(call: Expr[Production]): Production = call match {
@@ -218,7 +217,7 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
 
       // a missing given just means no resolutions; any other failure to read them is reported where they're defined,
       // since silently ignoring them would surface later as a seemingly unresolved conflict
-      val resolutionExprs = Implicits.search(TypeRepr.of[Resolutions[p]]) match
+      val resolutionExprs = Implicits.search(TypeRepr.of[Resolutions[p]]) match {
         case _: NoMatchingImplicits => Nil
         case failure: ImplicitSearchFailure => errorAndAbort(failure.explanation, Position.ofMacroExpansion)
         case success: ImplicitSearchSuccess =>
@@ -241,6 +240,7 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
           rhs.asExprOf[Resolutions[p]] match
             case '{ resolutions[p & Parser[?]](${ Varargs(resolutionExprs) }*) } => resolutionExprs
             case _ => unsupported(rhs.pos)
+      }
 
       def extractKey(expr: Expr[Production | Token[?, ?, ?]]): ConflictKey = expr match
         case '{ $prod: Production } => ConflictKey(findProduction(prod))
@@ -272,7 +272,7 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
       ).tap: table =>
         logger.toFile(show"$parserName/conflictResolutions.dbg", true)(table)
         logger.toFile(show"$parserName/conflictResolutions.mmd", true)(table.toMermaid)
-        table.verifyNoConflicts(resolutionPositions.get)
+        table.verifyNoConflicts(resolutionPositions)
 
       val root = table
         .collectFirst:
