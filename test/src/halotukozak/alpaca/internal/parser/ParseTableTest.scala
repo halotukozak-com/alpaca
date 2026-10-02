@@ -98,7 +98,7 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
   }
 
   test("conflict resolution cycle detection") {
-    typeCheckErrors("""
+    val cycle: scala.compiletime.testing.Error = typeCheckErrors("""
     object CycleParser extends Parser[CalcContext]:
       val A = rule("A" { case CalcLexer.Num(lexem) => lexem.value })
       val B = rule:
@@ -111,11 +111,15 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
         CalcLexer.`+`.before(P(CalcLexer.`+`)),
         P(CalcLexer.`+`).before(production.A),
       )
-    """).loneElement.message should
+    """).loneElement
+    cycle.message should
       include("""
                 |Inconsistent conflict resolution detected:
                 |Reduction(A) before Shift(+) before Reduction(+ ($plus) -> B) before Reduction(A)
                 |There are elements being both before and after Reduction(A) at the same time.
                 |Consider revising the before/after rules to eliminate cycles
                 |""".stripMargin)
+    // points at the rule closing the cycle, not at the parser declaration
+    cycle.lineContent.trim shouldBe "P(CalcLexer.`+`).before(production.A),"
+    cycle.column shouldBe 32
   }

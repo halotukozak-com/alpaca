@@ -7,7 +7,6 @@ import halotukozak.alpaca.internal.Showable
 
 import scala.annotation.tailrec
 import scala.collection.mutable
-import scala.quoted.quotes
 
 /**
  * Type representing a key in the conflict resolution table.
@@ -81,8 +80,16 @@ private[parser] object ConflictResolutionTable:
       winsOver(first, second).orElse(winsOver(second, first))
     }
 
-    def verifyNoConflicts()(using Quotes): Unit = {
+    /**
+     * Fails compilation if the before/after rules form a cycle.
+     *
+     * @param positionOf where the rule `before -> after` was declared; the error points at the rule closing the cycle
+     */
+    def verifyNoConflicts(using quotes: Quotes)(
+      positionOf: ((ConflictKey, ConflictKey)) => Option[quotes.reflect.Position],
+    ): Unit = {
       import ConflictKey.given
+      import quotes.reflect.{report, Position}
 
       enum VisitState:
         case Unvisited, Visited, Processed
@@ -105,13 +112,14 @@ private[parser] object ConflictResolutionTable:
           visited(node) match
             case VisitState.Processed => loop(rest)
             case VisitState.Visited =>
-              quotes.reflect.report.errorAndAbort(
+              report.errorAndAbort(
                 show"""
                       |Inconsistent conflict resolution detected:
                       |${path.reverse.dropWhile(_ != node).mkShow(" before ")} before $node
                       |There are elements being both before and after $node at the same time.
                       |Consider revising the before/after rules to eliminate cycles
                       |""".stripMargin,
+                path.headOption.flatMap(parent => positionOf((parent, node))).getOrElse(Position.ofMacroExpansion),
               )
             case VisitState.Unvisited =>
               visited(node) = VisitState.Visited

@@ -217,25 +217,29 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
         case '{ $prod: Production } => ConflictKey(findProduction(prod))
         case '{ $_ : Token[name, ?, ?] } => ConflictKey(ValidName.from[name])
 
+      // each edge remembers the `.before(...)`/`.after(...)` argument it came from, so errors about it can point there
+      val resolutionEdges = resolutionExprs.iterator
+        .flatMap:
+          case '{ (ctx: ResolutionCtx[p]) ?=> ($after: Production | Token[?, ?, ?]).after(${ Varargs(befores) }*) } =>
+            befores.map(before => (before = extractKey(before), after = extractKey(after), pos = before.asTerm.pos))
+          case '{ (ctx: ResolutionCtx[p]) ?=>
+                ($before: Production | Token[?, ?, ?]).before(${ Varargs(afters) }*)
+              } =>
+            afters.map(after => (before = extractKey(before), after = extractKey(after), pos = after.asTerm.pos))
+          case other => raiseShouldNeverBeCalled(other)
+        .toList
+
+      val resolutionPositions = resolutionEdges.reverseIterator.map(e => ((e.before, e.after), e.pos)).toMap
+
       val conflictResolutionTable = ConflictResolutionTable(
-        resolutionExprs.iterator
-          .flatMap:
-            case '{ (ctx: ResolutionCtx[p]) ?=> ($after: Production | Token[?, ?, ?]).after(${ Varargs(befores) }*) } =>
-              befores.map((_, after))
-            case '{ (ctx: ResolutionCtx[p]) ?=>
-                  ($before: Production | Token[?, ?, ?]).before(${ Varargs(afters) }*)
-                } =>
-              afters.map((before, _))
-            case other => raiseShouldNeverBeCalled(other)
-          .foldLeft(Map.empty[ConflictKey, Set[ConflictKey]]):
-            case (acc, (before, after)) =>
-              acc.updatedWith(extractKey(before)):
-                case Some(set) => Some(set + extractKey(after))
-                case None => Some(Set(extractKey(after))),
+        resolutionEdges.foldLeft(Map.empty[ConflictKey, Set[ConflictKey]]): (acc, edge) =>
+          acc.updatedWith(edge.before):
+            case Some(set) => Some(set + edge.after)
+            case None => Some(Set(edge.after)),
       ).tap: table =>
         logger.toFile(show"$parserName/conflictResolutions.dbg", true)(table)
         logger.toFile(show"$parserName/conflictResolutions.mmd", true)(table.toMermaid)
-        table.verifyNoConflicts()
+        table.verifyNoConflicts(resolutionPositions.get)
 
       val root = table
         .collectFirst:
