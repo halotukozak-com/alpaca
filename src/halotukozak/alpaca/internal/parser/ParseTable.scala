@@ -89,8 +89,6 @@ private[parser] object ParseTable:
     productions: List[Production],
     conflictResolutionTable: ConflictResolutionTable,
   ): ParseTable = {
-    // the same conflict usually shows up in several states; report each distinct one once, and all of them
-    // rather than only the first, so the user doesn't have to fix them one compilation at a time
     val reported = mutable.HashSet.empty[Set[Production] | (Symbol, Production)]
 
     def raiseReduceReduceConflict(red1: Reduction, red2: Reduction, path: List[Symbol]): Unit =
@@ -103,7 +101,7 @@ private[parser] object ParseTable:
                 |Conflicting production: ${red1.production} (line ${red1.production.source.line + 1})
                 |Consider marking one of the productions to be before or after the other
                 |""".stripMargin,
-          red2.production.source.position,
+          red2.production.source,
         )
 
     def raiseShiftReduceConflict(symbol: Symbol, red: Reduction, path: List[Symbol]): Unit =
@@ -115,7 +113,7 @@ private[parser] object ParseTable:
                 |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
                 |Consider marking production $red to be before or after "$symbol"
                 |""".stripMargin,
-          red.production.source.position,
+          red.production.source,
         )
 
     val firstSet = FirstSet(productions)
