@@ -17,15 +17,13 @@ case class Source(line: Int, file: String, start: Int, end: Int) derives MCodec,
   /**
    * The definition's position, for reporting compile errors at it.
    *
-   * Only valid during the macro expansion that created this source: grammar rules are declarations of the
-   * lexer/parser being expanded, so they live in the same file as the expansion.
+   * A position can only be rebuilt in the macro expansion's own file (reflection can't open another source file), so
+   * this is empty for a definition elsewhere, such as a `given Resolutions` declared next to, not in, the parser.
    */
-  def toPosition(using quotes: Quotes): quotes.reflect.Position =
+  def toPosition(using quotes: Quotes): Option[quotes.reflect.Position] =
     import quotes.reflect.Position
     val sourceFile = Position.ofMacroExpansion.sourceFile
-    if sourceFile.path != file then
-      throw AlgorithmError(s"Source in $file is outside the macro expansion's file ${sourceFile.path}")
-    Position(sourceFile, start, end)
+    Option.when(sourceFile.path == file)(Position(sourceFile, start, end))
 
 object Source:
   def apply(using quotes: Quotes)(pos: quotes.reflect.Position): Source =

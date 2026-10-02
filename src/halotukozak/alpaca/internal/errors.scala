@@ -39,7 +39,8 @@ private[alpaca] final val ConflictResolutionOnly = "Should never be called outsi
 private[internal] def error(using quotes: Quotes)(message: Shown, pos: quotes.reflect.Position): Unit =
   quotes.reflect.report.error(message, pos)
 private[internal] def error(using quotes: Quotes)(message: Shown, source: Source): Unit =
-  quotes.reflect.report.error(message, source.toPosition)
+  val (located, pos) = locate(message, source)
+  quotes.reflect.report.error(located, pos)
 
 /**
  * Reports a compile error at `pos` and aborts the macro expansion.
@@ -50,6 +51,17 @@ private[internal] def error(using quotes: Quotes)(message: Shown, source: Source
 private[internal] def errorAndAbort(using quotes: Quotes)(message: Shown, pos: quotes.reflect.Position): Nothing =
   quotes.reflect.report.errorAndAbort(message, pos)
 private[internal] def errorAndAbort(using quotes: Quotes)(message: Shown, source: Source): Nothing =
-  quotes.reflect.report.errorAndAbort(message, source.toPosition)
+  val (located, pos) = locate(message, source)
+  quotes.reflect.report.errorAndAbort(located, pos)
+
+/**
+ * Reports at `source` when it's in the macro expansion's file; otherwise, since its position can't be rebuilt there,
+ * at the macro expansion, with the message naming where `source` is.
+ */
+private def locate(using quotes: Quotes)(message: Shown, source: Source): (Shown, quotes.reflect.Position) =
+  source.toPosition match
+    case Some(pos) => (message, pos)
+    case None =>
+      (show"$message\n(declared at ${source.file}:${source.line + 1})", quotes.reflect.Position.ofMacroExpansion)
 
 // $COVERAGE-ON$
