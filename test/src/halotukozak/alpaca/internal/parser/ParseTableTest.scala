@@ -218,3 +218,16 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
     indirect.lineContent.trim shouldBe
       "if true then CalcLexer.`+`.before(CalcLexer.Num) else CalcLexer.Num.before(CalcLexer.`+`),"
   }
+
+  test("invalid SeparatedBy separator is reported at the separator") {
+    val separator: scala.compiletime.testing.Error = typeCheckErrors("""
+    object SeparatorParser extends Parser[CalcContext]:
+      val Num = rule:
+        case CalcLexer.Num(lexem) => lexem.value
+      val root = rule:
+        case Num.SeparatedBy[Int](items) => items
+    """).loneElement
+    separator.message should include("SeparatedBy separator must be a Token or Rule type, but got: scala.Int")
+    separator.lineContent.trim shouldBe "case Num.SeparatedBy[Int](items) => items"
+    separator.column shouldBe 29
+  }

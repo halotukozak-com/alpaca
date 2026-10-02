@@ -36,10 +36,14 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using quotes: Q
 ] = {
   import quotes.reflect.*
 
-  def symbolFromType(tpe: TypeRepr): parser.Symbol.NonEmpty = tpe.dealias.widen.asType match
+  def symbolFromType(separator: TypeTree): parser.Symbol.NonEmpty = separator.tpe.dealias.widen.asType match
     case '[type name <: ValidName; Token[name, ?, ?]] => Terminal(ValidName.from[name])
-    case '[Rule[?]] => NonTerminal(NameTransformer.decode(tpe.termSymbol.name))
-    case _ => report.errorAndAbort(show"SeparatedBy separator must be a Token or Rule type, but got: ${tpe.show}")
+    case '[Rule[?]] => NonTerminal(NameTransformer.decode(separator.tpe.termSymbol.name))
+    case _ =>
+      report.errorAndAbort(
+        show"SeparatedBy separator must be a Token or Rule type, but got: ${separator.tpe.show}",
+        separator.pos,
+      )
 
   type SymbolExtractor = PartialFunction[Tree, (name: String, bind: Option[Bind], extractor: String | Null)]
 
@@ -73,7 +77,7 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using quotes: Q
 
     val SeparatedBy: PartialFunction[Tree, (qualifier: Term, name: String, separator: parser.Symbol.NonEmpty)] =
       case TypeApply(Select(q @ Extractor.Name(name), Names.SeparatedBy), List(separator)) =>
-        (q, name, symbolFromType(separator.tpe))
+        (q, name, symbolFromType(separator))
 
     val Bind: PartialFunction[Tree, Option[Bind]] =
       case bind: Bind => Some(bind)

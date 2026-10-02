@@ -116,7 +116,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
             case '{ type tokenTpe <: lexer.Token[?, Ctx, ?]; $token: tokenTpe } =>
               (info = info, expr = '{ $token.asInstanceOf[tokenTpe & TokenRefn] }, pos = tree.pos, regex = regex)
 
-    case (_, CaseDef(_, Some(_), body)) => report.errorAndAbort("Guards are not supported yet")
+    case (_, CaseDef(_, Some(guard), _)) => report.errorAndAbort("Guards are not supported yet", guard.pos)
 
   tokens
     .groupBy(_.info.name)

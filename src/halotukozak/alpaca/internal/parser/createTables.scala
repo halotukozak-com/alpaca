@@ -143,7 +143,11 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
             extractEBNF(ruleName)(
               rhs.asExprOf[Rule[?]],
             ) // todo: or error? https://github.com/halotukozak/alpaca/issues/230
-          case other: ValOrDefDef if other.rhs.isEmpty => report.errorAndAbort("Enable -Yretain-trees compiler flag")
+          case other: ValOrDefDef if other.rhs.isEmpty =>
+            report.errorAndAbort(
+              show"Cannot read the definition of rule ${other.name}. Enable -Yretain-trees compiler flag",
+              other.pos,
+            )
           case other => raiseShouldNeverBeCalled(other)
         .toList
 
