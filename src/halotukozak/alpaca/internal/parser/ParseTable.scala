@@ -9,7 +9,7 @@ import halotukozak.mcodec.MCodec
 import scala.annotation.tailrec
 import scala.collection.immutable.SortedSet
 import scala.collection.mutable
-import scala.quoted.quotes
+import scala.quoted.runtime.StopMacroExpansion
 import scala.util.boundary
 import scala.util.boundary.break
 
@@ -83,28 +83,46 @@ private[parser] object ParseTable:
    * @param productions the grammar productions
    * @return the constructed parse table
    */
-  def apply(
+  def apply(using quotes: Quotes)(
     productions: List[Production],
     conflictResolutionTable: ConflictResolutionTable,
-  )(using Quotes,
+    positionOf: Production => Option[quotes.reflect.Position],
   ): ParseTable = {
-    def raiseReduceReduceConflict(red1: Reduction, red2: Reduction, path: List[Symbol]): Nothing =
-      quotes.reflect.report.errorAndAbort:
-        show"""
-              |Reduce $red1 vs Reduce $red2
-              |In situation like:
-              |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
-              |Consider marking one of the productions to be before or after the other
-              |""".stripMargin
+    import quotes.reflect.{report, Position}
 
-    def raiseShiftReduceConflict(symbol: Symbol, red: Reduction, path: List[Symbol]): Nothing =
-      quotes.reflect.report.errorAndAbort:
-        show"""
-              |Shift "$symbol" vs Reduce $red
-              |In situation like:
-              |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
-              |Consider marking production $red to be before or after "$symbol"
-              |""".stripMargin
+    def posOf(production: Production): Position = positionOf(production).getOrElse(Position.ofMacroExpansion)
+
+    def location(production: Production): String =
+      positionOf(production).fold("")(pos => s" (line ${pos.startLine + 1})")
+
+    // the same conflict usually shows up in several states; report each distinct one once, and all of them
+    // rather than only the first, so the user doesn't have to fix them one compilation at a time
+    val reported = mutable.HashSet.empty[Any]
+
+    def raiseReduceReduceConflict(red1: Reduction, red2: Reduction, path: List[Symbol]): Unit =
+      if reported.add(Set(red1.production, red2.production)) then
+        report.error(
+          show"""
+                |Reduce $red1 vs Reduce $red2
+                |In situation like:
+                |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
+                |Conflicting production: ${red1.production}${location(red1.production)}
+                |Consider marking one of the productions to be before or after the other
+                |""".stripMargin,
+          posOf(red2.production),
+        )
+
+    def raiseShiftReduceConflict(symbol: Symbol, red: Reduction, path: List[Symbol]): Unit =
+      if reported.add((symbol, red.production)) then
+        report.error(
+          show"""
+                |Shift "$symbol" vs Reduce $red
+                |In situation like:
+                |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
+                |Consider marking production $red to be before or after "$symbol"
+                |""".stripMargin,
+          posOf(red.production),
+        )
 
     val firstSet = FirstSet(productions)
     val productionsByLhs = productions.groupBy(_.lhs)
@@ -156,6 +174,9 @@ private[parser] object ParseTable:
 
       for (stepSymbol, targetStateId) <- automaton.goto(stateId) do addToTable(stateId, stepSymbol, Shift(targetStateId))
     }
+
+    // every conflict is already reported at its own production; abort without an extra error at the call site
+    if reported.nonEmpty then throw StopMacroExpansion()
 
     Array.better.tabulate(tableRows.length)(tableRows(_).toMap)
   }

@@ -28,6 +28,19 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
 
       val root = rule:
        case Expr(expr) => expr 
+    """).loneElement.lineContent.trim shouldBe "{ case (Expr(expr1), CalcLexer.`+`(_), Expr(expr2)) => expr1 + expr2 },"
+  }
+
+  test("parse table Shift-Reduce conflict message") {
+    typeCheckErrors("""
+    object ShiftReduceCalcParser extends Parser[CalcContext]:
+      val Expr: Rule[Int] = rule(
+        { case (Expr(expr1), CalcLexer.`+`(_), Expr(expr2)) => expr1 + expr2 },
+        { case CalcLexer.Num(lexem) => lexem.value },
+      )
+
+      val root = rule:
+       case Expr(expr) => expr 
     """).loneElement.message should
       include("""
                 |Shift "+ ($plus)" vs Reduce Expr -> Expr + ($plus) Expr
@@ -38,7 +51,7 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
   }
 
   test("parse table Reduce-Reduce conflict") {
-    typeCheckErrors("""
+    val conflict: scala.compiletime.testing.Error = typeCheckErrors("""
     object ReduceReduceCalcParser extends Parser[CalcContext]:
       val Integer = rule:
        case CalcLexer.Num(lexem) => lexem.value 
@@ -53,12 +66,35 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
 
       val root = rule:
        case Expr(expr) => expr
-    """).loneElement.message should include("""
-                                              |Reduce Float -> Num vs Reduce Integer -> Num
-                                              |In situation like:
-                                              |Num ...
-                                              |Consider marking one of the productions to be before or after the other
-                                              |""".stripMargin)
+    """).loneElement
+    conflict.message should include("""
+                                   |Reduce Float -> Num vs Reduce Integer -> Num
+                                   |In situation like:
+                                   |Num ...
+                                   |Conflicting production: Float -> Num (line 7)
+                                   |Consider marking one of the productions to be before or after the other
+                                   |""".stripMargin)
+    conflict.lineContent.trim shouldBe "case CalcLexer.Num(lexem) => lexem.value"
+  }
+
+  test("parse table reports every conflict, each at its own production") {
+    typeCheckErrors("""
+    object MultiConflictParser extends Parser[CalcContext]:
+      val Integer = rule:
+        case CalcLexer.Num(lexem) => lexem.value
+      val Float = rule:
+        case CalcLexer.Num(lexem) => lexem.value
+      val Expr: Rule[Int] = rule(
+        { case (Expr(a), CalcLexer.`+`(_), Expr(b)) => a + b },
+        { case Integer(i) => i },
+        { case Float(f) => f },
+      )
+      val root = rule:
+       case Expr(e) => e
+    """).map(e => (e.message.linesIterator.find(_.nonEmpty).get, e.lineContent.trim)) should contain theSameElementsAs List(
+      ("Shift \"+ ($plus)\" vs Reduce Expr -> Expr + ($plus) Expr", "{ case (Expr(a), CalcLexer.`+`(_), Expr(b)) => a + b },"),
+      ("Reduce Float -> Num vs Reduce Integer -> Num", "case CalcLexer.Num(lexem) => lexem.value"),
+    )
   }
 
   test("conflict resolution cycle detection") {
