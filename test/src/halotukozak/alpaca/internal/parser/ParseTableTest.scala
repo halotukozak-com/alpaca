@@ -173,3 +173,29 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
       resolutions(P(UsingParser.Expr, CalcLexer.`+`, UsingParser.Expr).before(CalcLexer.`+`))
     """) shouldBe empty
   }
+
+  test("production referenced by an ambiguous RHS is reported at the reference") {
+    val ambiguous: scala.compiletime.testing.Error = typeCheckErrors("""
+    object AmbiguousParser extends Parser[CalcContext]:
+      val Integer = rule:
+        case CalcLexer.Num(lexem) => lexem.value
+      val Float = rule:
+        case CalcLexer.Num(lexem) => lexem.value
+      val Num = rule(
+        { case Integer(i) => i },
+        { case Float(f) => f },
+      )
+      val root = rule:
+       case Num(n) => n
+
+    given Resolutions[AmbiguousParser.type] = resolutions(
+      P(CalcLexer.Num).before(P(AmbiguousParser.Integer)),
+    )
+    """).loneElement
+    ambiguous.message should include("""Production with RHS 'Num' is ambiguous, it matches:
+                                        |  Integer -> Num
+                                        |  Float -> Num
+                                        |""".stripMargin)
+    ambiguous.lineContent.trim shouldBe "P(CalcLexer.Num).before(P(AmbiguousParser.Integer)),"
+    ambiguous.column shouldBe 7 // the point of `P(...)` is its argument list
+  }

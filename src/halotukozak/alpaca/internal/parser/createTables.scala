@@ -172,7 +172,8 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
           case p if p.name != null => (p.name, p)
         .toMap
 
-      val productionsByRhs = productions.iterator.map(p => (p.rhs, p)).toMap
+      // several rules can share a right-hand side, so a lookup by RHS alone may be ambiguous
+      val productionsByRhs = productions.groupBy(_.rhs)
 
       def findProduction(call: Expr[Production]): Production = call match {
         case '{ ($_ : ProductionSelector).selectDynamic(${ Expr(name) }).$asInstanceOf$[i] } =>
@@ -189,10 +190,16 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
               case '{ type name <: ValidName; $_ : Token[name, ?, ?] } => Terminal(ValidName.from[name])
             .toList
 
-          productionsByRhs.getOrElse(
-            NEL.unsafe(args),
-            report.errorAndAbort(show"Production with RHS '${args.mkShow(" ")}' not found", call),
-          )
+          productionsByRhs.getOrElse(NEL.unsafe(args), Nil) match
+            case production :: Nil => production
+            case Nil => report.errorAndAbort(show"Production with RHS '${args.mkShow(" ")}' not found", call)
+            case candidates =>
+              report.errorAndAbort(
+                show"""Production with RHS '${args.mkShow(" ")}' is ambiguous, it matches:
+                      |${candidates.mkShow("  ", "\n  ", "")}
+                      |Name the production you mean and refer to it with `production.<name>`""".stripMargin,
+                call,
+              )
 
         case definition => raiseShouldNeverBeCalled(definition)
       }
