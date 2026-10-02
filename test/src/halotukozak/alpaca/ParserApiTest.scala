@@ -1,6 +1,7 @@
 package halotukozak
 package alpaca
 
+import halotukozak.alpaca.internal.lexer.Lexeme
 import halotukozak.alpaca.internal.parser.Parser
 import halotukozak.alpaca.{ctx, lexer, resolutions, rule, ParserCtx, Production, Resolutions, Rule, Token}
 import org.scalatest.funsuite.AnyFunSuite
@@ -96,6 +97,57 @@ final class ParserApiTest extends AnyFunSuite with Matchers:
 
     CalcApiParser.parse(CalcLexer.tokenize("a(2+3,4+5)").lexemes) should matchPattern:
       case (_, ("a", Some(Seq(5, 9)))) =>
+  }
+
+  test("ebnf Option on a token") {
+    object TokenOptionParser extends Parser[CalcContext]:
+      val root = rule:
+        case (CalcLexer.NUMBER.Option(number), CalcLexer.ID(id)) => (id.value, number.map(_.value))
+
+    TokenOptionParser.parse(CalcLexer.tokenize("a").lexemes) should matchPattern:
+      case (_, ("a", None)) =>
+
+    TokenOptionParser.parse(CalcLexer.tokenize("1 a").lexemes) should matchPattern:
+      case (_, ("a", Some(1))) =>
+  }
+
+  test("ebnf Option on a token as the whole pattern") {
+    object LoneTokenOptionParser extends Parser[CalcContext]:
+      // returns values rather than lexemes: a rule typed by a lexeme (`Rule[CalcLexer.NUMBER.LexemeTpe]`)
+      // crashes the compiler's -Wsafe-init checker, independently of EBNF
+      val root = rule:
+        case CalcLexer.NUMBER.Option(number) => number.map(_.value)
+
+    LoneTokenOptionParser.parse(CalcLexer.tokenize("").lexemes) should matchPattern:
+      case (_, None) =>
+
+    LoneTokenOptionParser.parse(CalcLexer.tokenize("7").lexemes) should matchPattern:
+      case (_, Some(7)) =>
+  }
+
+  test("ebnf List on a token") {
+    object TokenListParser extends Parser[CalcContext]:
+      val root = rule:
+        case (CalcLexer.NUMBER.List(numbers), CalcLexer.ID(id)) => (id.value, numbers.map(_.value))
+
+    TokenListParser.parse(CalcLexer.tokenize("a").lexemes) should matchPattern:
+      case (_, ("a", Nil)) =>
+
+    TokenListParser.parse(CalcLexer.tokenize("1 2 3 a").lexemes) should matchPattern:
+      case (_, ("a", List(1, 2, 3))) =>
+  }
+
+  test("ebnf SeparatedBy on a token") {
+    object TokenSeparatedByParser extends Parser[CalcContext]:
+      val root = rule:
+        case (CalcLexer.`\\(`(_), CalcLexer.NUMBER.SeparatedBy[CalcLexer.COMMA](items), CalcLexer.`\\)`(_)) =>
+          items.collect { case lexeme: Lexeme[?, ?] if lexeme.name == "NUMBER" => lexeme.value }
+
+    TokenSeparatedByParser.parse(CalcLexer.tokenize("()").lexemes) should matchPattern:
+      case (_, Nil) =>
+
+    TokenSeparatedByParser.parse(CalcLexer.tokenize("(1, 2, 3)").lexemes) should matchPattern:
+      case (_, List(1, 2, 3)) =>
   }
 
   test("api") {

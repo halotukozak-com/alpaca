@@ -71,24 +71,27 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using quotes: Q
       case Apply(q @ Extractor.Name(extractor), List(Extractor.Name(name))) => (q, name, extractor)
       case q @ Extractor.Name(name) => (q, name, null)
 
-    val SeparatedBy: PartialFunction[Tree, (qualifier: Term, name: String, separator: parser.Symbol.NonEmpty)] =
+    val SeparatedBy: PartialFunction[Tree, (element: parser.Symbol.NonEmpty, separator: parser.Symbol.NonEmpty)] =
       case TypeApply(Select(q @ Extractor.Name(name), Names.SeparatedBy), List(separator)) =>
-        (q, name, symbolFromType(separator.tpe))
+        val decoded = NameTransformer.decode(name)
+        val element: parser.Symbol.NonEmpty =
+          if q.tpe <:< TypeRepr.of[Token[?, ?, ?]] then parser.Terminal(decoded) else parser.NonTerminal(decoded)
+        (element, symbolFromType(separator.tpe))
 
     val Bind: PartialFunction[Tree, Option[Bind]] =
       case bind: Bind => Some(bind)
       case Ident("_") => None
 
-    val Symbol: SymbolExtractor =
-      case Extractor.Terminal(name, bind, extractor) => (name, bind, extractor)
-      case Extractor.NonTerminal(name, bind, extractor) => (name, bind, extractor)
+    val Symbol: PartialFunction[Tree, (symbol: parser.Symbol.NonEmpty, bind: Option[Bind], extractor: String | Null)] =
+      case Extractor.Terminal(name, bind, extractor) => (parser.Terminal(name), bind, extractor)
+      case Extractor.NonTerminal(name, bind, extractor) => (parser.NonTerminal(name), bind, extractor)
 
   {
     case skipTypedOrTest(
-          Unapply(Select(Extractor.SeparatedBy(_, name, separator), Names.Unapply), Nil, List(Extractor.Bind(bind))),
+          Unapply(Select(Extractor.SeparatedBy(element, separator), Names.Unapply), Nil, List(Extractor.Bind(bind))),
         ) =>
-      val fresh = NonTerminal.fresh(name)
-      val nonEmpty = NonTerminal.fresh(show"${name}_nonEmpty")
+      val fresh = NonTerminal.fresh(element.name)
+      val nonEmpty = NonTerminal.fresh(show"${element.name}_nonEmpty")
       (
         symbol = fresh,
         bind = bind,
@@ -102,11 +105,11 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using quotes: Q
             action = '{ identityAction },
           ),
           (
-            production = Production.NonEmpty(nonEmpty, NEL(NonTerminal(name))),
+            production = Production.NonEmpty(nonEmpty, NEL(element)),
             action = '{ headAction },
           ),
           (
-            production = Production.NonEmpty(nonEmpty, NEL(nonEmpty, separator, NonTerminal(name))),
+            production = Production.NonEmpty(nonEmpty, NEL(nonEmpty, separator, element)),
             action = '{ separatedByAction },
           ),
         ),
@@ -118,29 +121,29 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using quotes: Q
     case Extractor.Terminal(name, bind, null) =>
       (symbol = Terminal(name), bind = bind, others = Nil)
 
-    case Extractor.Symbol(name, bind, Names.Option) =>
-      val fresh = NonTerminal.fresh(name)
+    case Extractor.Symbol(symbol, bind, Names.Option) =>
+      val fresh = NonTerminal.fresh(symbol.name)
       (
         symbol = fresh,
         bind = bind,
         others = List(
           (production = Production.Empty(fresh), action = '{ noneAction }),
           (
-            production = Production.NonEmpty(fresh, NEL(NonTerminal(name))),
+            production = Production.NonEmpty(fresh, NEL(symbol)),
             action = '{ someAction },
           ),
         ),
       )
 
-    case Extractor.Symbol(name, bind, Names.List) =>
-      val fresh = NonTerminal.fresh(name)
+    case Extractor.Symbol(symbol, bind, Names.List) =>
+      val fresh = NonTerminal.fresh(symbol.name)
       (
         symbol = fresh,
         bind = bind,
         others = List(
           (production = Production.Empty(fresh), action = '{ emptyRepeatedAction }),
           (
-            production = Production.NonEmpty(fresh, NEL(fresh, NonTerminal(name))),
+            production = Production.NonEmpty(fresh, NEL(fresh, symbol)),
             action = '{ repeatedAction },
           ),
         ),
