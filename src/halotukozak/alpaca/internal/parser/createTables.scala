@@ -199,16 +199,17 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
           )
       }
 
-      var givenResolutions: Expr[Resolutions[p] | Null] = '{ null }
+      val givenResolutions: Option[Term] = Implicits.search(TypeRepr.of[Resolutions[p]]) match
+        case _: NoMatchingImplicits => None
+        case failure: ImplicitSearchFailure => errorAndAbort(failure.explanation, Position.ofMacroExpansion)
+        case success: ImplicitSearchSuccess => Some(success.tree)
 
       // a missing given just means no resolutions; any other failure to read them is reported where they're defined,
       // since silently ignoring them would surface later as a seemingly unresolved conflict
-      val resolutionExprs = Implicits.search(TypeRepr.of[Resolutions[p]]) match {
-        case _: NoMatchingImplicits => Nil
-        case failure: ImplicitSearchFailure => errorAndAbort(failure.explanation, Position.ofMacroExpansion)
-        case success: ImplicitSearchSuccess =>
-          givenResolutions = success.tree.asExprOf[Resolutions[p]]
-          val givenSymbol = success.tree.symbol
+      val resolutionExprs = givenResolutions match {
+        case None => Nil
+        case Some(givenRef) =>
+          val givenSymbol = givenRef.symbol
 
           def unsupported(pos: Position): Nothing = errorAndAbort(
             show"""Cannot read the conflict resolutions of $parserName.
@@ -283,12 +284,16 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
         table.map:
           case (production, action) => Expr.ofTuple(Expr(production) -> action)
 
+      // referenced only to avoid an unused-implicit warning; kept lazy and never forced,
+      // since eagerly forcing it here (during Tables[Ctx] construction, i.e. during the
+      // parser object's own <init>) would deadlock against `given Resolutions[P]` instances
+      // that refer back to the parser object (e.g. via `Production(MyParser.SomeRule, ...)`)
+      val referenceGivenResolutions: Expr[Unit] = givenResolutions match
+        case Some(givenRef) => '{ lazy val _ = ${ givenRef.asExprOf[Resolutions[p]] } }
+        case None => '{ () }
+
       '{
-        // referenced only to avoid an unused-implicit warning; kept lazy and never forced,
-        // since eagerly forcing it here (during Tables[Ctx] construction, i.e. during the
-        // parser object's own <init>) would deadlock against `given Resolutions[P]` instances
-        // that refer back to the parser object (e.g. via `Production(MyParser.SomeRule, ...)`)
-        lazy val _ = $givenResolutions
+        $referenceGivenResolutions
         ($parseTable.asInstanceOf[ParseTable], ActionTable($actionTable.toMap))
       }
   }
