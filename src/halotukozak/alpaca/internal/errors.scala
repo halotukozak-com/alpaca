@@ -38,6 +38,8 @@ private[alpaca] final val ConflictResolutionOnly = "Should never be called outsi
  */
 private[internal] def error(using quotes: Quotes)(message: Shown, pos: quotes.reflect.Position): Unit =
   quotes.reflect.report.error(message, pos)
+private[internal] def error(using quotes: Quotes)(message: Shown, source: Source): Unit =
+  quotes.reflect.report.error(message, source.toPosition)
 
 /**
  * Reports a compile error at `pos` and aborts the macro expansion.
@@ -47,5 +49,7 @@ private[internal] def error(using quotes: Quotes)(message: Shown, pos: quotes.re
  */
 private[internal] def errorAndAbort(using quotes: Quotes)(message: Shown, pos: quotes.reflect.Position): Nothing =
   quotes.reflect.report.errorAndAbort(message, pos)
+private[internal] def errorAndAbort(using quotes: Quotes)(message: Shown, source: Source): Nothing =
+  quotes.reflect.report.errorAndAbort(message, source.toPosition)
 
 // $COVERAGE-ON$

@@ -20,7 +20,7 @@ case class Source(line: Int, file: String, start: Int, end: Int) derives MCodec,
    * Only valid during the macro expansion that created this source: grammar rules are declarations of the
    * lexer/parser being expanded, so they live in the same file as the expansion.
    */
-  def position(using quotes: Quotes): quotes.reflect.Position =
+  def toPosition(using quotes: Quotes): quotes.reflect.Position =
     import quotes.reflect.Position
     val sourceFile = Position.ofMacroExpansion.sourceFile
     if sourceFile.path != file then
