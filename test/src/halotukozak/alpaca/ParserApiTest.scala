@@ -1,6 +1,7 @@
 package halotukozak
 package alpaca
 
+import halotukozak.alpaca.internal.lexer.Lexeme
 import halotukozak.alpaca.internal.parser.Parser
 import halotukozak.alpaca.{ctx, lexer, resolutions, rule, ParserCtx, Production, Resolutions, Rule, Token}
 import org.scalatest.funsuite.AnyFunSuite
@@ -118,6 +119,16 @@ final class ParserApiTest extends AnyFunSuite with Matchers:
 
     ApiParser.parse(CalcLexer.tokenize("1,,3").lexemes) should matchPattern:
       case (_, (1, None, List(3))) =>
+  }
+
+  test("a rule can return a lexeme") {
+    // a parser local to a method used to crash the compiler's -Wsafe-init checker on the lexeme's type (#605)
+    object LexemeParser extends Parser[CalcContext]:
+      val root = rule:
+        case CalcLexer.NUMBER(n) => n
+
+    LexemeParser.parse(CalcLexer.tokenize("42").lexemes).result should matchPattern:
+      case lexeme: Lexeme[?, ?] if lexeme.value == 42 && lexeme.text == "42" =>
   }
 
   test("parse error") {

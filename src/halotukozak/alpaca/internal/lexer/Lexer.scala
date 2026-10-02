@@ -20,14 +20,12 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
 ): Expr[Tokenization[Ctx] { type LexemeFields = lexemeFields }] = {
   import quotes.reflect.*
 
-  type TokenRefn = lexer.Token[?, Ctx, ?] { type LexemeTpe = Lexeme[?, ?] withFields lexemeFields }
-
   val Lambda(oldCtx :: Nil, Lambda(_, Match(_, cases: List[CaseDef]))) = rules.asTerm.underlying.runtimeChecked
 
   if cases.isEmpty then errorAndAbort("Lexer definition must contain at least one case", rules.asTerm.pos)
 
   val tokens = cases.foldLeft(
-    List.empty[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?] & TokenRefn], pos: Position, regex: Regex)],
+    List.empty[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], pos: Position, regex: Regex)],
   ):
     case (acc, CaseDef(tree, None, body)) =>
       def replaceWithNewCtx(newCtx: Term) = replaceRefs(
@@ -55,7 +53,13 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
             case ('[type name <: ValidName; name], tokenInfo, regex) =>
               (
                 info = tokenInfo,
-                expr = '{ DefinedToken[name, Ctx, Unit](${ Expr(tokenInfo) }, $ctxManipulation, _ => ()) },
+                expr = '{
+                  DefinedToken[name, Ctx, Unit, Lexeme[name, Unit] withFields lexemeFields](
+                    ${ Expr(tokenInfo) },
+                    $ctxManipulation,
+                    _ => (),
+                  )
+                },
                 regex = regex,
               )
             case other =>
@@ -66,7 +70,13 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
             case ('[type name <: ValidName; name], tokenInfo, regex) =>
               (
                 info = tokenInfo,
-                expr = '{ DefinedToken[name, Ctx, String](${ Expr(tokenInfo) }, $ctxManipulation, _.lastRawMatched) },
+                expr = '{
+                  DefinedToken[name, Ctx, String, Lexeme[name, String] withFields lexemeFields](
+                    ${ Expr(tokenInfo) },
+                    $ctxManipulation,
+                    _.lastRawMatched,
+                  )
+                },
                 regex = regex,
               )
             case other =>
@@ -84,7 +94,13 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
                       rewriteCtxMutations(newCtx.symbol)(withNewCtx)(methSym)
                   (
                     info = tokenInfo,
-                    expr = '{ DefinedToken[name, Ctx, result](${ Expr(tokenInfo) }, $ctxManipulation, $remapping) },
+                    expr = '{
+                      DefinedToken[name, Ctx, result, Lexeme[name, result] withFields lexemeFields](
+                        ${ Expr(tokenInfo) },
+                        $ctxManipulation,
+                        $remapping,
+                      )
+                    },
                     regex = regex,
                   )
             case (_, tokenInfo, _) =>
@@ -110,11 +126,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
         .getOrElse:
           raiseShouldNeverBeCalled[List[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Regex)]](body)
 
-      acc ::: pairs.map:
-        case (info, expr, regex) =>
-          expr match
-            case '{ type tokenTpe <: lexer.Token[?, Ctx, ?]; $token: tokenTpe } =>
-              (info = info, expr = '{ $token.asInstanceOf[tokenTpe & TokenRefn] }, pos = tree.pos, regex = regex)
+      acc ::: pairs.map((info, expr, regex) => (info = info, expr = expr, pos = tree.pos, regex = regex))
 
     case (_, CaseDef(_, Some(guard), _)) => errorAndAbort("Guards are not supported yet", guard.pos)
 
