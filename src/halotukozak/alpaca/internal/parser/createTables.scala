@@ -6,6 +6,7 @@ package parser
 import halotukozak.alpaca.internal.Csv.toCsv
 import halotukozak.alpaca.internal.lexer.Token
 
+import scala.collection.immutable.VectorMap
 import scala.reflect.NameTransformer
 
 /**
@@ -232,7 +233,7 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
         case '{ $_ : Token[name, ?, ?] } => ConflictKey(ValidName.from[name])
 
       // each rule remembers the `.before(...)`/`.after(...)` argument it came from, so errors about it can point there;
-      // a rule declared more than once keeps its first declaration
+      // kept in declaration order, so a cycle is searched from the first declared rule and reported at the one closing it
       val conflictResolutionTable = ConflictResolutionTable(
         resolutionExprs.iterator
           .flatMap:
@@ -247,11 +248,9 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
                 "Each conflict resolution must be a direct `x.before(...)` or `x.after(...)` call",
                 other.asTerm.pos,
               )
-          .foldLeft(Map.empty[ConflictKey, Map[ConflictKey, Source]]):
-            case (acc, (before, after, source)) =>
-              acc.updatedWith(before): afters =>
-                val known = afters.getOrElse(Map.empty)
-                Some(if known.contains(after) then known else known.updated(after, source)),
+          .foldLeft(VectorMap.empty[ConflictKey, Map[ConflictKey, Source]]):
+            case (table, (before, after, source)) =>
+              table + (before -> (table.getOrElse(before, VectorMap.empty) + (after -> source))),
       ).tap: table =>
         logger.toFile(show"$parserName/conflictResolutions.dbg", true)(table)
         logger.toFile(show"$parserName/conflictResolutions.mmd", true)(table.toMermaid)
