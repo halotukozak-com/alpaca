@@ -104,6 +104,7 @@ private[parser] object ConflictResolutionTable:
           visited(node) match
             case VisitState.Processed => loop(rest)
             case VisitState.Visited =>
+              // $COVERAGE-OFF$
               errorAndAbort(
                 show"""
                       |Inconsistent conflict resolution detected:
@@ -113,6 +114,7 @@ private[parser] object ConflictResolutionTable:
                       |""".stripMargin,
                 table(path.head)(node),
               )
+            // $COVERAGE-ON$
             case VisitState.Unvisited =>
               visited(node) = VisitState.Visited
               val neighbors = table.getOrElse(node, Map.empty).keys.map(Action.Enter(_, node :: path)).toList
