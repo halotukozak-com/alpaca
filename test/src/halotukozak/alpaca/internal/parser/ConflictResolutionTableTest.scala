@@ -22,7 +22,7 @@ final class ConflictResolutionTableTest extends AnyFunSuite with Matchers:
   test("toMermaid assigns safe unique IDs for productions and tokens") {
 
     val table = ConflictResolutionTable(
-      Map(ConflictKey(prodA) -> Set(ConflictKey(tokenX))),
+      Map(ConflictKey(prodA) -> Map(ConflictKey(tokenX) -> TestSource)),
     )
     val output = table.toMermaid
     // Production gets P_ prefix, token gets T_ prefix
@@ -39,7 +39,7 @@ final class ConflictResolutionTableTest extends AnyFunSuite with Matchers:
   test("toMermaid emits node declarations with human-readable labels") {
 
     val table = ConflictResolutionTable(
-      Map(ConflictKey(prodA) -> Set(ConflictKey(tokenX))),
+      Map(ConflictKey(prodA) -> Map(ConflictKey(tokenX) -> TestSource)),
     )
     val output = table.toMermaid
     output should include(show"A -> a")
@@ -49,7 +49,7 @@ final class ConflictResolutionTableTest extends AnyFunSuite with Matchers:
   test("toMermaid emits edge declarations") {
 
     val table = ConflictResolutionTable(
-      Map(ConflictKey(prodA) -> Set(ConflictKey(tokenX))),
+      Map(ConflictKey(prodA) -> Map(ConflictKey(tokenX) -> TestSource)),
     )
     val output = table.toMermaid
     output should include("-->")
@@ -61,8 +61,8 @@ final class ConflictResolutionTableTest extends AnyFunSuite with Matchers:
 
     val table = ConflictResolutionTable(
       Map(
-        ConflictKey(prodA) -> Set(ConflictKey(tokenX), ConflictKey(tokenY)),
-        ConflictKey(prodB) -> Set(ConflictKey(tokenX)),
+        ConflictKey(prodA) -> Map(ConflictKey(tokenX) -> TestSource, ConflictKey(tokenY) -> TestSource),
+        ConflictKey(prodB) -> Map(ConflictKey(tokenX) -> TestSource),
       ),
     )
     val first = table.toMermaid
@@ -74,7 +74,7 @@ final class ConflictResolutionTableTest extends AnyFunSuite with Matchers:
 
     val prodWithQuote = Production.NonEmpty(NonTerminal("A\"B"), NEL(Terminal("a")), source = TestSource)
     val table = ConflictResolutionTable(
-      Map(ConflictKey(prodWithQuote) -> Set.empty),
+      Map(ConflictKey(prodWithQuote) -> Map.empty),
     )
     val output = table.toMermaid
     output should include("\\\"")
@@ -84,7 +84,7 @@ final class ConflictResolutionTableTest extends AnyFunSuite with Matchers:
 
     val prodWithBackslash = Production.NonEmpty(NonTerminal("A\\B"), NEL(Terminal("a")), source = TestSource)
     val table = ConflictResolutionTable(
-      Map(ConflictKey(prodWithBackslash) -> Set.empty),
+      Map(ConflictKey(prodWithBackslash) -> Map.empty),
     )
     val output = table.toMermaid
     output should include("\\\\")
@@ -94,7 +94,7 @@ final class ConflictResolutionTableTest extends AnyFunSuite with Matchers:
 
     val prodWithNewline = Production.NonEmpty(NonTerminal("A\nB"), NEL(Terminal("a")), source = TestSource)
     val table = ConflictResolutionTable(
-      Map(ConflictKey(prodWithNewline) -> Set.empty),
+      Map(ConflictKey(prodWithNewline) -> Map.empty),
     )
     val output = table.toMermaid
     // header + 1 node line = 2 lines; if the newline in the label were not escaped,
@@ -109,8 +109,8 @@ final class ConflictResolutionTableTest extends AnyFunSuite with Matchers:
 
     val table = ConflictResolutionTable(
       Map(
-        ConflictKey(prodA) -> Set(ConflictKey(tokenX)),
-        ConflictKey(prodB) -> Set(ConflictKey(tokenY)),
+        ConflictKey(prodA) -> Map(ConflictKey(tokenX) -> TestSource),
+        ConflictKey(prodB) -> Map(ConflictKey(tokenY) -> TestSource),
       ),
     )
     val lines = table.toMermaid.linesIterator.toList
@@ -128,7 +128,7 @@ final class ConflictResolutionTableTest extends AnyFunSuite with Matchers:
 
     // tokenX appears only as a target, not as a key in the table
     val table = ConflictResolutionTable(
-      Map(ConflictKey(prodA) -> Set(ConflictKey(tokenX))),
+      Map(ConflictKey(prodA) -> Map(ConflictKey(tokenX) -> TestSource)),
     )
     val output = table.toMermaid
     output should include("Token(X)")

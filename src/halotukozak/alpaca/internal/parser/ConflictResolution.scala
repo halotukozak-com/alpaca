@@ -27,10 +27,10 @@ private[parser] object ConflictKey:
 /**
  * Opaque type representing a table of conflict resolution rules.
  *
- * This maps each production/token to a set of productions/tokens that it has
- * precedence over.
+ * This maps each production/token to the productions/tokens that it has precedence over, each with the source of the
+ * rule that declared it.
  */
-opaque private[parser] type ConflictResolutionTable = Map[ConflictKey, Set[ConflictKey]]
+opaque private[parser] type ConflictResolutionTable = Map[ConflictKey, Map[ConflictKey, Source]]
 
 private[parser] object ConflictResolutionTable:
 
@@ -40,7 +40,7 @@ private[parser] object ConflictResolutionTable:
    * @param resolutions the resolution map
    * @return a new ConflictResolutionTable
    */
-  def apply(resolutions: Map[ConflictKey, Set[ConflictKey]]): ConflictResolutionTable = resolutions
+  def apply(resolutions: Map[ConflictKey, Map[ConflictKey, Source]]): ConflictResolutionTable = resolutions
 
   extension (table: ConflictResolutionTable) {
 
@@ -71,7 +71,7 @@ private[parser] object ConflictResolutionTable:
           case Some(`to`) => Some(first)
           case Some(head) if visited contains head => loop(visited)
           case Some(head) =>
-            table.get(head).foreach(queue.appendAll)
+            table.get(head).foreach(afters => queue.appendAll(afters.keys))
             loop(visited + head)
 
         loop(Set.empty)
@@ -80,18 +80,8 @@ private[parser] object ConflictResolutionTable:
       winsOver(first, second).orElse(winsOver(second, first))
     }
 
-    /**
-     * Fails compilation if the before/after rules form a cycle.
-     *
-     * @param positionOf where the rule `before -> after` was declared; the error points at the rule closing the cycle
-     */
-    def verifyNoConflicts(
-      using quotes: Quotes,
-    )(
-      positionOf: Map[(ConflictKey, ConflictKey), quotes.reflect.Position],
-    ): Unit = {
+    def verifyNoConflicts()(using Quotes): Unit = {
       import ConflictKey.given
-      import quotes.reflect.*
 
       enum VisitState:
         case Unvisited, Visited, Processed
@@ -121,11 +111,11 @@ private[parser] object ConflictResolutionTable:
                       |There are elements being both before and after $node at the same time.
                       |Consider revising the before/after rules to eliminate cycles
                       |""".stripMargin,
-                path.headOption.flatMap(parent => positionOf.get((parent, node))).getOrElse(Position.ofMacroExpansion),
+                table(path.head)(node),
               )
             case VisitState.Unvisited =>
               visited(node) = VisitState.Visited
-              val neighbors = table.getOrElse(node, Set.empty).map(Action.Enter(_, node :: path)).toList
+              val neighbors = table.getOrElse(node, Map.empty).keys.map(Action.Enter(_, node :: path)).toList
               loop(neighbors ::: List(Action.Leave(node)) ::: rest)
       }
 
@@ -164,12 +154,12 @@ private[parser] object ConflictResolutionTable:
         case p: Production => show"$p"
         case s: String => show"Token($s)"
 
-      val nodes = (table.keySet ++ table.values.flatten).toList.sortBy(nodeLabel)
+      val nodes = (table.keySet ++ table.values.flatMap(_.keys)).toList.sortBy(nodeLabel)
       for node <- nodes do sb.append(s"  ${nodeId(node)}[\"${escapeLabel(nodeLabel(node))}\"]\n")
 
       for
-        (from, toSet) <- table.toList.sortBy { case (fromKey, _) => nodeLabel(fromKey) }
-        to <- toSet.toList.sortBy(nodeLabel)
+        (from, afters) <- table.toList.sortBy { case (fromKey, _) => nodeLabel(fromKey) }
+        to <- afters.keys.toList.sortBy(nodeLabel)
       do sb.append(s"  ${nodeId(from)} --> ${nodeId(to)}\n")
 
       sb.toString
@@ -185,6 +175,6 @@ private[parser] object ConflictResolutionTable:
       case s: String => show"Token[$s]"
 
     table
-      .map((k, v) => show"$k before ${v.mkShow(", ")}")
+      .map((k, v) => show"$k before ${v.keys.mkShow(", ")}")
       .mkShow("\n")
   }
