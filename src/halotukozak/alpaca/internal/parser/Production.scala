@@ -25,7 +25,8 @@ private[alpaca] enum Production(val rhs: NEL[Symbol.NonEmpty] | Symbol.Empty.typ
   /** An optional name for the production. */
   val name: ValidName | Null
 
-  val source: Source | Null
+  /** Where the production is defined; desugared and synthetic productions point at what they stand for. */
+  val source: Source
 
   /**
    * Caches the case-class-derived hash instead of recomputing it on every call. `rhs` is a
@@ -53,13 +54,13 @@ private[alpaca] enum Production(val rhs: NEL[Symbol.NonEmpty] | Symbol.Empty.typ
     lhs: NonTerminal & Symbol.NonEmpty,
     override val rhs: NEL[Symbol.NonEmpty],
     name: ValidName | Null = null,
-    source: Source | Null = null,
+    source: Source,
   ) extends Production(rhs)
 
   case Empty(
     lhs: NonTerminal,
     name: ValidName | Null = null,
-    source: Source | Null = null,
+    source: Source,
   ) extends Production(Symbol.Empty)
 
 private[alpaca] object Production:
@@ -78,7 +79,7 @@ private[alpaca] object Production:
 
   // NonEmpty/Empty share one flat shape rather than a tagged union; rhs.isEmpty distinguishes them.
   given MCodec[Production] = MCodec
-    .derived[(lhs: String, rhs: List[Symbol], name: String | Null, source: Source | Null)]
+    .derived[(lhs: String, rhs: List[Symbol], name: String | Null, source: Source)]
     .transform(
       onWrite = {
         case NonEmpty(lhs, rhs, name, source) => (lhs = lhs.name, rhs = rhs.toList, name = name, source = source)

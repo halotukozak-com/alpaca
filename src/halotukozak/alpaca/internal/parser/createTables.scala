@@ -69,7 +69,7 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
       val exportName = exportId(parserName)
 
       def extractEBNF(ruleName: String)
-        : PartialFunction[Expr[Rule[?]], Seq[(production: Production, action: Expr[Action[Ctx]], pos: Position)]] = {
+        : PartialFunction[Expr[Rule[?]], Seq[(production: Production, action: Expr[Action[Ctx]])]] = {
         case '{ rule(${ Varargs(cases) }*) } =>
           def createAction(binds: Seq[Option[Bind]], rhs: Term) = createLambda[Action[Ctx]]:
             case (methSym, (ctx: Term) :: (param: Term) :: Nil) =>
@@ -116,8 +116,7 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
                 val (symbol, bind, others) = extractEBNFAndAction[Ctx](pattern)
                 val source = Source(c.pos)
                 val production = Production.NonEmpty(NonTerminal(ruleName), NEL(symbol), name, source)
-                (production = production, action = createAction(List(bind), rhs), pos = c.pos) ::
-                  others.map((production, action) => (production = production, action = action, pos = pattern.pos))
+                (production = production, action = createAction(List(bind), rhs)) :: others
 
               // TupleN, N > 1
               case (c @ CaseDef(skipTypedOrTest(Unapply(_, _, patterns)), None, rhs), name) =>
@@ -125,10 +124,7 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
                 val source = Source(c.pos)
                 val production =
                   Production.NonEmpty(NonTerminal(ruleName), NEL(symbols.head, symbols.tail*), name, source)
-                // EBNF-desugared helper productions (Option/List/SeparatedBy) point at the pattern they came from
-                val desugared = patterns.lazyZip(others).flatMap: (pattern, generated) =>
-                  generated.map((production, action) => (production = production, action = action, pos = pattern.pos))
-                (production = production, action = createAction(binds, rhs), pos = c.pos) :: desugared
+                (production = production, action = createAction(binds, rhs)) :: others.flatten
               case other => raiseShouldNeverBeCalled(other)
             .toList
       }
@@ -136,7 +132,7 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
       val rules = parserTpe.typeSymbol.declarations.iterator.collect:
         case decl if decl.typeRef <:< TypeRepr.of[Rule[?]] => decl.tree // todo: can we avoid .tree?
 
-      val definitions = rules
+      val table = rules
         .flatMap:
           case ValDef(ruleName, _, Some(rhs)) => extractEBNF(ruleName)(rhs.asExprOf[Rule[?]])
           case DefDef(ruleName, _, _, Some(rhs)) =>
@@ -150,13 +146,6 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
             )
           case other => raiseShouldNeverBeCalled(other)
         .toList
-
-      // where each production is defined, so grammar errors (e.g. conflicts) point at the offending rule
-      // instead of the macro expansion site, which is the `extends Parser[...]` clause
-      val positions = definitions.iterator.map(d => (d.production, d.pos)).toMap
-
-      val table = definitions
-        .map(d => (production = d.production, action = d.action))
         .tap: table =>
           // csv may be not the best format for this due to the commas
           logger.toFile(show"$parserName/actionTable.dbg.csv", true)(table.toCsv)
@@ -284,11 +273,13 @@ private def createTablesImpl[Ctx <: ParserCtx: Type](
             Position.ofMacroExpansion,
           )
 
+      // the synthetic start production stands for the root rule
+      val start = Production.NonEmpty(parser.Symbol.Start, NEL(root.lhs), source = root.source)
+
       val parseTable = Expr:
         ParseTable(
-          Production.NonEmpty(parser.Symbol.Start, NEL(root.lhs)) :: table.map(_.production),
+          start :: table.map(_.production),
           conflictResolutionTable,
-          positions.get,
         ).tap: parseTable =>
           logger.toFile(s"$parserName/parseTable.dbg.csv", true)(parseTable.toCsv)
         .tap(JsonExport.maybeWrite(exportName, "table", _))

@@ -55,9 +55,9 @@ private inline fun <reified T> readVersioned(text: String): VersionedExport<T> {
 }
 
 /** The location of a lexer/parser rule as written in the grammar's own source, exported nested
- *  under a `"source"` key (see `Source` in the alpaca library); absent/`null` for a rule with no
- *  source of its own -- a production synthesized from EBNF sugar (`List`/`Option`/`SeparatedBy`)
- *  rather than written directly in the grammar. */
+ *  under a `"source"` key (see `Source` in the alpaca library). Productions synthesized from EBNF
+ *  sugar (`List`/`Option`/`SeparatedBy`) point at the pattern they come from; absent/`null` only in
+ *  exports from library versions that left them without a source. */
 @Serializable
 data class SourceLocation(
     val line: Int,

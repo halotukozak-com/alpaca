@@ -83,21 +83,15 @@ private[parser] object ParseTable:
    * @param productions the grammar productions
    * @return the constructed parse table
    */
-  def apply(using quotes: Quotes)(
+  def apply(
+    using quotes: Quotes,
+  )(
     productions: List[Production],
     conflictResolutionTable: ConflictResolutionTable,
-    positionOf: Production => Option[quotes.reflect.Position],
   ): ParseTable = {
-    import quotes.reflect.Position
-
-    def posOf(production: Production): Position = positionOf(production).getOrElse(Position.ofMacroExpansion)
-
-    def location(production: Production): String =
-      positionOf(production).fold("")(pos => s" (line ${pos.startLine + 1})")
-
     // the same conflict usually shows up in several states; report each distinct one once, and all of them
     // rather than only the first, so the user doesn't have to fix them one compilation at a time
-    val reported = mutable.HashSet.empty[Any]
+    val reported = mutable.HashSet.empty[Set[Production] | (Symbol, Production)]
 
     def raiseReduceReduceConflict(red1: Reduction, red2: Reduction, path: List[Symbol]): Unit =
       if reported.add(Set(red1.production, red2.production)) then
@@ -106,10 +100,10 @@ private[parser] object ParseTable:
                 |Reduce $red1 vs Reduce $red2
                 |In situation like:
                 |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
-                |Conflicting production: ${red1.production}${location(red1.production)}
+                |Conflicting production: ${red1.production} (line ${red1.production.source.line + 1})
                 |Consider marking one of the productions to be before or after the other
                 |""".stripMargin,
-          posOf(red2.production),
+          red2.production.source.position,
         )
 
     def raiseShiftReduceConflict(symbol: Symbol, red: Reduction, path: List[Symbol]): Unit =
@@ -121,7 +115,7 @@ private[parser] object ParseTable:
                 |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
                 |Consider marking production $red to be before or after "$symbol"
                 |""".stripMargin,
-          posOf(red.production),
+          red.production.source.position,
         )
 
     val firstSet = FirstSet(productions)

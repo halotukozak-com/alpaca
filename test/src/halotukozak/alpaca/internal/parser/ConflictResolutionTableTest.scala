@@ -8,8 +8,8 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 final class ConflictResolutionTableTest extends AnyFunSuite with Matchers:
-  private val prodA = Production.NonEmpty(NonTerminal("A"), NEL(Terminal("a")))
-  private val prodB = Production.NonEmpty(NonTerminal("B"), NEL(Terminal("b")), "named")
+  private val prodA = Production.NonEmpty(NonTerminal("A"), NEL(Terminal("a")), source = TestSource)
+  private val prodB = Production.NonEmpty(NonTerminal("B"), NEL(Terminal("b")), "named", TestSource)
   private val tokenX = "X"
   private val tokenY = "Y"
 
@@ -72,7 +72,7 @@ final class ConflictResolutionTableTest extends AnyFunSuite with Matchers:
 
   test("toMermaid escapes double quotes in labels") {
 
-    val prodWithQuote = Production.NonEmpty(NonTerminal("A\"B"), NEL(Terminal("a")))
+    val prodWithQuote = Production.NonEmpty(NonTerminal("A\"B"), NEL(Terminal("a")), source = TestSource)
     val table = ConflictResolutionTable(
       Map(ConflictKey(prodWithQuote) -> Set.empty),
     )
@@ -82,7 +82,7 @@ final class ConflictResolutionTableTest extends AnyFunSuite with Matchers:
 
   test("toMermaid escapes backslashes in labels") {
 
-    val prodWithBackslash = Production.NonEmpty(NonTerminal("A\\B"), NEL(Terminal("a")))
+    val prodWithBackslash = Production.NonEmpty(NonTerminal("A\\B"), NEL(Terminal("a")), source = TestSource)
     val table = ConflictResolutionTable(
       Map(ConflictKey(prodWithBackslash) -> Set.empty),
     )
@@ -92,7 +92,7 @@ final class ConflictResolutionTableTest extends AnyFunSuite with Matchers:
 
   test("toMermaid escapes newlines in labels") {
 
-    val prodWithNewline = Production.NonEmpty(NonTerminal("A\nB"), NEL(Terminal("a")))
+    val prodWithNewline = Production.NonEmpty(NonTerminal("A\nB"), NEL(Terminal("a")), source = TestSource)
     val table = ConflictResolutionTable(
       Map(ConflictKey(prodWithNewline) -> Set.empty),
     )
