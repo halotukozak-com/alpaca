@@ -86,26 +86,29 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using quotes: Q
       case Apply(q @ Extractor.Name(extractor), List(Extractor.Name(name))) => (q, name, extractor)
       case q @ Extractor.Name(name) => (q, name, null)
 
-    val SeparatedBy: PartialFunction[Tree, (qualifier: Term, name: String, separator: parser.Symbol.NonEmpty)] =
+    val SeparatedBy: PartialFunction[Tree, (element: parser.Symbol.NonEmpty, separator: parser.Symbol.NonEmpty)] =
       case TypeApply(Select(q @ Extractor.Name(name), Names.SeparatedBy), List(separator)) =>
-        (q, name, symbolFromType(separator))
+        val decoded = NameTransformer.decode(name)
+        val element: parser.Symbol.NonEmpty =
+          if q.tpe <:< TypeRepr.of[Token[?, ?, ?]] then parser.Terminal(decoded) else parser.NonTerminal(decoded)
+        (element, symbolFromType(separator))
 
     val Bind: PartialFunction[Tree, Option[Bind]] =
       case bind: Bind => Some(bind)
       case Ident("_") => None
 
-    val Symbol: SymbolExtractor =
-      case Extractor.Terminal(name, bind, extractor) => (name, bind, extractor)
-      case Extractor.NonTerminal(name, bind, extractor) => (name, bind, extractor)
+    val Symbol: PartialFunction[Tree, (symbol: parser.Symbol.NonEmpty, bind: Option[Bind], extractor: String | Null)] =
+      case Extractor.Terminal(name, bind, extractor) => (parser.Terminal(name), bind, extractor)
+      case Extractor.NonTerminal(name, bind, extractor) => (parser.NonTerminal(name), bind, extractor)
 
   // helper productions desugared from EBNF are sourced at the pattern they come from
   {
     case pattern @ skipTypedOrTest(
-          Unapply(Select(Extractor.SeparatedBy(_, name, separator), Names.Unapply), Nil, List(Extractor.Bind(bind))),
+          Unapply(Select(Extractor.SeparatedBy(element, separator), Names.Unapply), Nil, List(Extractor.Bind(bind))),
         ) =>
       val source = Source(pattern.pos)
-      val fresh = NonTerminal.fresh(name)
-      val nonEmpty = NonTerminal.fresh(show"${name}_nonEmpty")
+      val fresh = NonTerminal.fresh(element.name)
+      val nonEmpty = NonTerminal.fresh(show"${element.name}_nonEmpty")
       (
         symbol = fresh,
         bind = bind,
@@ -119,11 +122,11 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using quotes: Q
             action = '{ identityAction },
           ),
           (
-            production = Production.NonEmpty(nonEmpty, NEL(NonTerminal(name)), source = source),
+            production = Production.NonEmpty(nonEmpty, NEL(element), source = source),
             action = '{ headAction },
           ),
           (
-            production = Production.NonEmpty(nonEmpty, NEL(nonEmpty, separator, NonTerminal(name)), source = source),
+            production = Production.NonEmpty(nonEmpty, NEL(nonEmpty, separator, element), source = source),
             action = '{ separatedByAction },
           ),
         ),
@@ -135,31 +138,31 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using quotes: Q
     case Extractor.Terminal(name, bind, null) =>
       (symbol = Terminal(name), bind = bind, others = Nil)
 
-    case pattern @ Extractor.Symbol(name, bind, Names.Option) =>
+    case pattern @ Extractor.Symbol(symbol, bind, Names.Option) =>
       val source = Source(pattern.pos)
-      val fresh = NonTerminal.fresh(name)
+      val fresh = NonTerminal.fresh(symbol.name)
       (
         symbol = fresh,
         bind = bind,
         others = List(
           (production = Production.Empty(fresh, source = source), action = '{ noneAction }),
           (
-            production = Production.NonEmpty(fresh, NEL(NonTerminal(name)), source = source),
+            production = Production.NonEmpty(fresh, NEL(symbol), source = source),
             action = '{ someAction },
           ),
         ),
       )
 
-    case pattern @ Extractor.Symbol(name, bind, Names.List) =>
+    case pattern @ Extractor.Symbol(symbol, bind, Names.List) =>
       val source = Source(pattern.pos)
-      val fresh = NonTerminal.fresh(name)
+      val fresh = NonTerminal.fresh(symbol.name)
       (
         symbol = fresh,
         bind = bind,
         others = List(
           (production = Production.Empty(fresh, source = source), action = '{ emptyRepeatedAction }),
           (
-            production = Production.NonEmpty(fresh, NEL(fresh, NonTerminal(name)), source = source),
+            production = Production.NonEmpty(fresh, NEL(fresh, symbol), source = source),
             action = '{ repeatedAction },
           ),
         ),
