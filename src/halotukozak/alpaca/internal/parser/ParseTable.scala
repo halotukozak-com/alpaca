@@ -91,6 +91,7 @@ private[parser] object ParseTable:
   ): ParseTable = {
     val reported = mutable.HashSet.empty[Set[Production] | (Symbol, Production)]
 
+    // $COVERAGE-OFF$
     def raiseReduceReduceConflict(red1: Reduction, red2: Reduction, path: List[Symbol]): Unit =
       if reported.add(Set(red1.production, red2.production)) then
         error(
@@ -115,6 +116,7 @@ private[parser] object ParseTable:
                 |""".stripMargin,
           red.production.source,
         )
+    // $COVERAGE-ON$
 
     val firstSet = FirstSet(productions)
     val productionsByLhs = productions.groupBy(_.lhs)
@@ -167,8 +169,10 @@ private[parser] object ParseTable:
       for (stepSymbol, targetStateId) <- automaton.goto(stateId) do addToTable(stateId, stepSymbol, Shift(targetStateId))
     }
 
+    // $COVERAGE-OFF$
     // every conflict is already reported at its own production; abort without an extra error at the call site
     if reported.nonEmpty then throw StopMacroExpansion()
+    // $COVERAGE-ON$
 
     Array.better.tabulate(tableRows.length)(tableRows(_).toMap)
   }

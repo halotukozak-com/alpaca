@@ -116,12 +116,12 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
         P(CalcLexer.`+`).before(production.A),
       )
     """).loneElement
-    cycle.message should include("""
-                                   |Inconsistent conflict resolution detected:
-                                   |Reduction(A) before Shift(+) before Reduction(B -> + ($plus)) before Reduction(A)
-                                   |There are elements being both before and after Reduction(A) at the same time.
-                                   |Consider revising the before/after rules to eliminate cycles
-                                   |""".stripMargin)
+    cycle.message should startWith("""
+                                     |Inconsistent conflict resolution detected:
+                                     |Reduction(A) before Shift(+) before Reduction(B -> + ($plus)) before Reduction(A)
+                                     |There are elements being both before and after Reduction(A) at the same time.
+                                     |Consider revising the before/after rules to eliminate cycles
+                                     |""".stripMargin)
     // points at the rule closing the cycle, not at the parser declaration
     cycle.lineContent.trim shouldBe "P(CalcLexer.`+`).before(production.A),"
     cycle.column shouldBe 32

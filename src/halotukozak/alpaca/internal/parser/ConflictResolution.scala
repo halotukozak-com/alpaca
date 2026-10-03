@@ -81,8 +81,6 @@ private[parser] object ConflictResolutionTable:
     }
 
     def verifyNoConflicts()(using Quotes): Unit = {
-      import ConflictKey.given
-
       enum VisitState:
         case Unvisited, Visited, Processed
 
@@ -104,15 +102,20 @@ private[parser] object ConflictResolutionTable:
           visited(node) match
             case VisitState.Processed => loop(rest)
             case VisitState.Visited =>
+              // $COVERAGE-OFF$
+              val (cycle, key) =
+                import ConflictKey.given
+                (path.reverse.dropWhile(_ != node).mkShow(" before "), node.show)
               errorAndAbort(
                 show"""
                       |Inconsistent conflict resolution detected:
-                      |${path.reverse.dropWhile(_ != node).mkShow(" before ")} before $node
-                      |There are elements being both before and after $node at the same time.
+                      |$cycle before $key
+                      |There are elements being both before and after $key at the same time.
                       |Consider revising the before/after rules to eliminate cycles
                       |""".stripMargin,
                 table(path.head)(node),
               )
+            // $COVERAGE-ON$
             case VisitState.Unvisited =>
               visited(node) = VisitState.Visited
               val neighbors = table.getOrElse(node, Map.empty).keys.map(Action.Enter(_, node :: path)).toList
