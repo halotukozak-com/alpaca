@@ -114,7 +114,7 @@ private[lexer] object TokenInfo:
  * @tparam Ctx the global context type
  * @tparam Value the value type extracted from the matched text
  */
-sealed trait Token[+Name <: ValidName, +Ctx <: LexerCtx, +Value]:
+sealed trait Token[+Name <: ValidName, -Ctx <: LexerCtx, +Value]:
 
   /** Token information including name and pattern. */
   @publicInBinary
@@ -123,12 +123,16 @@ sealed trait Token[+Name <: ValidName, +Ctx <: LexerCtx, +Value]:
   /** Function to update the context when this token is matched. */
   private[lexer] val ctxManipulation: CtxManipulation[Ctx @uv]
 
-private[alpaca] final case class DefinedToken[Name <: ValidName, +Ctx <: LexerCtx, +Value](
+private[alpaca] final case class DefinedToken[
+  Name <: ValidName,
+  -Ctx <: LexerCtx,
+  +Value,
+  +LexemeTpe <: Lexeme[Name, Value],
+](
   @publicInBinary private[alpaca] info: TokenInfo,
   private[lexer] ctxManipulation: CtxManipulation[Ctx @uv],
-  private[lexer] remapping: (Ctx @uv) => Value,
+  private[lexer] remapping: Ctx => Value,
 ) extends Token[Name, Ctx, Value]:
-  type LexemeTpe <: Lexeme[Name, Value @uv] // & LexemeRefinement
 
   @compileTimeOnly(RuleOnly)
   inline def unapply(@unused x: Any): Option[LexemeTpe] = null.asInstanceOf[Option[LexemeTpe]]
@@ -151,7 +155,7 @@ private[alpaca] final case class DefinedToken[Name <: ValidName, +Ctx <: LexerCt
  * @param info token information
  * @param ctxManipulation function to update context
  */
-private[alpaca] final case class IgnoredToken[Name <: ValidName, +Ctx <: LexerCtx](
+private[alpaca] final case class IgnoredToken[Name <: ValidName, -Ctx <: LexerCtx](
   @publicInBinary private[alpaca] info: TokenInfo,
   private[lexer] ctxManipulation: CtxManipulation[Ctx @uv],
 ) extends Token[Name, Ctx, Nothing]

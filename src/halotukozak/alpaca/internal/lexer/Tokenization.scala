@@ -98,7 +98,7 @@ transparent abstract class Tokenization[Ctx <: LexerCtx: {ErrorHandling as error
 
       if token != null && matched != null then
         globalCtx = onTokenMatch(token, matched, globalCtx)
-        if token.isInstanceOf[DefinedToken[?, Ctx, ?]] then acc.addOne(globalCtx.lastLexeme.nn.asInstanceOf[Lexeme])
+        if token.isInstanceOf[DefinedToken[?, Ctx, ?, ?]] then acc.addOne(globalCtx.lastLexeme.nn.asInstanceOf[Lexeme])
     }
 
     (globalCtx, acc.toList)
