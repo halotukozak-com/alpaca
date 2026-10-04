@@ -127,7 +127,7 @@ final class JsonParserTutorialTest extends AnyFunSuite:
     val (_, lexemes) = JsonLexer.tokenize(input)
     val (_, result) = JsonTutorialParser.parse(lexemes)
 
-    val expected = Map(
+    val expected = Map[String, Any](
       "name" -> "John Doe",
       "age" -> 30.0,
       "isStudent" -> false,
@@ -146,9 +146,9 @@ final class JsonParserTutorialTest extends AnyFunSuite:
     val (_, lexemes) = JsonLexer.tokenize(input)
     val (_, result) = ModernJsonParser.parse(lexemes)
 
-    val expected = Map(
+    val expected = Map[String, Any](
       "a" -> 1.0,
-      "b" -> List(true, false, null),
+      "b" -> List[Any](true, false, null),
     )
     assert(result == expected)
   }

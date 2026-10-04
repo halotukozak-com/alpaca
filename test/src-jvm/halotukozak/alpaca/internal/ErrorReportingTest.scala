@@ -30,7 +30,7 @@ final class ErrorReportingTest extends AnyFunSuite with Matchers:
           .asScala
           .zipWithIndex
           .collect:
-            case (line, index) if direct.findFirstIn(line).isDefined => s"${sources.relativize(path)}:${index + 1}"
+            case (line, index) if direct.findFirstIn(line).isDefined => show"${sources.relativize(path)}:${index + 1}"
       .toList
 
     withClue("use halotukozak.alpaca.internal.error / errorAndAbort, which require a position:\n") {

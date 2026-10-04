@@ -141,7 +141,7 @@ final class ParserApiTest extends AnyFunSuite with Matchers:
     object TokenSeparatedByParser extends Parser[CalcContext]:
       val root = rule:
         case (CalcLexer.`\\(`(_), CalcLexer.NUMBER.SeparatedBy[CalcLexer.COMMA](items), CalcLexer.`\\)`(_)) =>
-          items.collect { case lexeme: Lexeme[?, ?] if lexeme.name == "NUMBER" => lexeme.value }
+          items.collect[Any] { case lexeme: Lexeme[?, ?] if lexeme.name == "NUMBER" => lexeme.value }
 
     TokenSeparatedByParser.parse(CalcLexer.tokenize("()").lexemes) should matchPattern:
       case (_, Nil) =>

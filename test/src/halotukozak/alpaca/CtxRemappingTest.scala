@@ -14,7 +14,7 @@ final class CtxRemappingTest extends AnyFunSuite with Matchers:
 
     val (_, res) = L.tokenize("12 abc 7")
     res.map(_.name) shouldBe List("int", "id", "int")
-    res.map(_.value) shouldBe List(12, "ABC", 7)
+    res.map(_.value) shouldBe List[Any](12, "ABC", 7)
   }
 
   test("ctx manipulation influences error position after ignored token") {

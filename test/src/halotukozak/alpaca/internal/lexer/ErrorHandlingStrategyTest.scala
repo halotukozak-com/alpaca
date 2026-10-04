@@ -92,7 +92,7 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
     val L = lexer:
       case "a" => Token["A"]
 
-    L.tokenize("a!a")
+    L.tokenize("a!a"): Unit
     seenFirstChar shouldBe '!'
   }
 

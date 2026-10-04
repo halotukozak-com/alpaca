@@ -2,6 +2,7 @@ package halotukozak
 package alpaca.internal.lexer
 
 import halotukozak.alpaca.internal.lexer.SubsetChecker
+import halotukozak.alpaca.internal.show
 import halotukozak.regex.Subset
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -14,7 +15,7 @@ final class SubsetCheckerTest extends AnyFunSuite with Matchers:
         .map: p =>
           Subset.parse(p) match
             case Right(subset) => (name = p, subset = subset.withAnySuffix)
-            case Left(err) => fail(s"expected successful parse of /$p/, got $err")
+            case Left(err) => fail(show"expected successful parse of /$p/, got $err")
         .toList,
     )
 

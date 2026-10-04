@@ -89,7 +89,7 @@ final class JsonTest extends AnyFunSuite:
       val (_, lexemes) = JsonLexer.tokenize(input)
       val (_, result) = JsonE2EParser.parse(lexemes)
 
-      val expected = Map(
+      val expected = Map[String, Any](
         "name" -> "John Doe",
         "age" -> 30.0,
         "isStudent" -> false,
@@ -126,9 +126,9 @@ final class JsonTest extends AnyFunSuite:
       val (_, result) = JsonE2EParser.parse(lexemes)
 
       val expected = List(
-        Map("id" -> 1.0, "name" -> "Alice"),
-        Map("id" -> 2.0, "name" -> "Bob"),
-        Map("id" -> 3.0, "name" -> "Charlie"),
+        Map[String, Any]("id" -> 1.0, "name" -> "Alice"),
+        Map[String, Any]("id" -> 2.0, "name" -> "Bob"),
+        Map[String, Any]("id" -> 3.0, "name" -> "Charlie"),
       )
 
       assert(result == expected)
@@ -153,7 +153,7 @@ final class JsonTest extends AnyFunSuite:
       val (_, result) = JsonE2EParser.parse(lexemes)
 
       val expected = Map(
-        "menu" -> Map(
+        "menu" -> Map[String, Any](
           "id" -> "file",
           "value" -> "File",
           "popup" -> Map(
