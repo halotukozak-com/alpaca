@@ -26,15 +26,15 @@ val Lexer = lexer:
 The compiler reports:
 
 ```
-Token "IF" can never match: every input it matches is already matched by "ID",
-which is tried first because it's defined earlier.
+Token "IF" can never match: every input it matches is also matched by "ID",
+which is defined earlier, so it always wins.
 Consider reordering the cases so "IF" comes first, or merging them into one case with
 alternatives, e.g.: case x @ ("ID" | "IF") => Token[x]
 ```
 
 The fix: declare the keyword first. Longest match still turns `iffy` into a single `ID`, so keywords never split identifiers.
 
-The check is conservative: it also rejects an earlier pattern that matches a *prefix* of everything a later one matches (for example `"[0-9]+"` before `"[0-9]+(\\.[0-9]+)?"`), and that particular pair is rejected in both orders, because every integer is also a decimal with the fraction omitted. In such cases give the later pattern inputs of its own -- e.g. `"[0-9]+\\.[0-9]+"` before `"[0-9]+"` -- or use a single pattern. See [Shadowing Detection](theory/lexer-fa.md#shadowing-detection) for the details.
+A pattern is reported only when it really can never win -- an earlier pattern matching just a *prefix* of it (`"a"` before `"ab"`) is fine. When one pattern's language contains the other's in the wrong order, e.g. `"[0-9]+(\\.[0-9]+)?"` before `"[0-9]+"`, give the later pattern inputs of its own -- e.g. `"[0-9]+\\.[0-9]+"` before `"[0-9]+"` -- or use a single pattern. See [Shadowing Detection](theory/lexer-fa.md#shadowing-detection) for the details.
 
 ### Invalid Regex
 

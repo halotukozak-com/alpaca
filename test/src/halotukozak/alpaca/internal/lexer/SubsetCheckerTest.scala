@@ -14,7 +14,7 @@ final class SubsetCheckerTest extends AnyFunSuite with Matchers:
       patterns.iterator
         .map: p =>
           Subset.parse(p) match
-            case Right(subset) => (name = p, subset = subset.withAnySuffix)
+            case Right(subset) => (name = p, subset = subset)
             case Left(err) => fail(show"expected successful parse of /$p/, got $err")
         .toList,
     )
@@ -35,18 +35,32 @@ final class SubsetCheckerTest extends AnyFunSuite with Matchers:
       "=",
       "[a-zA-Z]+",
       "[ \\t\\n]+",
-    ) shouldBe Some((first = "[a-zA-Z]+", second = "[a-zA-Z_][a-zA-Z0-9_]*"))
+    ) shouldBe Some((first = "[a-zA-Z]+", second = List("[a-zA-Z_][a-zA-Z0-9_]*")))
   }
 
-  test("checkRegexes should report prefix shadowing") {
+  test("checkRegexes should not report a pattern whose prefix an earlier one matches (longest match wins)") {
     check(
       "i",
       "\\*",
       "if",
       "=",
-      "[a-zA-Z]+",
       "[ \\t\\n]+",
-    ) shouldBe Some((first = "if", second = "i"))
+    ) shouldBe None
+    check("a", "ab") shouldBe None
+    check("[0-9]+", "[0-9]+(\\.[0-9]+)?") shouldBe None
+  }
+
+  test("checkRegexes should report a pattern fully covered by an earlier one even when it is longer") {
+    check("[0-9]+(\\.[0-9]+)?", "[0-9]+") shouldBe Some((first = "[0-9]+", second = List("[0-9]+(\\.[0-9]+)?")))
+    check("[a-z]+", "if") shouldBe Some((first = "if", second = List("[a-z]+")))
+  }
+
+  test("checkRegexes should report a pattern covered only by the union of earlier ones") {
+    check("[a-m]", "[n-z]", "=", "[a-z]") shouldBe Some((first = "[a-z]", second = List("[a-m]", "[n-z]")))
+  }
+
+  test("checkRegexes should not report a pattern the union of earlier ones does not fully cover") {
+    check("[a-m]+", "[n-z]+", "[a-z]+") shouldBe None
   }
 
   test("checkRegexes should report identical patterns as overlapping") {
@@ -56,7 +70,7 @@ final class SubsetCheckerTest extends AnyFunSuite with Matchers:
       "=",
       "[a-zA-Z_][a-zA-Z0-9_]*",
       "[ \\t\\n]+",
-    ) shouldBe Some((first = "[a-zA-Z_][a-zA-Z0-9_]*", second = "[a-zA-Z_][a-zA-Z0-9_]*"))
+    ) shouldBe Some((first = "[a-zA-Z_][a-zA-Z0-9_]*", second = List("[a-zA-Z_][a-zA-Z0-9_]*")))
   }
 
   test("checkRegexes should not report patterns in proper order") {

@@ -80,22 +80,26 @@ library instead of `java.util.regex`:
 
 ## Shadowing Detection
 
-Because ties go to the earlier pattern, a later pattern can be dead code: pattern A shadows
-pattern B if A appears first and B can never win. Alpaca checks this at compile time with its
-`SubsetChecker` (built on the same derivative-based `regex` library) and reports a compile error
-("Token ... can never match") pointing at the shadowed pattern.
+Because ties go to the earlier pattern, a later pattern can be dead code: pattern B can never
+produce a token if every string it matches is also matched by some earlier pattern -- on any such
+input the earlier pattern matches at least as much text and wins the tie. Formally, B is shadowed
+when L(B) ⊆ L(A₁) ∪ … ∪ L(Aₙ), where A₁ … Aₙ are the patterns declared before it. Alpaca checks
+this at compile time with its `SubsetChecker` (built on the same derivative-based `regex` library)
+and reports a compile error ("Token ... can never match") pointing at the shadowed pattern.
 
-The check is deliberately conservative: it compares the patterns' languages *extended with any
-suffix* (L(B)·Σ\* ⊆ L(A)·Σ\*). So besides the obvious case -- `"."` declared before `"\\."`, where
-every literal dot is also "any character" -- it also rejects an earlier pattern that matches a
-*prefix* of everything a later one matches, e.g. `"[0-9]+"` before `"[0-9]+(\\.[0-9]+)?"`. Here
-the reverse order is rejected too: every integer is also a decimal with the optional fraction
-omitted, so `"[0-9]+"` would never win a tie. The fix is to make the specific pattern first *and*
-leave the later one inputs of its own -- e.g. `"[0-9]+\\.[0-9]+"` (fraction required) before
-`"[0-9]+"` -- or to use a single pattern.
+Typical cases:
 
-In `CalcLexer`, the decimal pattern `"[0-9]+(\\.[0-9]+)?"` is the only number pattern, so no
-shadowing occurs.
+- `"."` declared before `"\\."` -- every literal dot is also "any character", so `"\\."` is dead.
+  Declare the specific pattern first.
+- `"[a-z]+"` declared before the keyword `"if"` -- the keyword is dead. With `"if"` first, both
+  work: `if` is the keyword, `iffy` is still one identifier, because longest match wins.
+- `"[0-9]+(\\.[0-9]+)?"` declared before `"[0-9]+"` -- every integer is also a decimal with the
+  fraction omitted, so `"[0-9]+"` never wins. Here the fix is either a single pattern or giving the
+  integer pattern inputs of its own, e.g. `"[0-9]+\\.[0-9]+"` for decimals.
+
+A pattern that an earlier one merely matches a *prefix* of is fine: with `"a"` before `"ab"`, the
+input `ab` is a single `ab` token. The check also catches a pattern covered only by several earlier
+patterns together (`"[a-m]"` and `"[n-z]"` before `"[a-z]"`) and names all of them.
 
 ## Cross-links
 
