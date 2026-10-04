@@ -37,7 +37,7 @@ object `package` extends Module:
         "-new-syntax",
         "-unchecked",
         "-language:noAutoTupling",
-        "-Vprofile",
+        // "-Vprofile",
         "-Werror",
         "-Yexplicit-nulls",
         // Not purely diagnostic: productionImpl (Parser.scala) walks a parser subclass's
@@ -61,7 +61,7 @@ object `package` extends Module:
         //  s"-Yprofile-trace:$moduleDir/debug/compile-trace.json",
       )
       val ciOnly = Seq(
-        "-Xprint-inline",
+        // "-Xprint-inline",
         // "-Ycheck:all", // cannot be enabled when scoverage used :/
         "-Xcheck-macros",
         // Dotty misreports the position of synthesized Product/Mirror members as 0 for
@@ -70,15 +70,15 @@ object `package` extends Module:
         "-Wconf:msg=Missing symbol position.*:s",
         "-Ycheck:macros",
         // "-Ydebug-error",
-        "-Ydebug-flags",
-        "-Ydebug-missing-refs",
-        "-Yexplain-lowlevel",
+        // "-Ydebug-flags",
+        // "-Ydebug-missing-refs",
+        // "-Yexplain-lowlevel",
         // "-Yprint-debug",
         // "-Xprint:postInlining",
         // "-Xprint-suspension",
         // "-Vprint:typer",
-        "-Yshow-suppressed-errors",
-        "-Yshow-var-bounds",
+        // "-Yshow-suppressed-errors",
+        // "-Yshow-var-bounds",
         "-Wall",
       )
       if isCI() then common ++ ciOnly else common
