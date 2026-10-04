@@ -97,6 +97,16 @@ intellijPlatform {
     }
 }
 
+tasks.test {
+    // The tests drive real grammars that the alpaca build exports into this directory (see
+    // .github/workflows/ij-plugin-test.yml). Declaring it as an input keeps the Gradle build cache
+    // from replaying old results after the library changes what it exports.
+    inputs
+        .dir("/tmp/alpaca-grammar-export")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+        .optional()
+}
+
 changelog {
     // Powers the "compare" links patchChangelog writes into CHANGELOG.md. Tags in this
     // repo are the Scala library's (`v*`); the plugin has no tags of its own, so these

@@ -57,12 +57,19 @@ private inline fun <reified T> readVersioned(text: String): VersionedExport<T> {
 /** The location of a lexer/parser rule as written in the grammar's own source, exported nested
  *  under a `"source"` key (see `Source` in the alpaca library). Productions synthesized from EBNF
  *  sugar (`List`/`Option`/`SeparatedBy`) point at the pattern they come from; absent/`null` only in
- *  exports from library versions that left them without a source. */
+ *  exports from library versions that left them without a source. `start`/`end` are the character
+ *  offsets of the declaration in [file]; absent in exports written before the library recorded them. */
 @Serializable
-data class SourceLocation(
-    val line: Int,
-    val file: String,
-)
+data class SourceLocation
+    // Keeps the `(line, file)` constructor in the bytecode: callers compiled before `start`/`end`
+    // existed (including ones restored from the Gradle build cache) still link.
+    @JvmOverloads
+    constructor(
+        val line: Int,
+        val file: String,
+        val start: Int? = null,
+        val end: Int? = null,
+    )
 
 /**
  * One token rule as exported by Alpaca's `lexer{...}` macro (see
