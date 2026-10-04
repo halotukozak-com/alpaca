@@ -31,7 +31,7 @@ object myproject extends ScalaModule {
   def scalacOptions = Seq("-Yretain-trees")
 
   def mvnDeps = Seq(
-    mvn"com.halotukozak::alpaca::0.3.1"
+    mvn"com.halotukozak::alpaca::0.3.2"
   )
 }
 ```
@@ -41,7 +41,7 @@ object myproject extends ScalaModule {
 Add Alpaca to your `build.sbt`:
 
 ```sbt
-libraryDependencies += "com.halotukozak" %% "alpaca" % "0.3.1"
+libraryDependencies += "com.halotukozak" %% "alpaca" % "0.3.2"
 ```
 
 Make sure you're using Scala 3.9.0 or later and enable the required compiler flags:
@@ -57,7 +57,7 @@ Use Alpaca directly in your Scala CLI scripts:
 
 ```scala
 //> using scala "3.9.0"
-//> using dep "com.halotukozak::alpaca:0.3.1"
+//> using dep "com.halotukozak::alpaca:0.3.2"
 //> using options "-Yretain-trees"
 
 import halotukozak.alpaca.*
