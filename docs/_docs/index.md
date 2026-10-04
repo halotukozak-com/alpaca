@@ -26,7 +26,7 @@ import mill._
 import mill.scalalib._
 
 object myproject extends ScalaModule {
-  def scalaVersion = "3.9.0"
+  def scalaVersion = "3.10.0"
 
   def scalacOptions = Seq("-Yretain-trees")
 
@@ -47,7 +47,7 @@ libraryDependencies += "com.halotukozak" %% "alpaca" % "0.3.1"
 Make sure you're using Scala 3.9.0 or later and enable the required compiler flags:
 
 ```sbt
-scalaVersion := "3.9.0"
+scalaVersion := "3.10.0"
 scalacOptions ++= Seq("-Yretain-trees")
 ```
 
@@ -56,7 +56,7 @@ scalacOptions ++= Seq("-Yretain-trees")
 Use Alpaca directly in your Scala CLI scripts:
 
 ```scala
-//> using scala "3.9.0"
+//> using scala "3.10.0"
 //> using dep "com.halotukozak::alpaca:0.3.1"
 //> using options "-Yretain-trees"
 
