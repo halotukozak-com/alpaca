@@ -40,5 +40,5 @@ private[internal] object JsonExport:
           if path.getParent != null then Files.createDirectories(path.getParent): Unit
           Files.writeString(path, content): Unit
       catch
-        case NonFatal(e) => System.err.println(show"[alpaca] failed to write grammar export to $path: $e")
+        case NonFatal(e) => System.err.println(show"[alpaca] failed to write grammar export to $path: ${e.toString}")
 // $COVERAGE-ON$
