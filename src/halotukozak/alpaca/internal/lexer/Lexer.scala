@@ -160,12 +160,13 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
   JsonExport.maybeWrite(exportId(declaredName(Symbol.spliceOwner.owner)), "tokens", tokens.map(_.info))
 
   val fields = tokens.map(t => (t.info.name, t.expr.asTerm.tpe))
-  val types = Refined(
-    TypeTree.of[Any],
-    fields.map: (name, tpe) =>
-      TypeDef(Symbol.newTypeAlias(Symbol.spliceOwner, name, Flags.EmptyFlags, tpe, Symbol.noSymbol)),
-    defn.AnyClass,
-  ).tpe
+  val types = fields.foldLeft(TypeRepr.of[Any]):
+    case (acc, (name, tpe)) =>
+      val alias = tpe.asType match
+        case '[t] =>
+          TypeRepr.of[Any { type Alias = t }].runtimeChecked match
+            case Refinement(_, _, alias) => alias
+      Refinement(acc, name, alias)
 
   def selectDynamicImpl(fieldName: Expr[String])(using Quotes) = Match(
     '{ $fieldName: @switch }.asTerm,

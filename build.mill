@@ -57,7 +57,6 @@ object `package` extends Module:
         // not configurable); excluded rather than left uninstrumented with a -Werror warning.
         "--coverage-exclude-files:.*Lexer.*",
         "--coverage-exclude-files:.*createTables.*",
-        "-experimental",
         //  "-Yprofile-enabled",
         //  s"-Yprofile-trace:$moduleDir/debug/compile-trace.json",
       )
@@ -158,7 +157,7 @@ object `package` extends Module:
     object alpaca extends BenchmarkScalaModule with JmhModule:
       def scalaVersion = build.jvm.scalaVersion()
       override def scalacOptions =
-        Seq("-experimental", "-preview", "-Yretain-trees", "-language:experimental.erasedDefinitions")
+        Seq("-preview", "-Yretain-trees")
       def moduleDeps = Seq(build.jvm)
 
     object fastparse extends BenchmarkScalaModule:
