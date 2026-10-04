@@ -1,11 +1,12 @@
 package halotukozak
 package alpaca.internal
 
+import scala.annotation.publicInBinary
 import scala.reflect.ClassTag
 
 extension (dummy: Array.type) inline private[internal] def better: BetterArray.type = BetterArray
 
-private[internal] object BetterArray:
+@publicInBinary private[internal] object BetterArray:
   inline def tabulate[T: ClassTag](n: Int)(inline f: Int => T): Array[T] =
     if n <= 0 then Array.empty[T]
     else

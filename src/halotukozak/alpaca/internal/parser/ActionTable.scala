@@ -6,6 +6,8 @@ package parser
 import halotukozak.alpaca.ParserCtx
 import halotukozak.alpaca.internal.RevertedArray
 
+import scala.annotation.publicInBinary
+
 /**
  * Type alias for semantic actions in the parser.
  *
@@ -36,7 +38,7 @@ private[parser] type Action[-Ctx <: ParserCtx] = (Ctx, RevertedArray[Any]) => An
 opaque private[parser] type ActionTable[Ctx <: ParserCtx] =
   Map[Production, Action[Ctx]] // todo: Action should be based on Production type
 
-private[parser] object ActionTable:
+@publicInBinary private[parser] object ActionTable:
 
   /**
    * Creates an ActionTable from a map of productions to actions.

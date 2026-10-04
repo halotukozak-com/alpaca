@@ -1,6 +1,8 @@
 package halotukozak
 package alpaca.internal
 
+import scala.annotation.publicInBinary
+
 /**
  * An opaque type representing a non-empty sequence.
  *
@@ -13,7 +15,7 @@ package alpaca.internal
  */
 opaque private[alpaca] type NEL[+A] <: Seq[A] = Vector[A]
 
-private[alpaca] object NEL:
+@publicInBinary private[alpaca] object NEL:
 
   /**
    * Creates a non-empty list from a head element and optional tail elements.

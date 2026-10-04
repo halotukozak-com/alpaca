@@ -7,6 +7,7 @@ import Symbol.SyntheticInfix
 import halotukozak.alpaca.internal.Showable
 import halotukozak.mcodec.MCodec
 
+import scala.annotation.publicInBinary
 import scala.reflect.NameTransformer
 import scala.util.Random
 
@@ -76,7 +77,7 @@ object Terminal:
   inline def apply(inline name: String): Terminal & Symbol.NonEmpty =
     new Terminal(name).asInstanceOf[Terminal & Symbol.NonEmpty]
 
-private[parser] object Symbol:
+@publicInBinary private[parser] object Symbol:
   final val SyntheticInfix = "$$synthetic$$"
 
   type NonEmpty = Symbol { type IsEmpty = false }

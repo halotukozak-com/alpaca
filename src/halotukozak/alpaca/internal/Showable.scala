@@ -6,6 +6,7 @@ import halotukozak.commons.*
 import halotukozak.made.*
 
 import scala.NamedTuple.NamedTuple
+import scala.annotation.publicInBinary
 
 /**
  * A type class for converting values to their string representation.
@@ -27,7 +28,7 @@ private[internal] trait Showable[-T]:
   def transform[U](f: U => T): Showable[U] = u => f(u).show
 
 /** String interpolator for values that have Showable instances. */
-extension (sc: StringContext) private[internal] def show(args: Shown*): Shown = sc.s(args*)
+extension (sc: StringContext) @publicInBinary private[internal] def show(args: Shown*): Shown = sc.s(args*)
 
 /**
  * An opaque type representing a string that has been shown.
@@ -141,7 +142,7 @@ extension [C[X] <: Iterable[X], T: Showable](c: C[T]) {
    * @param sep the separator between elements
    * @return the formatted string
    */
-  private[internal] def mkShow(sep: String): Shown = mkShow("", sep, "")
+  @publicInBinary private[internal] def mkShow(sep: String): Shown = mkShow("", sep, "")
 
   /**
    * Creates a string representation with elements concatenated.

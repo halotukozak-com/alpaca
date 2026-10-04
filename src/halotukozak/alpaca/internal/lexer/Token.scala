@@ -162,3 +162,7 @@ private[alpaca] final case class IgnoredToken[Name <: ValidName, -Ctx <: LexerCt
 
 private[alpaca] def RecoveredToken[Ctx <: LexerCtx](matched: String): IgnoredToken[matched.type, Ctx] =
   IgnoredToken(TokenInfo(matched, s"<unrecognized \"$matched\">", matched, ignored = true), identity)
+
+@publicInBinary private[alpaca] object DefinedToken
+
+@publicInBinary private[alpaca] object IgnoredToken

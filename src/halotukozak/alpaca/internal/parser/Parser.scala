@@ -9,7 +9,7 @@ import halotukozak.alpaca.internal.lexer.Lexeme
 import halotukozak.alpaca.internal.parser.{Tables, *}
 
 import scala.NamedTuple.NamedTuple
-import scala.annotation.{compileTimeOnly, tailrec}
+import scala.annotation.{compileTimeOnly, publicInBinary, tailrec}
 import scala.collection.mutable
 
 /**
@@ -63,7 +63,7 @@ abstract class Parser[Ctx <: ParserCtx](
    * @param lexemes the list of lexemes to parse
    * @return a tuple of (context, result), where result may be null on parse failure
    */
-  private[alpaca] def unsafeParse[R](lexemes: List[Lexeme[?, ?]]): (ctx: Ctx, result: R | Null) = {
+  @publicInBinary private[alpaca] def unsafeParse[R](lexemes: List[Lexeme[?, ?]]): (ctx: Ctx, result: R | Null) = {
     enum Node:
       case Result(value: Any)
       case Token(lexeme: Lexeme[?, ?])
@@ -176,5 +176,5 @@ def productionImpl[P <: Parser[?]: Type](using quotes: Quotes): Expr[ProductionS
  * NPEs instead of reaching the `.after`/`.before` extension methods, which are inline
  * and discard their receiver/arguments entirely.
  */
-private object DummyProductionSelector extends ProductionSelector:
+@publicInBinary private[parser] object DummyProductionSelector extends ProductionSelector:
   override def selectDynamic(name: String): Any = null
