@@ -57,25 +57,28 @@ means more resolving power (fewer conflicts) but more states. The family in asce
 | LALR(1)   | Per-state lookahead (merged item-set cores) | Same as LR(0)/SLR | Most common in practice (yacc, Bison)    |
 | LR(1)     | Per-item lookahead (full)                   | Largest           | Most powerful; fewest spurious conflicts |
 
-Alpaca uses **full LR(1)**. Each LR(1) item carries its own lookahead terminal — the parser knows exactly which token
-must follow a particular reduction for that reduction to apply. This is the most expressive algorithm in the LR family.
+Alpaca uses **LALR(1)**: the same lookahead-driven decisions as LR(1), on the much smaller LR(0)
+state machine.
 
-## Why LR(1) Instead of LALR(1)?
+## Why LALR(1) Instead of Canonical LR(1)?
 
-LALR(1) reduces the number of states by merging all LR(1) items that share the same *core* (the production and dot
-position), combining their lookahead sets. This works well in practice — yacc and Bison are LALR(1) — but the merging
-can introduce reduce/reduce conflicts that do not exist in the corresponding LR(1) automaton. These are spurious
-conflicts: the grammar is perfectly unambiguous, but the LALR(1) state machine cannot distinguish which reduction to
-apply.
+Canonical LR(1) keeps a separate state for every combination of item core (the production and dot
+position) and lookahead terminal. That makes it the most powerful member of the family, but the
+number of states can grow very large -- and Alpaca builds the whole table inside the compiler, on
+every compilation of your parser.
 
-Alpaca avoids this class of false positives by running the full LR(1) construction. Each item retains its individual
-lookahead terminal. For most practical grammars (including the calculator example) the LR(1) and LALR(1) parse tables
-are identical — but Alpaca's approach is conservative in the correct direction: it accepts every grammar that LALR(1)
-accepts, and can accept some that LALR(1) rejects.
+LALR(1) merges LR(1) states that share the same cores and unions their lookahead sets, so it has
+exactly as many states as LR(0). This is what yacc and Bison use, and it accepts nearly every grammar
+written in practice. The price is that the merging can, in rare cases, introduce a reduce/reduce
+conflict that the canonical LR(1) automaton would not have -- the grammar is unambiguous, but two
+merged states can no longer tell their reductions apart. Shift/reduce conflicts are never introduced
+by the merge. For the grammars in these docs (including the calculator) the LALR(1) and LR(1) tables
+make the same decisions.
 
-Concrete grounding from Alpaca's source: `Item.scala` defines each item with a `lookAhead: Terminal` field — one
-lookahead per item, not per state-core. `ParseTable.scala` docstring: "This implements the LR(1) parser construction
-algorithm." `State.fromItem()` computes closure with per-item lookaheads, not merged-core lookaheads.
+Concrete grounding from Alpaca's source: `ParseTable.scala` first builds the LR(0) automaton
+(`LR0Automaton`), then computes each state's lookaheads by propagation over it (`Lookaheads`, the
+spontaneous-generation-and-propagation algorithm), and finally closes each state with its real
+lookaheads (`State.fromItem`) to read off the reduce actions.
 
 ## The LR(1) Item
 
@@ -98,7 +101,7 @@ Three example items using the dot notation from Alpaca's `Item.scala` docstring:
 ```
 
 The lookahead in `[A → α •, a]` allows the parser to decide: if the next token is `a`, reduce; otherwise, do something
-else. This per-item precision is what makes LR(1) more powerful than LALR(1).
+else. LALR(1) uses exactly these items; it just shares one state between all items with the same core.
 
 ## O(n) Parsing
 
@@ -106,7 +109,7 @@ LR parsers run in O(n) time for any deterministic context-free grammar. Each tok
 at most once per step through the stack. The pre-built parse table turns each step into a constant-time table lookup —
 no backtracking, no reparsing.
 
-> **Compile-time processing:** Alpaca's `Parser` macro builds the full LR(1) parse table at compile time — all item
+> **Compile-time processing:** Alpaca's `Parser` macro builds the LALR(1) parse table at compile time — all item
 > sets, closure computations, and state transitions are resolved before your program runs. At runtime, `parse(lexemes)`
 > executes the pre-built table with O(n) table lookups.
 

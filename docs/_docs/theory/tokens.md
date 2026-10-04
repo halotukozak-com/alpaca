@@ -36,13 +36,14 @@ The word *lexeme* is used throughout this documentation to mean this complete re
 
 ## Alpaca's Lexeme Type
 
-In Alpaca, each matched token is represented as a `Lexeme[Name, Value]`. A lexeme carries four
-pieces of information:
+In Alpaca, each matched token is represented as a `Lexeme[Name, Value]`. A lexeme carries:
 
 - `name` — the token class name string, e.g., `"NUMBER"` or `"PLUS"`
-- `value` — the extracted value with its Scala type, e.g., `3.14: Double` for NUMBER, `"+": String`
-  for PLUS
-- `fields` — a snapshot of the lexer context at match time, accessible as typed fields (e.g., `.position`, `.line`, `.text`)
+- `value` — the extracted value with its Scala type, e.g., `3.14: Double` for a `Token["NUMBER"](num.toDouble)`,
+  or `()` for a plain `Token["PLUS"]`
+- `text` — the matched characters, e.g., `"3.14"` or `"+"`
+- a snapshot of the lexer context's fields at match time, accessible as typed fields (e.g., `.position`, `.line` with
+  `LexerCtx.Default`)
 
 The tokenization output for a simple expression illustrates this:
 

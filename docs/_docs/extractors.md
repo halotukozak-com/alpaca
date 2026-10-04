@@ -234,8 +234,8 @@ The user-visible fields are:
 - **`name: String`** — the token type name (e.g., `"NUMBER"`, `"PLUS"`)
 - **`value: T`** — the extracted value; the type depends on the `Token["NAME"](value)` definition in the lexer
 - **`text: String`** — the raw matched characters; always a `String` regardless of token type
-- **`position: Int`** — 1-based column within the current line at match time (post-match; resets on newlines)
-- **`line: Int`** — line number at match time
+- **`position: Int`** — 1-based column within the current line at match time (post-match; resets after a token that matches exactly `"\n"`). Only present when the lexer context has a `Column` field, as `LexerCtx.Default` does.
+- **`line: Int`** — line number at match time. Only present when the lexer context has a `Line` field, as `LexerCtx.Default` does.
 
 `Lexeme` extends `Selectable`, so custom context fields captured at match time are also accessible by name, type-safely at compile time — `id.position` returns `Int`, not `Any`. There is no aggregate `fields: Map[String, Any]` accessor; each field is exposed individually through structural selection.
 The type refinement is encoded in the `tokenize()` return type and flows through to the parser.
@@ -251,9 +251,9 @@ val MiniLang = lexer:
   case "\\s+"         => Token.Ignored
 
 val (_, lexemes) = MiniLang.tokenize("42 + 13")
-// lexemes(0): Lexeme("NUM",  42, Map("text" -> "42", "position" -> 3,  "line" -> 1))
-// lexemes(1): Lexeme("PLUS", (), Map("text" -> "+",  "position" -> 5,  "line" -> 1))
-// lexemes(2): Lexeme("NUM",  13, Map("text" -> "13", "position" -> 8,  "line" -> 1))
+// lexemes(0): name = "NUM",  value = 42, text = "42", position = 3, line = 1
+// lexemes(1): name = "PLUS", value = (), text = "+",  position = 5, line = 1
+// lexemes(2): name = "NUM",  value = 13, text = "13", position = 8, line = 1
 
 // Inside parser rules, access via dot notation:
 //   n.value     == 42     (Int)

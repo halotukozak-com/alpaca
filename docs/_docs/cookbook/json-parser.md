@@ -69,7 +69,7 @@ object JsonParser extends Parser:
   )
 ```
 
-`ObjectMembers` and `ArrayElements` use explicit left recursion for comma-separated lists. This is the standard pattern when elements are separated by delimiters -- `.List` works for unseparated sequences (like BrainFuck operations), but separator-delimited lists need explicit recursion.
+`ObjectMembers` and `ArrayElements` spell out comma-separated lists with explicit left recursion, so the whole grammar is visible. The same lists can be written in one line with `.SeparatedBy` (see [EBNF Extractors: .SeparatedBy](../extractors.md#ebnf-extractors-separatedby)) -- at the cost of the comma lexemes being interleaved into the resulting list, which you then filter out. `.List` covers unseparated sequences (like BrainFuck operations).
 
 ## Running It
 

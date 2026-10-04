@@ -24,8 +24,10 @@ final case class Default(
 ) extends LexerCtx
 ```
 
-- `position` -- 1-based column within the current line, incremented by the matched length and reset to 1 on newlines
-- `line` -- 1-based line number, incremented on each newline character
+- `position` -- 1-based column within the current line, incremented by the matched length and reset to 1 when a token matches exactly `"\n"`
+- `line` -- 1-based line number, incremented when a token matches exactly `"\n"`
+
+> **Note:** the built-in trackers look at the whole matched text, not at individual characters. A token that matches `"\n"` together with other characters (e.g. `case "\\s+" => Token.Ignored` matching `" \n  "`) does not advance `line`. If you need line numbers, give newlines their own pattern -- `case "\n" => Token.Ignored` -- before any broader whitespace pattern, and keep that pattern from matching `\n` (e.g. `"[ \t]+"`).
 
 `Column` and `Line` are opaque subtypes of `Int`, so `ctx.position` and `ctx.line` read as plain `Int`s everywhere. Each carries a `given Tracking` that the lexer macro finds and applies after every match.
 
@@ -176,9 +178,9 @@ val (_, lexemes) = BrainLexer.tokenize("[+[+]]")
 
 Alpaca ships two ready-made tracking fields, both re-exported from `halotukozak.alpaca`:
 
-**`Column`** -- an opaque `Int` that advances by the matched length after each token and resets to 1 on a newline.
+**`Column`** -- an opaque `Int` that advances by the matched length after each token and resets to 1 when the matched text is exactly `"\n"`.
 
-**`Line`** -- an opaque `Int` that increments when the matched token is a newline.
+**`Line`** -- an opaque `Int` that increments when the matched text is exactly `"\n"`.
 
 Each is a plain case-class field with a `given Tracking` in its companion. Use either one, both, or neither. `LexerCtx.Default` uses both. To add them to a custom context:
 
@@ -196,11 +198,11 @@ With this context, every lexeme carries `squareBrackets`, `position`, and `line`
 
 ## The Post-Match Update
 
-After every successful token match, the lexer:
+After every successful token match -- once the text cursor has already advanced past the matched text -- the lexer:
 
 1. applies each tracked field's `Tracking` update (`position`, `line`, and any custom fragments),
 2. applies the rule body's own context changes,
-3. advances the text cursor and records the lexeme snapshot.
+3. records the lexeme snapshot.
 
 Steps 1 and 3 are derived by the `lexer` macro from the context's case fields -- there is nothing to wire up by hand.
 
@@ -249,7 +251,7 @@ val Lexer = lexer[LexerCtx.Empty]:
   case "." => Token.Ignored
 
 val (_, lexemes) = Lexer.tokenize("+ +")
-// lexemes(0).fields == Map("text" -> "+")  -- only the text field
+// lexemes(0).text == "+"  -- the only snapshot field: no position, no line
 ```
 
 See [Between Stages](on-token-match.md) to learn how context snapshots in lexemes flow into the parser.

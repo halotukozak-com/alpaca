@@ -103,9 +103,9 @@ object `package` extends Module:
         s"$moduleDir/docs/_assets/images/logo.png",
         "-project-footer",
         "made with ❤️ and coffee",
-        "-social-links:github::https://github.com/halotukozak/alpaca",
+        "-social-links:github::https://github.com/halotukozak-com/alpaca",
         "-snippet-compiler:compile+test",
-        s"-source-links:$moduleDir=github://halotukozak/alpaca/main",
+        s"-source-links:$moduleDir=github://halotukozak-com/alpaca/main",
         "-revision:main",
       )
     }
@@ -117,9 +117,9 @@ object `package` extends Module:
     def pomSettings = PomSettings(
       description = "Another Lexer Parser And Compiler Alpaca",
       organization = "com.halotukozak",
-      url = "https://halotukozak.github.io/alpaca/docs/index.html",
+      url = "https://alpaca.halotukozak.com/docs/index.html",
       licenses = Seq(License.MIT),
-      versionControl = VersionControl.github("halotukozak", "alpaca"),
+      versionControl = VersionControl.github("halotukozak-com", "alpaca"),
       developers = Seq(
         Developer("halotukozak", "Bartłomiej Kozak", "https://github.com/halotukozak"),
         Developer("Corvette653", "Bartosz Buczek", "https://github.com/Corvette653"),
