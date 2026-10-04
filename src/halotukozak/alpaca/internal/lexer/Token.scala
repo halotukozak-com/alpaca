@@ -74,7 +74,7 @@ private[lexer] object TokenInfo:
     import quotes.reflect.*
     ValidName.check(name, pos)
     val regex = RegexParser.parse(pattern) match
-      case Left(err) => errorAndAbort(s"""Invalid regex pattern for token "$name": $err""", pos)
+      case Left(err) => errorAndAbort(show"""Invalid regex pattern for token "$name": $err""", pos)
       case Right(regex) => regex
     (
       ConstantType(StringConstant(name)).asType.asInstanceOf[Type[? <: ValidName]],

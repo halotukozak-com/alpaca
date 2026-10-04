@@ -87,6 +87,13 @@ private[internal] object Showable:
 
   given Showable[Position] = fromToString
 
+  given Showable[java.nio.file.Path] = fromToString
+
+  given Showable[Throwable] = fromToString
+
+  // its toString is written to read as a message
+  given Showable[halotukozak.regex.RegexParseError] = fromToString
+
   given (quotes: Quotes) => Showable[quotes.reflect.Tree] =
     quotes.reflect.Printer.TreeShortCode.show(_)
 

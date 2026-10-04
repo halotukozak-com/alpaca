@@ -57,7 +57,7 @@ transparent abstract class Tokenization[Ctx <: LexerCtx: {ErrorHandling as error
     val acc = mutable.ListBuffer.empty[Lexeme]
 
     while !globalCtx.text.isEmpty do {
-      val (token, matched) = matcher.matchAt(globalCtx.text, 0) match {
+      val step: (Token[?, Ctx, ?] | Null, String | Null) = matcher.matchAt(globalCtx.text, 0) match {
         case m if m != null && m.end > 0 =>
           val matchedStr = globalCtx.text.subSequence(0, m.end).toString
           globalCtx.lastRawMatched = matchedStr
@@ -95,6 +95,7 @@ transparent abstract class Tokenization[Ctx <: LexerCtx: {ErrorHandling as error
               globalCtx.text = ""
               (null, null)
       }
+      val (token, matched) = step
 
       if token != null && matched != null then
         globalCtx = onTokenMatch(token, matched, globalCtx)

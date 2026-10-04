@@ -118,7 +118,7 @@ abstract class Parser[Ctx <: ParserCtx](
       }
     }
 
-    val result = loop(lexemes) match
+    val result: R | Null = loop(lexemes) match
       case Node.Result(value) => value.asInstanceOf[R]
       case Node.Token(lexeme) => null
 
