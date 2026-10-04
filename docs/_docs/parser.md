@@ -10,7 +10,7 @@ When you define `object MyParser extends Parser`, the Alpaca macro:
 1. Reads every `Rule` val declaration
 2. Builds an LR(1) parse table (states, transitions, actions)
 3. Compiles semantic actions (your `case` bodies) into the action table
-4. Reports grammar conflicts (`ShiftReduceConflict`, `ReduceReduceConflict`) as compile errors
+4. Reports grammar conflicts (shift/reduce, reduce/reduce) as compile errors
 
 At runtime, `parse()` executes the precomputed table. No grammar analysis happens during parsing.
 

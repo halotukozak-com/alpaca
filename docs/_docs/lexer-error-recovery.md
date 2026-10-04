@@ -5,23 +5,32 @@ The Alpaca lexer provides two layers of error feedback: compile-time validation 
 <details>
 <summary>Under the hood: compile-time validation</summary>
 
-The `lexer` macro validates token definitions at compile time. Pattern shadowing (`ShadowException`), invalid regex syntax, and unsupported guards are caught during compilation. The macro performs pairwise regex inclusion checks using Alpaca's own `regex` library (`SubsetChecker`) to ensure every pattern is reachable.
+The `lexer` macro validates token definitions at compile time. Pattern shadowing, invalid regex syntax, and unsupported guards are caught during compilation. The macro performs pairwise regex inclusion checks using Alpaca's own `regex` library (`SubsetChecker`) to ensure every pattern is reachable.
 
 </details>
 
 ## Compile-Time Errors
 
-### ShadowException
+### Shadowed Patterns
 
-A `ShadowException` occurs when one pattern can never match because an earlier pattern always matches first. If every string that pattern B can match is also matched by pattern A, and A appears before B, then B is unreachable:
+A shadowing error occurs when one pattern can never match because an earlier pattern always matches first. If every string that pattern B can match is also matched by pattern A, and A appears before B, then B is unreachable:
 
 ```scala sc:fail
 import halotukozak.alpaca.*
 
-// This does NOT compile -- ShadowException
+// This does NOT compile -- WORD is shadowed by ID
 val Lexer = lexer:
   case "[A-Za-z]+" => Token["ID"]            // general: any letters
-  case "[A-Za-z][A-Za-z0-9]*" => Token["WORD"]  // ERROR: shadowed by ID
+  case "[A-Za-z][A-Za-z0-9]*" => Token["WORD"]  // error: shadowed by ID
+```
+
+The compiler reports:
+
+```
+Token "WORD" can never match: every input it matches is already matched by "ID",
+which is tried first because it's defined earlier.
+Consider reordering the cases so "WORD" comes first, or merging them into one case with
+alternatives, e.g.: case x @ ("ID" | "WORD") => Token[x]
 ```
 
 The fix: move the more specific pattern before the more general one, or remove the duplicate.
@@ -69,7 +78,7 @@ val BrainLexer = lexer:
   case "." => Token.Ignored      // general: any character (catch-all)
 ```
 
-If you reverse the order, `"."` shadows `"\\."` and you get a `ShadowException`.
+If you reverse the order, `"."` shadows `"\\."` and you get a shadowing compile error.
 
 The same applies to keywords vs identifiers. Function names in the extended BrainFuck lexer must come after command tokens:
 

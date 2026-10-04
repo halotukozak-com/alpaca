@@ -94,8 +94,8 @@ occurs, B will never match — it is dead code.
 
 Alpaca's `SubsetChecker` uses its own `regex` library (a Brzozowski-derivative DFA implementation
 for decidable regex operations) to check at compile time whether any pattern's language is a
-subset of an earlier pattern's language. If shadowing is detected, the macro throws a
-`ShadowException` with a compile error pointing to the offending patterns.
+subset of an earlier pattern's language. If shadowing is detected, the macro reports a compile
+error ("Token ... can never match") pointing at the shadowed pattern.
 
 **Example:** If you wrote the integer pattern `"[0-9]+"` before the decimal pattern
 `"[0-9]+(\\.[0-9]+)?"`, the integer pattern would shadow the decimal one — every decimal like

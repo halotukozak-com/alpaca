@@ -221,7 +221,7 @@ Alpaca treats `before` and `after` constraints as a partial order over productio
 
 This matters for grammars with many precedence levels. For C-like operators (`*`, `+`, `<`, `&&`, `||`), declaring `mul.before(add).before(cmp).before(and).before(or)` is enough; pairwise constraints between non-adjacent levels are derived.
 
-Cycles in the constraint graph are contradictions. If the closure ever produces both `A.before(B)` and `A.after(B)` (directly or indirectly through other productions), the compiler rejects the resolution set with an `InconsistentConflictResolution` error showing the full cycle path. This catches mistakes like declaring `mul.before(add)` together with `add.before(mul)` — even when the contradiction is not direct.
+Cycles in the constraint graph are contradictions. If the closure ever produces both `A.before(B)` and `A.after(B)` (directly or indirectly through other productions), the compiler rejects the resolution set with an "Inconsistent conflict resolution detected" error showing the full cycle path. This catches mistakes like declaring `mul.before(add)` together with `add.before(mul)` — even when the contradiction is not direct.
 
 The detection runs at compile time, so a grammar that compiles is guaranteed to have a consistent precedence ordering.
 

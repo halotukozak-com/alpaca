@@ -104,7 +104,7 @@ object `package` extends Module:
         "-project-footer",
         "made with ❤️ and coffee",
         "-social-links:github::https://github.com/halotukozak/alpaca",
-        "-snippet-compiler:compile",
+        "-snippet-compiler:compile+test",
         s"-source-links:$moduleDir=github://halotukozak/alpaca/main",
         "-revision:main",
       )

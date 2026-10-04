@@ -44,7 +44,7 @@ The bare CalcParser definition — grammar productions with semantic actions but
 ```scala sc-compile-with:calc-lexer sc:fail
 import halotukozak.alpaca.*
 
-object CalcParser extends Parser:
+object CalcParser extends Parser: // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error
   val Expr: Rule[Double] = rule(
     "plus"  { case (Expr(a), CalcLexer.PLUS(_),   Expr(b)) => a + b },
     "minus" { case (Expr(a), CalcLexer.MINUS(_),  Expr(b)) => a - b },
@@ -55,16 +55,16 @@ object CalcParser extends Parser:
   )
   val root: Rule[Double] = rule:
     case Expr(v) => v
-// ↑ Compile error: ShiftReduceConflict
+// ↑ Compile error: shift/reduce conflicts
 ```
 
-The compile error message:
+The compiler reports one shift/reduce conflict per (operator, production) pair -- 16 in total, one per `// error` marker above. The first of them:
 
 ```
-Shift "PLUS ($plus)" vs Reduce Expr -> Expr PLUS ($plus) Expr
+Shift "PLUS" vs Reduce Expr -> Expr PLUS Expr (plus)
 In situation like:
-Expr PLUS ($plus) Expr PLUS ($plus) ...
-Consider marking production Expr -> Expr PLUS ($plus) Expr to be before or after "PLUS ($plus)"
+Expr PLUS Expr PLUS ...
+Consider marking production Expr -> Expr PLUS Expr (plus) to be before or after "PLUS"
 ```
 
 The parser does not know whether `1 + 2 + 3` should reduce `1 + 2` first (left-associative) or shift the second `+` first. This is a shift/reduce conflict — both actions are valid for the same parse state and lookahead. See [Conflicts & Disambiguation](conflicts.md) for the formal theory.
@@ -167,7 +167,7 @@ Each piece of the CalcParser traces back to a theory concept:
 | BNF grammar in `rule(...)` | Context-free grammars — see [Context-Free Grammars](cfg.md) |
 | `extends Parser` generates LR(1) table | LR parse table construction — see [Why LR?](why-lr.md) |
 | Shift/reduce loop | LR parse mechanics — see [Shift-Reduce Parsing](shift-reduce.md) |
-| `ShiftReduceConflict` compile error | Grammar ambiguity — see [Conflicts & Disambiguation](conflicts.md) |
+| Shift/reduce conflict compile error | Grammar ambiguity — see [Conflicts & Disambiguation](conflicts.md) |
 | `given Resolutions[CalcParser.type] = resolutions(...)` | Conflict resolution — see [Conflict Resolution](../conflict-resolution.md) |
 | `case (Expr(a), ...) => a + b` | Semantic actions — see [Semantic Actions](semantic-actions.md) |
 | `parse()` returns `7.0: Double` | Typed results via S-attributed translation |

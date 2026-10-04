@@ -7,7 +7,7 @@ The BrainFuck grammar from [Getting Started](getting-started.md) has no conflict
 <details>
 <summary>Under the hood: compile-time resolution</summary>
 
-When you define a `given Resolutions[MyParser.type] = resolutions(...)`, the Alpaca macro incorporates your precedence declarations into the LR(1) parse table at compile time. Conflicts (`ShiftReduceConflict`, `ReduceReduceConflict`) and cycles (`InconsistentConflictResolution`) are detected and reported as compile errors. At runtime, the resolved table executes deterministically.
+When you define a `given Resolutions[MyParser.type] = resolutions(...)`, the Alpaca macro incorporates your precedence declarations into the LR(1) parse table at compile time. Conflicts (shift/reduce, reduce/reduce) and cycles in the resolution rules are detected and reported as compile errors. At runtime, the resolved table executes deterministically.
 
 </details>
 
@@ -52,19 +52,41 @@ given Resolutions[CalcParser.type] = resolutions(  // given AFTER
 
 ## Reading the Error Messages
 
-Shift/reduce conflict:
+Without a `given Resolutions`, the `CalcParser` from [Where resolutions Live](#where-resolutions-live) does not compile:
+
+```scala sc-compile-with:cr-plus-lexer sc:fail
+object CalcParser extends Parser: // error
+  val Expr: Rule[Int] = rule(
+    "plus" { case (Expr(a), Lexer.PLUS(_), Expr(b)) => a + b },
+    { case Lexer.NUMBER(n) => n.value },
+  )
+  val root = rule:
+    case Expr(e) => e
+```
+
+The compiler reports a shift/reduce conflict:
 
 ```
-Shift "+" vs Reduce Expr -> Expr + Expr
+Shift "PLUS" vs Reduce Expr -> Expr PLUS Expr (plus)
 In situation like:
-Expr + Expr + ...
-Consider marking production Expr -> Expr + Expr to be before or after "+"
+Expr PLUS Expr PLUS ...
+Consider marking production Expr -> Expr PLUS Expr (plus) to be before or after "PLUS"
 ```
 
-The fix:
+The fix is the rule the message suggests -- here, reducing `plus` before shifting another `PLUS` (left associativity):
 
-```
-production.plus.before(Lexer.PLUS)
+```scala sc-compile-with:cr-plus-lexer
+object CalcParser extends Parser:
+  val Expr: Rule[Int] = rule(
+    "plus" { case (Expr(a), Lexer.PLUS(_), Expr(b)) => a + b },
+    { case Lexer.NUMBER(n) => n.value },
+  )
+  val root = rule:
+    case Expr(e) => e
+
+given Resolutions[CalcParser.type] = resolutions(
+  production.plus.before(Lexer.PLUS),
+)
 ```
 
 ## Naming Productions
@@ -250,7 +272,7 @@ given Resolutions[AssignParser.type] = resolutions(
 
 ## Conflict Cycle Detection
 
-The compiler detects cycles in the transitive closure of constraints. A cycle (A before B before C before A) is contradictory and produces an `InconsistentConflictResolution` error showing the full cycle path.
+The compiler detects cycles in the transitive closure of constraints. A cycle (A before B before C before A) is contradictory and produces an "Inconsistent conflict resolution detected" error showing the full cycle path, reported at the rule that closes the cycle.
 
 ## Best Practices
 

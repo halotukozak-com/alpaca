@@ -45,7 +45,7 @@ Alpaca catches ambiguity at compile time: when building the LR(1) parse table, a
 
 ## How Alpaca Reports Ambiguity
 
-**ShiftReduceConflict:**
+**Shift/reduce conflict:**
 
 ```
 Shift "+" vs Reduce Expr -> Expr + Expr
@@ -54,12 +54,13 @@ Expr + Expr + ...
 Consider marking production Expr -> Expr + Expr to be before or after "+"
 ```
 
-**ReduceReduceConflict:**
+**Reduce/reduce conflict:**
 
 ```
 Reduce Integer -> Number vs Reduce Float -> Number
 In situation like:
 Number ...
+Conflicting production: Integer -> Number (line 3)
 Consider marking one of the productions to be before or after the other
 ```
 

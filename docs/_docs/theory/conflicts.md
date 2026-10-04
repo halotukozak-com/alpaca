@@ -26,10 +26,10 @@ Why it happens: two or more LR(1) items in the same state propose incompatible a
 Both are valid parse trees for `1 + 2 + 3` — the grammar (from [Context-Free Grammars](cfg.md)) is ambiguous for binary operator chains. Alpaca detects this conflict at compile time and reports:
 
 ```
-Shift "PLUS ($plus)" vs Reduce Expr -> Expr PLUS ($plus) Expr
+Shift "PLUS" vs Reduce Expr -> Expr PLUS Expr (plus)
 In situation like:
-Expr PLUS ($plus) Expr PLUS ($plus) ...
-Consider marking production Expr -> Expr PLUS ($plus) Expr to be before or after "PLUS ($plus)"
+Expr PLUS Expr PLUS ...
+Consider marking production Expr -> Expr PLUS Expr (plus) to be before or after "PLUS"
 ```
 
 ## Reduce/Reduce Conflicts
@@ -42,6 +42,7 @@ A reduce/reduce conflict occurs when two different productions can reduce the sa
 Reduce Integer -> Number vs Reduce Float -> Number
 In situation like:
 Number ...
+Conflicting production: Integer -> Number (line 3)
 Consider marking one of the productions to be before or after the other
 ```
 
@@ -95,9 +96,9 @@ The complete CalcParser resolution set — including `minus`, `times`, and `div`
 
 ## Compile-Time Detection
 
-Conflicts are detected at compile time when the LR(1) parse table is constructed by the `extends Parser` macro. A conflict causes a compile error (`ShiftReduceConflict` or `ReduceReduceConflict`) — no conflict checking happens at runtime.
+Conflicts are detected at compile time when the LR(1) parse table is constructed by the `extends Parser` macro. A conflict causes a compile error (shift/reduce or reduce/reduce) — no conflict checking happens at runtime.
 
-When you add a `given Resolutions[MyParser.type] = resolutions(...)`, the macro incorporates your priority declarations into the table construction and re-checks for consistency. A cycle in your declarations (`InconsistentConflictResolution`) is also reported at compile time.
+When you add a `given Resolutions[MyParser.type] = resolutions(...)`, the macro incorporates your priority declarations into the table construction and re-checks for consistency. A cycle in your declarations ("Inconsistent conflict resolution detected") is also reported at compile time.
 
 > **Compile-time processing:** Alpaca builds the LR(1) parse table when you define `object MyParser extends Parser`. Any conflict — shift/reduce or reduce/reduce — is reported as a compile error immediately, before your code runs. When you add a `given Resolutions[MyParser.type] = resolutions(...)`, the macro incorporates your priority declarations into the table construction and re-checks for consistency.
 

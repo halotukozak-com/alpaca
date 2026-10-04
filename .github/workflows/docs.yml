@@ -56,6 +56,12 @@ jobs:
         run: |
           sed -i 's/\$\.get(href, function (data) {/fetch(href).then((r) => r.text()).then(function (data) {/' \
             out/jvm/docJar.dest/docs/scripts/ux.js
+          # Fail loudly if the pattern stops matching (scaladoc changed ux.js) instead of
+          # silently shipping the broken navigation again.
+          if grep -q '\$\.get(' out/jvm/docJar.dest/docs/scripts/ux.js; then
+            echo "::error::scaladoc jQuery patch did not apply -- re-check ux.js"
+            exit 1
+          fi
 
       - name: Setup Pages
         uses: actions/configure-pages@v6
