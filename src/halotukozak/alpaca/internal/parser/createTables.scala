@@ -6,6 +6,7 @@ package parser
 import halotukozak.alpaca.internal.Csv.toCsv
 import halotukozak.alpaca.internal.lexer.Token
 
+import scala.annotation.publicInBinary
 import scala.collection.immutable.VectorMap
 import scala.reflect.NameTransformer
 
@@ -56,7 +57,7 @@ private[alpaca] object Tables:
  * @return an expression containing the parse and action tables
  */
 // $COVERAGE-OFF$
-private def createTablesImpl[Ctx <: ParserCtx: Type](
+@publicInBinary private[parser] def createTablesImpl[Ctx <: ParserCtx: Type](
   using quotes: Quotes,
 ): Expr[(parseTable: ParseTable, actionTable: ActionTable[Ctx])] = {
   import quotes.reflect.*

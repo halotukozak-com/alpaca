@@ -16,7 +16,7 @@ private[internal] object logger:
   def append(path: Path)(content: Shown): Unit = writerCache.compute(
     path,
     (p, existing) => (if existing == null then createWriter(p, false) else existing).tap(_.write(content)),
-  )
+  ): Unit
 
   def replace(path: Path)(content: Shown): Unit = writerCache
     .compute(
@@ -24,8 +24,8 @@ private[internal] object logger:
       (p, existing) =>
         if existing != null then existing.close()
         createWriter(p, true).tap(_.write(content)),
-    )
+    ): Unit
 
   private def createWriter(path: Path, replace: Boolean): BufferedWriter =
-    if path.getParent != null then Files.createDirectories(path.getParent)
+    if path.getParent != null then Files.createDirectories(path.getParent): Unit
     new BufferedWriter(new FileWriter(path.toFile, !replace))

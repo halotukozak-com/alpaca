@@ -133,6 +133,6 @@ final class MathTest extends AnyFunSuite:
       val (_, result) = MathParser.parse(lexemes)
       val expected = 2.0 + 128.0 + 12.0 + 0.0 + 100.0 + (math.Pi / 2.0)
 
-      assert(result == expected, s"Multiple expression mismatch: $result vs $expected")
+      assert(result == expected)
     }
   }

@@ -8,6 +8,8 @@ import halotukozak.made.annotation.name
 import halotukozak.mcodec.MCodec
 import halotukozak.mcodec.annotation.flatten
 
+import scala.annotation.publicInBinary
+
 /**
  * Represents a parse action in the LR parse table.
  *
@@ -17,7 +19,7 @@ import halotukozak.mcodec.annotation.flatten
  */
 private[parser] sealed trait ParseAction extends Any
 
-private[parser] object ParseAction:
+@publicInBinary private[parser] object ParseAction:
 
   /**
    * Shift action: read the input symbol and move to a new state.

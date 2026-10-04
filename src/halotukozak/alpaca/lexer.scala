@@ -158,7 +158,7 @@ object Token:
 transparent inline def ctx[C <: LexerCtx](using c: C): C = ${ ctxImpl[C]('c) }
 
 // $COVERAGE-OFF$
-private def ctxImpl[C <: LexerCtx: Type](c: Expr[C])(using quotes: Quotes): Expr[C] = {
+@publicInBinary private[alpaca] def ctxImpl[C <: LexerCtx: Type](c: Expr[C])(using quotes: Quotes): Expr[C] = {
   import quotes.reflect.*
 
   val ctxTpe = TypeRepr.of[C].widen

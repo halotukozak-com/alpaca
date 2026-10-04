@@ -37,7 +37,7 @@ object `package` extends Module:
         "-new-syntax",
         "-unchecked",
         "-language:noAutoTupling",
-        "-Vprofile",
+        // "-Vprofile",
         "-Werror",
         "-Yexplicit-nulls",
         // Not purely diagnostic: productionImpl (Parser.scala) walks a parser subclass's
@@ -57,12 +57,11 @@ object `package` extends Module:
         // not configurable); excluded rather than left uninstrumented with a -Werror warning.
         "--coverage-exclude-files:.*Lexer.*",
         "--coverage-exclude-files:.*createTables.*",
-        "-experimental",
         //  "-Yprofile-enabled",
         //  s"-Yprofile-trace:$moduleDir/debug/compile-trace.json",
       )
       val ciOnly = Seq(
-        "-Xprint-inline",
+        // "-Xprint-inline",
         // "-Ycheck:all", // cannot be enabled when scoverage used :/
         "-Xcheck-macros",
         // Dotty misreports the position of synthesized Product/Mirror members as 0 for
@@ -71,19 +70,28 @@ object `package` extends Module:
         "-Wconf:msg=Missing symbol position.*:s",
         "-Ycheck:macros",
         // "-Ydebug-error",
-        "-Ydebug-flags",
-        "-Ydebug-missing-refs",
-        "-Yexplain-lowlevel",
+        // "-Ydebug-flags",
+        // "-Ydebug-missing-refs",
+        // "-Yexplain-lowlevel",
         // "-Yprint-debug",
         // "-Xprint:postInlining",
         // "-Xprint-suspension",
         // "-Vprint:typer",
-        "-Yshow-suppressed-errors",
-        "-Yshow-var-bounds",
-        "-Wunused:all",
+        // "-Yshow-suppressed-errors",
+        // "-Yshow-var-bounds",
+        "-Wall",
       )
       if isCI() then common ++ ciOnly else common
     }
+
+    trait SharedTests extends ScalaTests with TestModule.ScalaTest:
+      def scalaTestVersion = "3.2.20"
+
+      // ScalaTest assertions (`x shouldBe y`, `assert(...)`) return an Assertion and run for their effect, so
+      // -Wnonunit-statement would flag every one that isn't the last statement of a block
+      override def scalacOptions = Task {
+        super.scalacOptions() :+ "-Wconf:msg=unused value of type org\\.scalatest\\.(compatible\\.)?Assertion:s"
+      }
 
     override def scalaDocOptions = Task {
       Seq(
@@ -128,9 +136,7 @@ object `package` extends Module:
 
     def scoverageVersion = "2.5.2"
 
-    object test extends ScalaTests with TestModule.ScalaTest with ScoverageTests:
-      def scalaTestVersion = "3.2.20"
-
+    object test extends SharedTests with ScoverageTests:
       // scalameta doesn't cross-build to Scala Native, so the cross-check test
       // that depends on it lives in `test/src-jvm` (picked up automatically,
       // unlike `test/src` which both platforms compile) instead of `test/src`.
@@ -139,14 +145,12 @@ object `package` extends Module:
   object js extends Shared with ScalaJSModule:
     def scalaJSVersion = "1.22.0"
 
-    object test extends ScalaTests with TestModule.ScalaTest with ScalaJSTests:
-      def scalaTestVersion = "3.2.20"
+    object test extends SharedTests with ScalaJSTests
 
   object native extends Shared with ScalaNativeModule:
     def scalaNativeVersion = "0.5.12"
 
-    object test extends ScalaTests with TestModule.ScalaTest with ScalaNativeTests:
-      def scalaTestVersion = "3.2.20"
+    object test extends SharedTests with ScalaNativeTests
 
   object benchmarks extends Module:
 
@@ -158,7 +162,7 @@ object `package` extends Module:
     object alpaca extends BenchmarkScalaModule with JmhModule:
       def scalaVersion = build.jvm.scalaVersion()
       override def scalacOptions =
-        Seq("-experimental", "-preview", "-Yretain-trees", "-language:experimental.erasedDefinitions")
+        Seq("-preview", "-Yretain-trees")
       def moduleDeps = Seq(build.jvm)
 
     object fastparse extends BenchmarkScalaModule:

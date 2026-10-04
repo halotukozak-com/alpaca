@@ -52,7 +52,7 @@ final class LazyReaderTest extends AnyFunSuite:
   test("from should remove characters from beginning and update length") {
     val reader = new StringReader("hello world")
     Using(new LazyReader(reader, 11)) { lazyReader =>
-      lazyReader.from(6)
+      lazyReader.from(6): Unit
 
       assert(lazyReader.length == 5)
       assert(lazyReader.charAt(0) == 'w')
@@ -85,11 +85,11 @@ final class LazyReaderTest extends AnyFunSuite:
   test("from called multiple times should accumulate offset correctly") {
     val reader = new StringReader("abcdefghij")
     Using(new LazyReader(reader, 10)) { lazyReader =>
-      lazyReader.from(3)
+      lazyReader.from(3): Unit
       assert(lazyReader.charAt(0) == 'd')
       assert(lazyReader.length == 7)
 
-      lazyReader.from(4)
+      lazyReader.from(4): Unit
       assert(lazyReader.charAt(0) == 'h')
       assert(lazyReader.length == 3)
     }
@@ -98,20 +98,20 @@ final class LazyReaderTest extends AnyFunSuite:
   test("subSequence after from should return offset-adjusted content") {
     val reader = new StringReader("hello world")
     Using(new LazyReader(reader, 11)): lazyReader =>
-      lazyReader.from(6)
+      lazyReader.from(6): Unit
       assert(lazyReader.subSequence(0, 5) == "world")
   }
 
   test("from advancing to exact end should produce length 0") {
     val reader = new StringReader("abc")
     Using(new LazyReader(reader, 3)): lazyReader =>
-      lazyReader.from(3)
+      lazyReader.from(3): Unit
       assert(lazyReader.length == 0)
   }
 
   test("toString after from should return remaining content") {
     val reader = new StringReader("hello world")
     Using(new LazyReader(reader, 11)): lazyReader =>
-      lazyReader.from(6)
+      lazyReader.from(6): Unit
       assert(lazyReader.toString == "world")
   }

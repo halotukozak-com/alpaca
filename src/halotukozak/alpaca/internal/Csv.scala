@@ -2,6 +2,7 @@ package halotukozak
 package alpaca.internal
 
 import scala.NamedTuple.NamedTuple
+import scala.annotation.publicInBinary
 
 /**
  * Represents data in CSV (Comma-Separated Values) format.
@@ -21,7 +22,7 @@ private[internal] final case class Csv(
   rows: List[List[Shown]],
 )
 
-private[internal] object Csv:
+@publicInBinary private[internal] object Csv:
 
   /**
    * Showable instance for Csv that formats it as a comma-separated value string.

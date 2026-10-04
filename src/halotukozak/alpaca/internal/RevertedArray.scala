@@ -1,12 +1,13 @@
 package halotukozak
 package alpaca.internal
 
+import scala.annotation.publicInBinary
 import scala.collection.Factory
 import scala.reflect.ClassTag
 
 opaque private[alpaca] type RevertedArray[T] = Array[T]
 
-private[alpaca] object RevertedArray:
+@publicInBinary private[alpaca] object RevertedArray:
   def empty[T: ClassTag]: RevertedArray[T] = Array.empty[T]
 
   def apply[T](arr: Array[T]): RevertedArray[T] = arr

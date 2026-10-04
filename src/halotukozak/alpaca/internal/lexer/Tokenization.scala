@@ -57,13 +57,13 @@ transparent abstract class Tokenization[Ctx <: LexerCtx: {ErrorHandling as error
     val acc = mutable.ListBuffer.empty[Lexeme]
 
     while !globalCtx.text.isEmpty do {
-      val (token, matched) = matcher.matchAt(globalCtx.text, 0) match {
+      val step: Step[Ctx] = matcher.matchAt(globalCtx.text, 0) match {
         case m if m != null && m.end > 0 =>
           val matchedStr = globalCtx.text.subSequence(0, m.end).toString
           globalCtx.lastRawMatched = matchedStr
           val found = tokensArray(m.priority)
           globalCtx.text = globalCtx.text.from(m.end)
-          (found, matchedStr)
+          Step.Matched(found, matchedStr)
 
         case _ =>
           errorHandling(globalCtx) match
@@ -77,28 +77,30 @@ transparent abstract class Tokenization[Ctx <: LexerCtx: {ErrorHandling as error
                   val matchedStr = globalCtx.text.subSequence(0, firstMatching).toString
                   globalCtx.lastRawMatched = matchedStr
                   globalCtx.text = globalCtx.text.from(firstMatching)
-                  (RecoveredToken(matchedStr), matchedStr)
+                  Step.Matched(RecoveredToken(matchedStr), matchedStr)
                 case None =>
                   val matchedStr = globalCtx.text.subSequence(0, cpLen).toString
                   globalCtx.lastRawMatched = matchedStr
                   globalCtx.text = globalCtx.text.from(cpLen)
-                  (RecoveredToken(matchedStr), matchedStr)
+                  Step.Matched(RecoveredToken(matchedStr), matchedStr)
 
             case Strategy.IgnoreChar =>
               val cpLen = Character.charCount(Character.codePointAt(globalCtx.text, 0))
               val matchedStr = globalCtx.text.subSequence(0, cpLen).toString
               globalCtx.lastRawMatched = matchedStr
               globalCtx.text = globalCtx.text.from(cpLen)
-              (RecoveredToken(matchedStr), matchedStr)
+              Step.Matched(RecoveredToken(matchedStr), matchedStr)
 
             case Strategy.Stop =>
               globalCtx.text = ""
-              (null, null)
+              Step.Stopped
       }
 
-      if token != null && matched != null then
-        globalCtx = onTokenMatch(token, matched, globalCtx)
-        if token.isInstanceOf[DefinedToken[?, Ctx, ?, ?]] then acc.addOne(globalCtx.lastLexeme.nn.asInstanceOf[Lexeme])
+      step match
+        case Step.Matched(token, matched) =>
+          globalCtx = onTokenMatch(token, matched, globalCtx)
+          if token.isInstanceOf[DefinedToken[?, Ctx, ?, ?]] then acc.addOne(globalCtx.lastLexeme.nn.asInstanceOf[Lexeme])
+        case Step.Stopped =>
     }
 
     (globalCtx, acc.toList)
@@ -108,6 +110,11 @@ transparent abstract class Tokenization[Ctx <: LexerCtx: {ErrorHandling as error
   protected def matcher: TokenMatcher
 
   private lazy val tokensArray: Vector[Token[?, Ctx, ?]] = tokens.toVector
+
+/** The outcome of one step of [[Tokenization.tokenize]]: a token matched (or recovered) from `text`, or a stop. */
+private enum Step[-Ctx <: LexerCtx]:
+  case Matched(token: Token[?, Ctx, ?], text: String)
+  case Stopped
 
 extension (input: CharSequence)
   private[alpaca] def from(pos: Int): CharSequence = input match

@@ -2,6 +2,7 @@ package halotukozak
 package alpaca
 package integration.scalaparser
 
+import org.scalatest.Assertion
 import org.scalatest.funsuite.AnyFunSuite
 
 import scala.annotation.nowarn
@@ -115,7 +116,7 @@ final class ScalaMetaCrossTest extends AnyFunSuite:
       s"(Apply ${renderMeta(a.fun)} [${a.args.map(renderMeta).mkString(",")}])"
     case i: Term.ApplyInfix =>
       val args = i.args
-      require(args.length == 1, s"Alpaca only supports single-arg infix; got $args")
+      require(args.length == 1, s"Alpaca only supports single-arg infix; got ${args.map(_.syntax).mkString(", ")}")
       s"(Infix ${renderMeta(i.lhs)} ${i.op.value} ${renderMeta(args.head)})"
     case u: Term.ApplyUnary => s"(Prefix ${u.op.value} ${renderMeta(u.arg)})"
     case ifTree: Term.If =>
@@ -131,12 +132,12 @@ final class ScalaMetaCrossTest extends AnyFunSuite:
     case v: Defn.Val =>
       val name = v.pats match
         case List(Pat.Var(Term.Name(n))) => n
-        case other => sys.error(s"unexpected Defn.Val pats: $other")
+        case other => sys.error(s"unexpected Defn.Val pats: ${other.map(_.syntax).mkString(", ")}")
       s"(Val $name ${renderMeta(v.rhs)})"
     case v: Defn.Var =>
       val name = v.pats match
         case List(Pat.Var(Term.Name(n))) => n
-        case other => sys.error(s"unexpected Defn.Var pats: $other")
+        case other => sys.error(s"unexpected Defn.Var pats: ${other.map(_.syntax).mkString(", ")}")
       // Defn.Var.body: Term (concrete var always has a RHS)
       s"(Var $name ${renderMeta(v.body)})"
 
@@ -186,14 +187,14 @@ final class ScalaMetaCrossTest extends AnyFunSuite:
     case a: Type.Apply =>
       val base = a.tpe match
         case n: Type.Name => n.value
-        case other => sys.error(s"unsupported AppliedType base: $other")
+        case other => sys.error(s"unsupported AppliedType base: ${other.syntax}")
       s"(AppliedType $base [${a.args.map(renderMetaType).mkString(",")}])"
     case other => s"(UNSUPPORTED_TYPE ${other.productPrefix})"
 
   /** Init.tpe for `extends Foo` parses to Type.Name("Foo"); render the simple name. */
   private def renderInitName(t: Type): String = t match
     case n: Type.Name => n.value
-    case other => sys.error(s"unsupported parent type: $other")
+    case other => sys.error(s"unsupported parent type: ${other.syntax}")
 
   /** Extract the stat list from a Template body and render as Alpaca Block. */
   private def renderTemplateBody(templ: Template): String =
@@ -212,7 +213,7 @@ final class ScalaMetaCrossTest extends AnyFunSuite:
 
   // ---------- Helper ----------
 
-  private def cross(input: String): Unit =
+  private def cross(input: String): Assertion =
     val mine = renderMine(parseMine(input))
     val meta = renderMeta(parseMeta(input))
     assert(mine == meta, s"\nInput:      $input\nAlpaca:     $mine\nScala-meta: $meta")

@@ -62,9 +62,7 @@ private[internal] def createLambda[F: Type](
   Lambda(
     Symbol.spliceOwner,
     MethodType(params.zipWithIndex.map((_, i) => show"$$arg$i"))(_ => params, _ => r),
-    (sym, args) =>
-      if !rhsFn.isDefinedAt((sym, args)) then raiseShouldNeverBeCalled[(Symbol, List[Tree])]((sym, args))
-      rhsFn.apply((sym, args)),
+    (sym, args) => rhsFn.applyOrElse((sym, args), raiseShouldNeverBeCalled[Tree](_)),
   ).asExprOf[F]
 }
 
@@ -191,7 +189,7 @@ private[alpaca] def avoidTooLargeMethod[A: Type, To: Type, B <: mutable.Builder[
         val additions = elements
           .map: entry =>
             '{
-              def local(): Unit = $builder += $entry
+              def local(): Unit = ($builder += $entry): Unit
               local()
             }.asTerm
           .toList
@@ -217,5 +215,5 @@ private[alpaca] def declaredName(using quotes: Quotes)(symbol: quotes.reflect.Sy
 
 extension [T](t: T)
   inline private[alpaca] def tap[U](inline f: T => U): T =
-    f(t)
+    f(t): Unit
     t

@@ -23,14 +23,14 @@ import mill.scalalib._
 
 object brainfuck extends ScalaModule {
   def scalaVersion = "3.9.0"
-  def scalacOptions = Seq("-Yretain-trees", "-experimental")
+  def scalacOptions = Seq("-Yretain-trees")
   def mvnDeps = Seq(
     mvn"com.halotukozak::alpaca:0.1.4"
   )
 }
 ```
 
-The `-Yretain-trees` flag is required. Alpaca's macros inspect the AST of your lexer and parser definitions at compile time, and this flag tells the compiler to preserve that information. The `-experimental` flag is also required: the lexer/parser macros still touch a couple of `@experimental` compiler APIs internally, and that annotation propagates outward to callers.
+The `-Yretain-trees` flag is required. Alpaca's macros inspect the AST of your lexer and parser definitions at compile time, and this flag tells the compiler to preserve that information.
 
 ## Step 1: The Lexer
 

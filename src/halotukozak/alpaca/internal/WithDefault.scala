@@ -20,15 +20,15 @@ trait withDefaultLowImplicitPriority:
    * Ignore default - use the provided type when explicitly specified.
    *
    * @tparam Provided the type that was explicitly provided
-   * @tparam Default the default type (ignored)
+   * @tparam Fallback the default type (ignored)
    */
-  inline given useProvided[Provided, Default]: (Provided withDefault Default) = new (Provided withDefault Default)
+  inline given useProvided[Provided, Fallback]: (Provided withDefault Fallback) = new (Provided withDefault Fallback)
 
 object withDefault extends withDefaultLowImplicitPriority:
 
   /**
    * Infer type argument to default when no type is explicitly provided.
    *
-   * @tparam Default the default type to use
+   * @tparam Fallback the default type to use
    */
-  inline given useDefault[Default]: (Default withDefault Default) = new (Default withDefault Default)
+  inline given useDefault[Fallback]: (Fallback withDefault Fallback) = new (Fallback withDefault Fallback)

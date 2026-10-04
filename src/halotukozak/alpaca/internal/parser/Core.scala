@@ -27,7 +27,7 @@ private[parser] final case class Core(production: Production, dotPosition: Int):
    */
   def nextSymbol: Symbol = production match
     case Production.NonEmpty(_, rhs, _, _) => rhs(dotPosition)
-    case _: Production.Empty => throw AlgorithmError(s"$this is the last item, has no next symbol")
+    case _: Production.Empty => throw AlgorithmError(show"$this is the last item, has no next symbol")
 
   /** The core with the dot advanced by one position. Callers must guard with `!isLastItem`. */
   def nextCore: Core = Core(production, dotPosition + 1)

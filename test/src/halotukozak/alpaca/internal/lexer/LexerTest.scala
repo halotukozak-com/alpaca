@@ -11,12 +11,17 @@ import scala.compiletime.testing.typeCheckErrors
 
 final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
 
+  private type Shape = (String, Any, Map[String, Any])
+
   extension (lexeme: Lexeme[?, ?])
     private def shape = (
       name = lexeme.name,
       value = lexeme.value,
       fields = lexeme.fieldNames.iterator.zip(lexeme.fieldValues.iterator).toMap + ("text" -> lexeme.text),
     )
+
+  private def fields(text: String, position: Int, line: Int): Map[String, Any] =
+    Map[String, Any]("text" -> text, "position" -> position, "line" -> line)
 
   test("selectDynamic returns ctx fields and throws for missing keys") {
     val lexeme: Lexeme[?, ?] =
@@ -40,7 +45,7 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       case id @ "[a-zA-Z][a-zA-Z0-9]*" => Token["IDENTIFIER"](id)
 
     val (_, lexemes) = Lexer.tokenize("hello")
-    assert(lexemes.map(_.shape) == List(("IDENTIFIER", "hello", Map("text" -> "hello", "position" -> 6, "line" -> 1))))
+    assert(lexemes.map(_.shape) == List[Shape](("IDENTIFIER", "hello", fields("hello", 6, 1))))
   }
 
   test("tokenize with whitespace ignored") {
@@ -52,10 +57,10 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
     val (_, lexemes) = Lexer.tokenize("42 + 13")
 
     assert(
-      lexemes.map(_.shape) == List(
-        ("NUMBER", "42", Map("text" -> "42", "position" -> 3, "line" -> 1)),
-        ("PLUS", (), Map("text" -> "+", "position" -> 5, "line" -> 1)),
-        ("NUMBER", "13", Map("text" -> "13", "position" -> 8, "line" -> 1)),
+      lexemes.map(_.shape) == List[Shape](
+        ("NUMBER", "42", fields("42", 3, 1)),
+        ("PLUS", (), fields("+", 5, 1)),
+        ("NUMBER", "13", fields("13", 8, 1)),
       ),
     )
   }
@@ -92,16 +97,16 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
     val (_, lexemes) = Lexer.tokenize("(x + 42) * y - 1")
 
     assert(
-      lexemes.map(_.shape) == List(
-        ("LPAREN", (), Map("text" -> "(", "position" -> 2, "line" -> 1)),
-        ("IDENTIFIER", "x", Map("text" -> "x", "position" -> 3, "line" -> 1)),
-        ("PLUS", (), Map("text" -> "+", "position" -> 5, "line" -> 1)),
-        ("NUMBER", "42", Map("text" -> "42", "position" -> 8, "line" -> 1)),
-        ("RPAREN", (), Map("text" -> ")", "position" -> 9, "line" -> 1)),
-        ("MULTIPLY", (), Map("text" -> "*", "position" -> 11, "line" -> 1)),
-        ("IDENTIFIER", "y", Map("text" -> "y", "position" -> 13, "line" -> 1)),
-        ("MINUS", (), Map("text" -> "-", "position" -> 15, "line" -> 1)),
-        ("NUMBER", "1", Map("text" -> "1", "position" -> 17, "line" -> 1)),
+      lexemes.map(_.shape) == List[Shape](
+        ("LPAREN", (), fields("(", 2, 1)),
+        ("IDENTIFIER", "x", fields("x", 3, 1)),
+        ("PLUS", (), fields("+", 5, 1)),
+        ("NUMBER", "42", fields("42", 8, 1)),
+        ("RPAREN", (), fields(")", 9, 1)),
+        ("MULTIPLY", (), fields("*", 11, 1)),
+        ("IDENTIFIER", "y", fields("y", 13, 1)),
+        ("MINUS", (), fields("-", 15, 1)),
+        ("NUMBER", "1", fields("1", 17, 1)),
       ),
     )
   }
@@ -167,9 +172,9 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
 
     val (ctx, lexemes) = Lexer.tokenize("abc\ndef")
     assert(
-      lexemes.map(_.shape) == List(
-        ("IDENTIFIER", "abc", Map("text" -> "abc", "position" -> 4, "line" -> 1)),
-        ("IDENTIFIER", "def", Map("text" -> "def", "position" -> 4, "line" -> 2)),
+      lexemes.map(_.shape) == List[Shape](
+        ("IDENTIFIER", "abc", fields("abc", 4, 1)),
+        ("IDENTIFIER", "def", fields("def", 4, 2)),
       ),
     )
     ctx.line shouldBe 2
@@ -191,16 +196,16 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       val (_, lexemes) = Lexer.tokenize(reader)
 
       assert(
-        lexemes.map(_.shape) == List(
-          ("LPAREN", (), Map("text" -> "(", "position" -> 2, "line" -> 1)),
-          ("IDENTIFIER", "x", Map("text" -> "x", "position" -> 3, "line" -> 1)),
-          ("PLUS", (), Map("text" -> "+", "position" -> 5, "line" -> 1)),
-          ("NUMBER", "42", Map("text" -> "42", "position" -> 8, "line" -> 1)),
-          ("RPAREN", (), Map("text" -> ")", "position" -> 9, "line" -> 1)),
-          ("MULTIPLY", (), Map("text" -> "*", "position" -> 11, "line" -> 1)),
-          ("IDENTIFIER", "y", Map("text" -> "y", "position" -> 13, "line" -> 1)),
-          ("MINUS", (), Map("text" -> "-", "position" -> 15, "line" -> 1)),
-          ("NUMBER", "1", Map("text" -> "1", "position" -> 17, "line" -> 1)),
+        lexemes.map(_.shape) == List[Shape](
+          ("LPAREN", (), fields("(", 2, 1)),
+          ("IDENTIFIER", "x", fields("x", 3, 1)),
+          ("PLUS", (), fields("+", 5, 1)),
+          ("NUMBER", "42", fields("42", 8, 1)),
+          ("RPAREN", (), fields(")", 9, 1)),
+          ("MULTIPLY", (), fields("*", 11, 1)),
+          ("IDENTIFIER", "y", fields("y", 13, 1)),
+          ("MINUS", (), fields("-", 15, 1)),
+          ("NUMBER", "1", fields("1", 17, 1)),
         ),
       )
     }

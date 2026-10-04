@@ -37,8 +37,8 @@ private[internal] object JsonExport:
       val content = Json.write((version = ExportFormatVersion, context = value))
       try
         if !Files.exists(path) || Files.readString(path) != content then
-          if path.getParent != null then Files.createDirectories(path.getParent)
-          Files.writeString(path, content)
+          if path.getParent != null then Files.createDirectories(path.getParent): Unit
+          Files.writeString(path, content): Unit
       catch
-        case NonFatal(e) => System.err.println(s"[alpaca] failed to write grammar export to $path: $e")
+        case NonFatal(e) => System.err.println(show"[alpaca] failed to write grammar export to $path: ${e.toString}")
 // $COVERAGE-ON$
