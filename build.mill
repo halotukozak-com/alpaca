@@ -79,10 +79,19 @@ object `package` extends Module:
         // "-Vprint:typer",
         "-Yshow-suppressed-errors",
         "-Yshow-var-bounds",
-        "-Wunused:all",
+        "-Wall",
       )
       if isCI() then common ++ ciOnly else common
     }
+
+    trait SharedTests extends ScalaTests with TestModule.ScalaTest:
+      def scalaTestVersion = "3.2.20"
+
+      // ScalaTest assertions (`x shouldBe y`, `assert(...)`) return an Assertion and run for their effect, so
+      // -Wnonunit-statement would flag every one that isn't the last statement of a block
+      override def scalacOptions = Task {
+        super.scalacOptions() :+ "-Wconf:msg=unused value of type org\\.scalatest\\.(compatible\\.)?Assertion:s"
+      }
 
     override def scalaDocOptions = Task {
       Seq(
@@ -127,9 +136,7 @@ object `package` extends Module:
 
     def scoverageVersion = "2.5.2"
 
-    object test extends ScalaTests with TestModule.ScalaTest with ScoverageTests:
-      def scalaTestVersion = "3.2.20"
-
+    object test extends SharedTests with ScoverageTests:
       // scalameta doesn't cross-build to Scala Native, so the cross-check test
       // that depends on it lives in `test/src-jvm` (picked up automatically,
       // unlike `test/src` which both platforms compile) instead of `test/src`.
@@ -138,14 +145,12 @@ object `package` extends Module:
   object js extends Shared with ScalaJSModule:
     def scalaJSVersion = "1.22.0"
 
-    object test extends ScalaTests with TestModule.ScalaTest with ScalaJSTests:
-      def scalaTestVersion = "3.2.20"
+    object test extends SharedTests with ScalaJSTests
 
   object native extends Shared with ScalaNativeModule:
     def scalaNativeVersion = "0.5.12"
 
-    object test extends ScalaTests with TestModule.ScalaTest with ScalaNativeTests:
-      def scalaTestVersion = "3.2.20"
+    object test extends SharedTests with ScalaNativeTests
 
   object benchmarks extends Module:
 
