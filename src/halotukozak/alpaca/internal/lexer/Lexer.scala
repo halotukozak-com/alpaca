@@ -130,30 +130,42 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
 
     case (_, CaseDef(_, Some(guard), _)) => errorAndAbort("Guards are not supported yet", guard.pos)
 
+  // A token's regex as the Scala string literal the user would write in a `case`.
+  def literal(token: (info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], pos: Position, regex: Regex)): String =
+    "\"" + token.info.pattern.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
   tokens
     .groupBy(_.info.name)
     .iterator
     .filter(_._2.sizeIs > 1)
     .foreach: (name, duplicates) =>
+      val alternatives = duplicates.map(literal).mkString(" | ")
       errorAndAbort(
-        show"Token name \"$name\" is defined ${duplicates.size.toString} times. Combine the patterns into a single case using alternatives, e.g.: case x @ (\"pattern1\" | \"pattern2\") => Token[x]",
+        show"Token name \"$name\" is defined ${duplicates.size.toString} times. Combine the patterns into a single case using alternatives: case $alternatives => ...",
         duplicates(1).pos,
       )
 
   SubsetChecker
     .checkRegexes(tokens.map(token => (name = token.info.name, subset = Subset.of(token.regex))))
     .foreach: (first, second) =>
-      val shadowedPos = tokens.find(_.info.name == first).map(_.pos).getOrElse(Position.ofMacroExpansion)
-      val covering = second.map(name => s"\"$name\"").mkString(" or ")
+      val byName = tokens.map(token => token.info.name -> token).toMap
+      val shadowed = byName(first)
+      val quoted = second.map(name => s"\"$name\"")
+      val covering = quoted.mkString(" or ")
       val (which, wins) =
         if second.sizeIs == 1 then ("which is", "it always wins") else ("which are", "one of them always wins")
-      val alternatives = (second :+ first).map(name => s"\"$name\"").mkString(" | ")
+      val advice = second match
+        case List(only) if Subset.of(byName(only).regex).subset(Subset.of(shadowed.regex)) =>
+          s""""$only" and "$first" match exactly the same inputs; remove one of them."""
+        case List(only) =>
+          s"""Declare "$first" (${literal(shadowed)}) before "$only" (${literal(byName(only))})."""
+        case _ =>
+          s""""$first" is redundant: remove it, or narrow ${quoted.mkString(" and ")} so they no longer cover it."""
       errorAndAbort(
         s"""Token "$first" can never match: every input it matches is also matched by $covering,
            |$which defined earlier, so $wins.
-           |Consider reordering the cases so "$first" comes first, or merging them into one case with
-           |alternatives, e.g.: case x @ ($alternatives) => Token[x]""".stripMargin,
-        shadowedPos,
+           |$advice""".stripMargin,
+        shadowed.pos,
       )
 
   // Symbol.spliceOwner is a synthetic "macro" method dotty introduces to host the transparent
