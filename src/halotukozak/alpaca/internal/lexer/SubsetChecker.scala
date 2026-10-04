@@ -36,7 +36,8 @@ private[lexer] object SubsetChecker:
           case None =>
             // Only patterns that overlap `later` can contribute to covering it; checking the
             // union of just those keeps the automaton small for lexers with many tokens.
-            val overlapping = earlier.filterNot((_, earlierSub) => Subset.of(laterSub.underlying & earlierSub.underlying).isEmpty)
+            val overlapping =
+              earlier.filterNot((_, earlierSub) => Subset.of(laterSub.underlying & earlierSub.underlying).isEmpty)
             Option.when(
               overlapping.sizeIs > 1 && laterSub.subset(Subset.of(Regex.alt(overlapping.map(_.subset.underlying)))),
             )((first = laterName, second = overlapping.map(_.name)))
