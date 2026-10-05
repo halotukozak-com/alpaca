@@ -7,7 +7,7 @@ BrainFuck is a minimal language, but we extend it with repeat counts, named cell
 ## Prerequisites
 
 - JDK 21 or later
-- Mill 1.1.8+ (or SBT — see [Installation](index.md#installation) for SBT/Scala CLI setup)
+- Mill 1.1.10+ (or SBT — see [Installation](index.md#installation) for SBT/Scala CLI setup)
 - Scala 3.9.0 or later
 
 ## Project Setup
@@ -15,7 +15,7 @@ BrainFuck is a minimal language, but we extend it with repeat counts, named cell
 Create a Mill project with Alpaca as a dependency:
 
 ```mill
-//| mill-version: 1.1.8
+//| mill-version: 1.1.10
 //| mill-jvm-version: 21
 
 import mill._

@@ -176,7 +176,7 @@ Reading `production.plus.before(Lexer.PLUS, Lexer.MINUS)`: when the parser has r
 
 ## The Production(symbols*) Selector
 
-For unnamed productions, use `Production(symbols*)` to identify them by their right-hand side. Because `resolutions` is now declared *outside* the parser object (see [Where resolutions Live](#where-resolutions-live) above), non-terminals must be qualified with the parser object's name:
+For unnamed productions, use `Production(symbols*)` to identify them by their right-hand side. Because `resolutions` is declared *outside* the parser object (see [Where resolutions Live](#where-resolutions-live) above), non-terminals must be qualified with the parser object's name:
 
 ```scala sc-compile-with:cr-plusminus-lexer
 import halotukozak.alpaca.Production as P

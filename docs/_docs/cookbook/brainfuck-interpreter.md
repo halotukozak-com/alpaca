@@ -117,12 +117,12 @@ object BrainParser extends Parser[BrainParserCtx]:
   val FunctionDef: Rule[BrainAST] = rule:
     case (BrainLexer.functionName(name), BrainLexer.functionOpen(_),
           Operation.List(ops), BrainLexer.functionClose(_)) =>
-      require(BrainParser.this.ctx.functions.add(name.value), s"Function ${name.value} is already defined")
+      require(ctx.functions.add(name.value), s"Function ${name.value} is already defined")
       BrainAST.FunctionDef(name.value, ops)
 
   val FunctionCall: Rule[BrainAST] = rule:
     case (BrainLexer.functionName(name), BrainLexer.functionCall(_)) =>
-      require(BrainParser.this.ctx.functions.contains(name.value), s"Function ${name.value} is not defined")
+      require(ctx.functions.contains(name.value), s"Function ${name.value} is not defined")
       BrainAST.FunctionCall(name.value)
 ```
 
@@ -238,5 +238,5 @@ assert(mem2.cells(0) == 0)  // cell cleared by loop
 Ideas for extending the interpreter further:
 
 - **Error recovery** -- use `ErrorHandling.Strategy.SkipOne` instead of a catch-all pattern
-- **Source positions** -- add `Column` and `Line` fields to the lexer context, plus an `ErrorHandling` that reports them (see [Error Handling Strategies](../lexer-error-recovery.md#error-handling-strategies)), for better error messages
+- **Source positions** -- add `Column` and `Line` fields to the lexer context (see [Built-in Tracking Fragments](../lexer-context.md#built-in-tracking-fragments)); `LexerError` and `ParserError` messages then name the line and column of each error
 - **String literals** -- add a `"..."` token for inline string output

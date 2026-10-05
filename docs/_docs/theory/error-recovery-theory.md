@@ -128,7 +128,7 @@ object BrainParser extends Parser[BrainParserCtx]:
       BrainAST.FunctionCall(name.value)
 ```
 
-This throws a `RuntimeException` on semantic errors. For better error reporting, accumulate errors in the parser context rather than throwing.
+`require` throws an `IllegalArgumentException`, and an exception thrown in a rule body is not turned into a `ParserError`: it propagates out of `parse()`, and the `Result` is never returned. To report semantic errors together with syntactic ones, accumulate them in the parser context instead of throwing, and read them from the result's `ctx`.
 
 ## Cross-links
 
