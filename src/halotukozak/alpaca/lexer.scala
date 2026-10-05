@@ -54,36 +54,23 @@ transparent inline def lexer[Ctx <: LexerCtx](
   }
 
 /**
- * Defines an opaque type `Token` that represents a token used in a lexer.
+ * A token defined in a lexer: its name, the lexer context it belongs to, and the type of the value its lexemes carry.
  *
- * This type has three type parameters:
- * - `Name`: The type of the token's name, restricted to a subtype of `ValidName`.
- * - `Ctx`: The type of the lexer context, restricted to a subtype of `LexerCtx`.
- * - `Value`: The type of the token's value.
+ * Tokens are created inside a `lexer` block with `Token["NAME"]` or `Token["NAME"](value)`, and read from the lexer as
+ * `MyLexer.NAME`. In a parser, `MyLexer.NAME(lexeme)` matches one; as a type, a token can be a `SeparatedBy`
+ * separator, and in `resolutions(...)` it can be ordered against productions.
  *
- * The exact implementation details of the underlying type are abstracted away by using `Any`.
- * Opaque types provide type safety without exposing the underlying representation.
+ * @tparam Name  the token's name
+ * @tparam Ctx   the lexer context type
+ * @tparam Value the type of the value its lexemes carry
  */
 class Token[+Name <: ValidName, +Ctx <: LexerCtx, +Value]
 
 /**
- * Represents a specific type of token definition that denotes an ignored token during the lexing process.
+ * The token `Token.Ignored` creates: its matches are consumed but produce no lexeme. Use it for whitespace, comments
+ * and anything else the parser should not see.
  *
- * Ignored tokens typically refer to tokens that are matched and processed by the lexer but are
- * excluded from the final parsed token stream. Examples of ignored tokens include whitespace,
- * comments, or any other tokens that are syntactically meaningful but do not contribute to
- * the structured representation of the input source.
- *
- * This opaque type is parameterized by a context type `Ctx`, which must be a subtype of `LexerCtx`.
- * The `LexerCtx` trait serves as a base for maintaining global lexing state, such as the current
- * position, the last matched token, and the remaining input.
- *
- * The `ValidName` and `Nothing` type parameters are placeholder constraints inherited from
- * `Token`, but `IgnoredToken` does not provide its own additional constraints
- * or behavior beyond being excluded from normal processing.
- *
- * The use of an opaque type ensures safe and restricted use within the scope of the lexer, as
- * this type cannot be directly manipulated outside the context of its definition.
+ * @tparam Ctx the lexer context type
  */
 final class IgnoredToken[+Ctx <: LexerCtx] extends Token[ValidName, Ctx, Nothing]
 
@@ -102,7 +89,8 @@ object Token:
   def Ignored(using ctx: LexerCtx): IgnoredToken[ctx.type] = new IgnoredToken[ctx.type]
 
   /**
-   * Creates a token that captures the matched string.
+   * Creates a token whose lexemes carry no value (`()`). To carry the matched text or anything computed from it, bind
+   * the match and pass it: `case n @ "[0-9]+" => Token["NUM"](n.toInt)`.
    *
    * This is compile-time only and should only be used inside lexer definitions.
    *
@@ -115,12 +103,12 @@ object Token:
     new Token[Name, ctx.type, String]
 
   /**
-   * Creates a token with a custom value extractor.
+   * Creates a token whose lexemes carry `value`, typically computed from the bound match.
    *
    * This is compile-time only and should only be used inside lexer definitions.
    *
    * @tparam Name the token name
-   * @param value the value to extract from the match
+   * @param value the value its lexemes carry
    * @param ctx   the lexer context
    * @return a token definition
    */
@@ -128,32 +116,31 @@ object Token:
   def apply[Name <: ValidName](value: Any)(using ctx: LexerCtx): Token[Name, ctx.type, value.type] =
     new Token[Name, ctx.type, value.type]
 
+// The returned type is the concrete context type `C` refined with a getter
+// and a setter for every case field that doesn't already have a real setter,
+// e.g. for `case class Ctx(count: Int)`: `C { def count: Int; def count_=(v:
+// Int): Unit }`. This is what lets `ctx.count += 1` type-check even when
+// `count` is an immutable `val` — the real getter always wins over the
+// structural one, but the structural setter is used since there is no real
+// one. The `lexer` macro then rewrites every such structural assignment back
+// into a `copy` (see `rewriteCtxMutations`) before the rule is compiled, so
+// the structural setter is never actually invoked at runtime for a `case
+// class` context: this type exists purely to make the mutation-looking
+// syntax type-check. Contexts that still declare `var` fields are
+// unaffected: the real `var` setter shadows the structural one and the
+// assignment mutates in place, exactly as before, and in fact never gains a
+// refinement member in the first place.
+//
+// `C` is inferred as a fresh, unbound type parameter from whatever context
+// function currently binds `c` — deliberately *not* `c.type`: refining the
+// singleton type of the specific enclosing lambda parameter, rather than the
+// nominal class `C`, is what a `lexer` rule's own macro (which tears the
+// rule apart and rebuilds its pieces as fresh lambdas — see `Lexer.scala`)
+// empirically stumbles on downstream, even though the two only differ in
+// which stable path they're attached to.
 /**
- * Propagates the lexer context through the DSL so that token constructors and
- * rule bodies can access it implicitly.
- *
- * The returned type is the concrete context type `C` refined with a getter
- * and a setter for every case field that doesn't already have a real setter,
- * e.g. for `case class Ctx(count: Int)`: `C { def count: Int; def count_=(v:
- * Int): Unit }`. This is what lets `ctx.count += 1` type-check even when
- * `count` is an immutable `val` — the real getter always wins over the
- * structural one, but the structural setter is used since there is no real
- * one. The `lexer` macro then rewrites every such structural assignment back
- * into a `copy` (see `rewriteCtxMutations`) before the rule is compiled, so
- * the structural setter is never actually invoked at runtime for a `case
- * class` context: this type exists purely to make the mutation-looking
- * syntax type-check. Contexts that still declare `var` fields are
- * unaffected: the real `var` setter shadows the structural one and the
- * assignment mutates in place, exactly as before, and in fact never gains a
- * refinement member in the first place.
- *
- * `C` is inferred as a fresh, unbound type parameter from whatever context
- * function currently binds `c` — deliberately *not* `c.type`: refining the
- * singleton type of the specific enclosing lambda parameter, rather than the
- * nominal class `C`, is what a `lexer` rule's own macro (which tears the
- * rule apart and rebuilds its pieces as fresh lambdas — see `Lexer.scala`)
- * empirically stumbles on downstream, even though the two only differ in
- * which stable path they're attached to.
+ * The lexer context inside a `lexer` rule body. Read its fields, or assign them (`ctx.count += 1`) to change the
+ * context for the tokens that follow: the assignment is rewritten into a `copy`, so the fields can stay `val`s.
  */
 transparent inline def ctx[C <: LexerCtx](using c: C): C = ${ ctxImpl[C]('c) }
 
