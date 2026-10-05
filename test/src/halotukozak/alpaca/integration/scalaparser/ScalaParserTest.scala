@@ -11,8 +11,8 @@ final class ScalaParserTest extends AnyFunSuite:
 
   private def parse(input: String): ScalaTree =
     val (_, lexemes) = ScalaLexer.tokenize(input)
-    val (_, result) = ScalaParser.parse(lexemes)
-    result.nn
+    val result = ScalaParser.parse(lexemes).getOrThrow
+    result
 
   // ===========================================================
   // Literals

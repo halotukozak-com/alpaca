@@ -76,7 +76,7 @@ In Step 2 of the trace, the item `[Expr → NUMBER •, PLUS]` is active. The lo
 
 In Alpaca, this trace corresponds directly to the `loop()` function in `Parser.scala`. Each iteration either calls `ParseAction.Shift(gotoState)` — pushing the lexeme and new state — or `ParseAction.Reduction(production)` — popping `rhs.size` items, calling the action table entry, and pushing the computed value and goto state. The accept condition fires when `lhs == Symbol.Start` and the new state index is 0.
 
-No parse tree object is ever constructed. Each reduce immediately applies the semantic action and pushes the typed result. This is why `CalcParser.parse(CalcLexer.tokenize("1 + 2").lexemes)` returns the `Double` `3.0` directly (as the `result` of the returned `(ctx, result)` tuple), not an intermediate tree.
+No parse tree object is ever constructed. Each reduce immediately applies the semantic action and pushes the typed result. This is why `CalcParser.parse(CalcLexer.tokenize("1 + 2").lexemes)` returns the `Double` `3.0` directly (as the `value` of the returned `ParseResult.Success`), not an intermediate tree.
 
 The shift-reduce loop terminates in O(n) time. Every token is shifted exactly once and participates in at most one reduce per grammar production it belongs to. Since the parse table maps each `(state, symbol)` pair to a single action (shift or reduce), each iteration is a constant-time table lookup. No backtracking occurs — if a conflict exists, Alpaca reports it at compile time rather than exploring alternatives at runtime.
 

@@ -50,8 +50,8 @@ final class BrainfuckTest extends AnyFunSuite:
 
   private def parse(input: String): BrainAST =
     val (_, tokens) = BrainLexer.tokenize(input)
-    val (_, ast) = BrainParser.parse(tokens)
-    ast.nn
+    val ast = BrainParser.parse(tokens).getOrThrow
+    ast
 
   test("parse basic operations") {
     val ast = parse("><+-.,")
@@ -92,18 +92,18 @@ final class BrainfuckTest extends AnyFunSuite:
 
   private def run(input: String): Memory =
     val (_, tokens) = BrainLexer.tokenize(input)
-    val (_, ast) = BrainParser.parse(tokens)
+    val ast = BrainParser.parse(tokens).getOrThrow
     val mem = new Memory()
-    ast.nn.eval(mem)
+    ast.eval(mem)
     mem
 
   private def runAndCapture(input: String): (Memory, String) =
     val (_, tokens) = BrainLexer.tokenize(input)
-    val (_, ast) = BrainParser.parse(tokens)
+    val ast = BrainParser.parse(tokens).getOrThrow
     val mem = new Memory()
     val out = new java.io.ByteArrayOutputStream()
     Console.withOut(out) {
-      ast.nn.eval(mem)
+      ast.eval(mem)
     }
     (mem, out.toString)
 

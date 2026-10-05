@@ -114,18 +114,17 @@ With conflict resolution in place, the compiler builds the LALR(1) parse table w
 
 ```scala sc-compile-with:full-example-parser
 val (_, lexemes) = CalcLexer.tokenize("1 + 2 * 3")
-val (_, result)  = CalcParser.parse(lexemes)
-// result: Double | Null = 7.0   (not 9.0 — * binds tighter than +)
+val result = CalcParser.parse(lexemes).getOrThrow
+// result: Double = 7.0   (not 9.0 — * binds tighter than +)
 
 val (_, l2) = CalcLexer.tokenize("(1 + 2) * 3")
-val (_, r2) = CalcParser.parse(l2)
-// r2: Double | Null = 9.0       (parentheses override precedence)
+val r2 = CalcParser.parse(l2).getOrThrow
+// r2: Double = 9.0       (parentheses override precedence)
 
-// result is typed Double | Null:
-if result != null then println(result)
+println(result)
 ```
 
-`1 + 2 * 3 = 7.0` (not 9.0) confirms that the `times`/`div` resolutions give `*` higher precedence than `+`. Parentheses `(1 + 2) * 3 = 9.0` override precedence as expected. The result is typed `Double | Null`, so check it (or use `.nn`) before using it as a `Double`. Input that the grammar does not match, such as `1 + * 2`, makes `parse()` throw a `ParseError` instead; see [Parser](../parser.md#parsing-input).
+`1 + 2 * 3 = 7.0` (not 9.0) confirms that the `times`/`div` resolutions give `*` higher precedence than `+`. Parentheses `(1 + 2) * 3 = 9.0` override precedence as expected. `parse()` returns a `ParseResult`, and `getOrThrow` takes the `Double` out of it. Input that the grammar does not match, such as `1 + * 2`, comes back as a `ParseResult.Failure` listing the `ParseError`s instead (which `getOrThrow` would throw); see [Parser](../parser.md#parsing-input).
 
 ## Step 6: Semantic Action Trace
 

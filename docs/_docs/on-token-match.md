@@ -53,7 +53,7 @@ object BrainParser extends Parser:
 
 ```scala sc-compile-with:otm-brainfuck
 val (finalCtx, lexemes) = BrainLexer.tokenize("[>+<-]")
-val (_, ast) = BrainParser.parse(lexemes)
+val ast = BrainParser.parse(lexemes).getOrThrow
 ```
 
 This page explains what is inside those lexemes, how the pipeline advances the context, and how the data flows between stages.
@@ -68,7 +68,7 @@ val (finalCtx, lexemes) = BrainLexer.tokenize("++[>+<-].")
 // finalCtx holds the final lexer context state
 // lexemes holds the matched tokens (Token.Ignored entries are excluded)
 
-val (_, ast) = BrainParser.parse(lexemes)
+val ast = BrainParser.parse(lexemes).getOrThrow
 ```
 
 The parser accepts `List[Lexeme[?, ?]]` and appends `Lexeme.EOF` internally before processing begins. You do not need to add an end-of-input marker yourself.
@@ -78,7 +78,7 @@ The final context (the tuple's `ctx` field) is useful for post-tokenization chec
 ```scala sc-compile-with:otm-brainfuck
 val (finalCtx, lexemes) = BrainLexer.tokenize("[>+<-]")
 require(finalCtx.squareBrackets == 0, "Mismatched brackets")
-val (_, ast) = BrainParser.parse(lexemes)
+val ast = BrainParser.parse(lexemes).getOrThrow
 ```
 
 ## The Post-Match Update

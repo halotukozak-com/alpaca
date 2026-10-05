@@ -45,7 +45,7 @@ given Resolutions[MathParser.type] = resolutions(
 
   try
     val (_, tokens) = MathLexer.tokenize(fileContentIterative)
-    val (_, result) = MathParser.parse(tokens)
+    val result = MathParser.parse(tokens).getOrThrow
     println(s"\nResult Iterative: $result")
   catch
     case e: Exception =>
@@ -59,7 +59,7 @@ given Resolutions[MathParser.type] = resolutions(
 
   try
     val (_, tokens) = MathLexer.tokenize(fileContentRecursive)
-    val (_, result) = MathParser.parse(tokens)
+    val result = MathParser.parse(tokens).getOrThrow
     println(s"\nResult Recursive: $result")
   catch
     case e: Exception =>

@@ -71,7 +71,7 @@ object JsonParser extends Parser:
 
   try
     val (_, tokens) = JsonLexer.tokenize(fileContentIterative)
-    val (_, result) = JsonParser.parse(tokens)
+    val result = JsonParser.parse(tokens).getOrThrow
     println(s"\nResult Iterative: $result")
   catch
     case e: Exception =>
@@ -85,7 +85,7 @@ object JsonParser extends Parser:
 
   try
     val (_, tokens) = JsonLexer.tokenize(fileContentRecursive)
-    val (_, result) = JsonParser.parse(tokens)
+    val result = JsonParser.parse(tokens).getOrThrow
     println(s"\nResult Recursive: $result")
   catch
     case e: Exception =>

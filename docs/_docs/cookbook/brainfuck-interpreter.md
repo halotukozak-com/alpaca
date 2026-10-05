@@ -169,8 +169,8 @@ import halotukozak.alpaca.*
   val program = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."
   val (ctx, lexemes) = BrainLexer.tokenize(program)
   require(ctx.squareBrackets == 0 && ctx.brackets == 0, "Mismatched brackets")
-  val (_, ast) = BrainParser.parse(lexemes)
-  ast.nn.eval(Memory())
+  val ast = BrainParser.parse(lexemes).getOrThrow
+  ast.eval(Memory())
   // prints: Hello World!
 ```
 
@@ -182,7 +182,7 @@ val lexed = BrainLexer.tokenize(program)
 require(lexed.ctx.squareBrackets == 0 && lexed.ctx.brackets == 0, "Mismatched brackets")
 val parsed = BrainParser.parse(lexed.lexemes)
 val mem = Memory()
-parsed.result.nn.eval(mem)
+parsed.getOrThrow.eval(mem)
 // cell 'a' (index 0) = 3, cell 'b' (index 1) = 5, pointer back to 'a', prints char 3
 ```
 
@@ -194,7 +194,7 @@ val lexed = BrainLexer.tokenize(program)
 require(lexed.ctx.squareBrackets == 0 && lexed.ctx.brackets == 0, "Mismatched brackets")
 val parsed = BrainParser.parse(lexed.lexemes)
 val mem = Memory()
-parsed.result.nn.eval(mem)
+parsed.getOrThrow.eval(mem)
 // cell 'a' = 6 (two calls to foo, each adding 3), then prints char 6
 ```
 
@@ -208,7 +208,7 @@ val tokens = BrainLexer.tokenize("><+-.,").lexemes
 assert(tokens.map(_.name) == List("next", "prev", "inc", "dec", "print", "read"))
 
 // Parser
-val ast = BrainParser.parse(BrainLexer.tokenize("[>+<-]").lexemes).result
+val ast = BrainParser.parse(BrainLexer.tokenize("[>+<-]").lexemes).getOrThrow
 assert(ast == BrainAST.Root(List(
   BrainAST.While(List(BrainAST.Next, BrainAST.Inc, BrainAST.Prev, BrainAST.Dec))
 )))
@@ -218,17 +218,17 @@ The repeat-count, named-cell, and function extensions built up over this guide a
 
 ```scala sc-compile-with:brainEval
 // Repeat count
-val ast2 = BrainParser.parse(BrainLexer.tokenize("3+").lexemes).result
+val ast2 = BrainParser.parse(BrainLexer.tokenize("3+").lexemes).getOrThrow
 assert(ast2 == BrainAST.Root(List(BrainAST.Repeat(3, BrainAST.Inc))))
 
 // Named cells
 val mem = Memory()
-BrainParser.parse(BrainLexer.tokenize("$a 3+ $b 5+").lexemes).result.nn.eval(mem)
+BrainParser.parse(BrainLexer.tokenize("$a 3+ $b 5+").lexemes).getOrThrow.eval(mem)
 assert(mem.cells(0) == 3 && mem.cells(1) == 5)  // auto-allocated indices
 
 // Evaluator
 val mem2 = Memory()
-BrainParser.parse(BrainLexer.tokenize("+++++[-]").lexemes).result.nn.eval(mem2)
+BrainParser.parse(BrainLexer.tokenize("+++++[-]").lexemes).getOrThrow.eval(mem2)
 assert(mem2.cells(0) == 0)  // cell cleared by loop
 ```
 

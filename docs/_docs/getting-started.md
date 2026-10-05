@@ -229,30 +229,30 @@ import halotukozak.alpaca.*
   val hello = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."
   val (ctx1, lexemes1) = BrainLexer.tokenize(hello)
   require(ctx1.squareBrackets == 0, "Mismatched brackets")
-  val (_, ast1) = BrainParser.parse(lexemes1)
-  ast1.nn.eval(Memory())
+  val ast1 = BrainParser.parse(lexemes1).getOrThrow
+  ast1.eval(Memory())
   // prints: Hello World!
 
   // Repeat counts and named cells
   val extended = "$a 3+ $b 5+ $a ."
   val (ctx2, lexemes2) = BrainLexer.tokenize(extended)
   require(ctx2.brackets == 0 && ctx2.squareBrackets == 0, "Mismatched brackets")
-  val (_, ast2) = BrainParser.parse(lexemes2)
+  val ast2 = BrainParser.parse(lexemes2).getOrThrow
   val mem = Memory()
-  ast2.nn.eval(mem)
+  ast2.eval(mem)
   // cell 'a' (index 0) = 3, cell 'b' (index 1) = 5, pointer back to 'a', prints char 3
 
   // Functions: define once, call twice
   val withFunctions = "$a foo(3+)foo!foo!."
   val (ctx3, lexemes3) = BrainLexer.tokenize(withFunctions)
   require(ctx3.brackets == 0 && ctx3.squareBrackets == 0, "Mismatched brackets")
-  val (_, ast3) = BrainParser.parse(lexemes3)
+  val ast3 = BrainParser.parse(lexemes3).getOrThrow
   val mem2 = Memory()
-  ast3.nn.eval(mem2)
+  ast3.eval(mem2)
   // cell 'a' = 6 (two calls to foo, each adding 3), then prints char 6
 ```
 
-The pipeline is always the same: `tokenize` produces lexemes, `parse` produces an AST (typed `BrainAST | Null`, so `.nn` turns it into a plain `BrainAST`; input that does not match the grammar makes `parse` throw a `ParseError`), and you evaluate the result however you want.
+The pipeline is always the same: `tokenize` produces lexemes, `parse` produces a `ParseResult` holding the AST (`getOrThrow` takes the `BrainAST` out of it; input that does not match the grammar comes back as a `ParseResult.Failure` listing the `ParseError`s, see [Parsing Input](parser.md#parsing-input)), and you evaluate the result however you want.
 
 ## What's Next
 

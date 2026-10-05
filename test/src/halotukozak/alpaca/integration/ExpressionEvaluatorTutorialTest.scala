@@ -77,12 +77,12 @@ final class ExpressionEvaluatorTutorialTest extends AnyFunSuite:
 
   test("basic arithmetic") {
     val (_, lexemes) = CalcLexer.tokenize("1 + 2 * 3")
-    val (_, result) = ExprEvalParser.parse(lexemes)
+    val result = ExprEvalParser.parse(lexemes).getOrThrow
     assert(result == 7.0)
   }
 
   test("sin(pi / 2) + 2 ** 3 * 4") {
     val (_, lexemes) = CalcLexer.tokenize("sin(pi / 2) + 2 ** 3 * 4")
-    val (_, result) = ExprEvalParser.parse(lexemes)
+    val result = ExprEvalParser.parse(lexemes).getOrThrow
     assert(result == 33.0)
   }

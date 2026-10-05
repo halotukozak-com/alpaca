@@ -67,8 +67,8 @@ object BrainParser extends Parser:
 val (_, lexemes) = BrainLexer.tokenize("++[>+<-].")
 // lexemes: List[Lexeme] — inc, inc, jumpForward, next, inc, prev, dec, jumpBack, print
 
-val (_, ast) = BrainParser.parse(lexemes)
-// ast: BrainAST | Null — the parsed abstract syntax tree
+val ast = BrainParser.parse(lexemes).getOrThrow
+// ast: BrainAST — the parsed abstract syntax tree
 ```
 
 `BrainLexer.tokenize` handles stages 1–2: source string to `List[Lexeme]`. `BrainParser.parse` handles stage 3: lexemes to an AST. You then evaluate or interpret that AST as stage 4, producing the final result.
