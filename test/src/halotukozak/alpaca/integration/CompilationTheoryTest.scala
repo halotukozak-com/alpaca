@@ -192,8 +192,8 @@ final class CompilationTheoryTest extends AnyFunSuite:
       x = 2;
       y = 2.5;
       """) { input =>
-      val lexems = CTLexer.tokenize(input).getOrThrow
-      val result = ASTPrinterParser.parse(lexems).getOrThrow
+      val lexemes = CTLexer.tokenize(input).getOrThrow
+      val result = ASTPrinterParser.parse(lexemes).getOrThrow
 
       val expected = ASTNode(
         "program",
