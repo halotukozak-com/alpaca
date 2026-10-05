@@ -8,7 +8,6 @@ import halotukozak.alpaca.internal.Showable
 import halotukozak.mcodec.MCodec
 
 import scala.annotation.publicInBinary
-import scala.reflect.NameTransformer
 import scala.util.Random
 
 /**
@@ -101,11 +100,14 @@ object Terminal:
    */
   val Dummy: Terminal { type IsEmpty = false } = Terminal("#")
 
+  /**
+   * Symbols are shown as the user wrote them: token names unencoded (`+`, not `$plus`), and the non-terminals the
+   * EBNF extractors synthesize by the extractor they stand for (`Operation.List`), without the uniqueness suffix.
+   */
   given Showable[Symbol] = symbol =>
-    if symbol.name.contains(SyntheticInfix) then show"<synthetic from ${symbol.name.takeWhile(_ != '$')}>"
-    else
-      val encoded = NameTransformer.encode(symbol.name)
-      if encoded == symbol.name then symbol.name else show"${symbol.name} ($encoded)"
+    symbol.name.indexOf(s"_${SyntheticInfix}_") match
+      case -1 => symbol.name
+      case end => symbol.name.substring(0, end)
 
   // $COVERAGE-OFF$
   given [S <: Symbol] => ToExpr[S]:

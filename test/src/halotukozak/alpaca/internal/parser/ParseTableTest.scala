@@ -41,13 +41,27 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
 
       val root = rule:
        case Expr(expr) => expr 
-    """).loneElement.message should
-      include("""
-                |Shift "+ ($plus)" vs Reduce Expr -> Expr + ($plus) Expr
-                |In situation like:
-                |Expr + ($plus) Expr + ($plus) ...
-                |Consider marking production Expr -> Expr + ($plus) Expr to be before or after "+ ($plus)"
-                |""".stripMargin)
+    """).loneElement.message should include("""
+                                              |Shift "+" vs Reduce Expr -> Expr + Expr
+                                              |In situation like:
+                                              |Expr + Expr + ...
+                                              |Consider marking production Expr -> Expr + Expr to be before or after "+"
+                                              |""".stripMargin)
+  }
+
+  test("conflict messages show EBNF non-terminals as the extractor that created them") {
+    val message = typeCheckErrors("""
+    object ListConflictParser extends Parser[CalcContext]:
+      val Expr: Rule[Int] = rule(
+        { case (Expr(expr1), CalcLexer.`+`(_), Expr(expr2)) => expr1 + expr2 },
+        { case CalcLexer.Num(lexem) => lexem.value },
+      )
+
+      val root = rule:
+       case (CalcLexer.`+`(_), Expr.List(exprs)) => exprs.sum
+    """).map(_.message).mkString("\n")
+    message should include("Expr.List")
+    (message should not).include("synthetic")
   }
 
   test("parse table Reduce-Reduce conflict") {
@@ -94,7 +108,7 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
     """).map(e => (e.message.linesIterator.find(_.nonEmpty).get, e.lineContent.trim)) should contain theSameElementsAs
       List(
         (
-          "Shift \"+ ($plus)\" vs Reduce Expr -> Expr + ($plus) Expr",
+          "Shift \"+\" vs Reduce Expr -> Expr + Expr",
           "{ case (Expr(a), CalcLexer.`+`(_), Expr(b)) => a + b },",
         ),
         ("Reduce Float -> Num vs Reduce Integer -> Num", "case CalcLexer.Num(lexem) => lexem.value"),
@@ -118,8 +132,8 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
     """).loneElement
     cycle.message should startWith("""
                                      |Inconsistent conflict resolution detected:
-                                     |Reduction(A) before Shift(+) before Reduction(B -> + ($plus)) before Reduction(A)
-                                     |There are elements being both before and after Reduction(A) at the same time.
+                                     |A -> Num (A) before "+" before B -> + before A -> Num (A)
+                                     |There are elements being both before and after A -> Num (A) at the same time.
                                      |Consider revising the before/after rules to eliminate cycles
                                      |""".stripMargin)
     // points at the rule closing the cycle, not at the parser declaration
