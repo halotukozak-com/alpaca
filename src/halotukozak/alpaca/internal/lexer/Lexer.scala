@@ -130,9 +130,12 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
 
     case (_, CaseDef(_, Some(guard), _)) => errorAndAbort("Guards are not supported yet", guard.pos)
 
+  // A token name in quotes, readable even when it holds a tab or another non-printable character.
+  def quote(name: String): String = "\"" + printable(name) + "\""
+
   // A token's regex as the Scala string literal the user would write in a `case`.
   def literal(token: (info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], pos: Position, regex: Regex)): String =
-    "\"" + token.info.pattern.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+    quote(token.info.pattern.replace("\\", "\\\\").replace("\"", "\\\""))
 
   tokens
     .groupBy(_.info.name)
@@ -141,7 +144,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
     .foreach: (name, duplicates) =>
       val alternatives = duplicates.map(literal).mkString(" | ")
       errorAndAbort(
-        show"Token name \"$name\" is defined ${duplicates.size.toString} times. Combine the patterns into a single case using alternatives: case $alternatives => ...",
+        show"Token name ${quote(name)} is defined ${duplicates.size.toString} times. Combine the patterns into a single case using alternatives: case $alternatives => ...",
         duplicates(1).pos,
       )
 
@@ -150,19 +153,21 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
     .foreach: (first, second) =>
       val byName = tokens.map(token => token.info.name -> token).toMap
       val shadowed = byName(first)
-      val quoted = second.map(name => s"\"$name\"")
+      val quoted = second.map(quote)
       val covering = quoted.mkString(" or ")
       val (which, wins) =
         if second.sizeIs == 1 then ("which is", "it always wins") else ("which are", "one of them always wins")
       val advice = second match
         case List(only) if Subset.of(byName(only).regex).subset(Subset.of(shadowed.regex)) =>
-          s""""$only" and "$first" match exactly the same inputs; remove one of them."""
+          s"""${quote(only)} and ${quote(first)} match exactly the same inputs; remove one of them."""
         case List(only) =>
-          s"""Declare "$first" (${literal(shadowed)}) before "$only" (${literal(byName(only))})."""
+          s"""Declare ${quote(first)} (${literal(shadowed)}) before ${quote(only)} (${literal(byName(only))})."""
         case _ =>
-          s""""$first" is redundant: remove it, or narrow ${quoted.mkString(" and ")} so they no longer cover it."""
+          s"""${quote(first)} is redundant: remove it, or narrow ${quoted.mkString(
+              " and ",
+            )} so they no longer cover it."""
       errorAndAbort(
-        s"""Token "$first" can never match: every input it matches is also matched by $covering,
+        s"""Token ${quote(first)} can never match: every input it matches is also matched by $covering,
            |$which defined earlier, so $wins.
            |$advice""".stripMargin,
         shadowed.pos,
