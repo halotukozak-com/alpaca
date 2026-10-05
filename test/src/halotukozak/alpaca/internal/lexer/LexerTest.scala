@@ -2,7 +2,7 @@ package halotukozak
 package alpaca.internal.lexer
 
 import halotukozak.alpaca.internal.lexer.Lexeme
-import halotukozak.alpaca.{lexer, withLazyReader, Token}
+import halotukozak.alpaca.{lexer, withLazyReader, LexError, LexerException, Result, Token}
 import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -44,7 +44,7 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
     val Lexer = lexer:
       case id @ "[a-zA-Z][a-zA-Z0-9]*" => Token["IDENTIFIER"](id)
 
-    val (_, lexemes) = Lexer.tokenize("hello")
+    val lexemes = Lexer.tokenize("hello").getOrThrow
     assert(lexemes.map(_.shape) == List[Shape](("IDENTIFIER", "hello", fields("hello", 6, 1))))
   }
 
@@ -54,7 +54,7 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       case "\\+" => Token["PLUS"]
       case "\\s+" => Token.Ignored
 
-    val (_, lexemes) = Lexer.tokenize("42 + 13")
+    val lexemes = Lexer.tokenize("42 + 13").getOrThrow
 
     assert(
       lexemes.map(_.shape) == List[Shape](
@@ -69,18 +69,29 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
     val Lexer = lexer:
       case id @ "[a-zA-Z][a-zA-Z0-9]*" => Token["IDENTIFIER"](id)
 
-    val (_, lexemes) = Lexer.tokenize("")
+    val lexemes = Lexer.tokenize("").getOrThrow
     assert(lexemes == Nil)
   }
 
-  test("throw exception for unexpected character") {
+  test("unexpected character fails with a LexError and the lexemes before it are not recovered") {
     val Lexer = lexer:
       case number @ "[0-9]+" => Token["NUMBER"](number.toInt)
 
-    val exception = intercept[RuntimeException]:
-      Lexer.tokenize("123abc")
+    Lexer.tokenize("123abc") match
+      case Result.Failure(_, recovered, errors) =>
+        recovered shouldBe None
+        errors.loneElement shouldBe LexError("a", Some(1), Some(4))
+        errors.loneElement.message shouldBe "Unexpected character 'a' at line 1, column 4"
+      case Result.Success(_, lexemes) => fail(s"expected a failure, got ${lexemes.size.toString} lexemes")
+  }
 
-    assert(exception.getMessage.contains("Unexpected character at line 1, position 4: 'a'"))
+  test("getOrThrow throws the lexer errors as a LexerException") {
+    val Lexer = lexer:
+      case number @ "[0-9]+" => Token["NUMBER"](number.toInt)
+
+    val exception = intercept[LexerException](Lexer.tokenize("123abc").getOrThrow)
+    exception.errors shouldBe List(LexError("a", Some(1), Some(4)))
+    exception.getMessage shouldBe "Unexpected character 'a' at line 1, column 4"
   }
 
   test("tokenize complex expression") {
@@ -94,7 +105,7 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       case "\\)" => Token["RPAREN"]
       case "\\s+" => Token.Ignored
 
-    val (_, lexemes) = Lexer.tokenize("(x + 42) * y - 1")
+    val lexemes = Lexer.tokenize("(x + 42) * y - 1").getOrThrow
 
     assert(
       lexemes.map(_.shape) == List[Shape](
@@ -128,7 +139,7 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       case "ab" => Token["AB"]
       case "\\s+" => Token.Ignored
 
-    val (_, lexemes) = Lexer.tokenize("ab a")
+    val lexemes = Lexer.tokenize("ab a").getOrThrow
     assert(lexemes.map(_.name) == List("AB", "A"))
   }
 
@@ -138,7 +149,7 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       case id @ "[a-z]+" => Token["ID"](id)
       case "\\s+" => Token.Ignored
 
-    val (_, lexemes) = Lexer.tokenize("if iffy")
+    val lexemes = Lexer.tokenize("if iffy").getOrThrow
     assert(lexemes.map(_.name) == List("IF", "ID"))
   }
 
@@ -170,7 +181,7 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       case ">=" | ">" => Token["GREATER"]
       case "\\s+" => Token.Ignored
 
-    val (_, lexemes) = Lexer.tokenize(">= >")
+    val lexemes = Lexer.tokenize(">= >").getOrThrow
     assert(lexemes.map(_.shape.fields("text")) == List(">=", ">"))
   }
 
@@ -179,7 +190,7 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       case ">" | ">=" => Token["GREATER"]
       case "\\s+" => Token.Ignored
 
-    val (_, lexemes) = Lexer.tokenize(">= >")
+    val lexemes = Lexer.tokenize(">= >").getOrThrow
     assert(lexemes.map(_.shape.fields("text")) == List(">=", ">"))
   }
 
@@ -219,10 +230,8 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
     val Lexer = lexer:
       case number @ "[0-9]+" => Token["NUMBER"](number.toInt)
 
-    val exception = intercept[RuntimeException]:
-      Lexer.tokenize("1\t")
-
-    exception.getMessage should include("""Unexpected character at line 1, position 2: '\t'""")
+    val exception = intercept[LexerException](Lexer.tokenize("1\t").getOrThrow)
+    exception.getMessage shouldBe """Unexpected character '\t' at line 1, column 2"""
   }
 
   test("shadowing error escapes non-printable token names and patterns") {
@@ -256,7 +265,11 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       case id @ "[a-zA-Z]+" => Token["IDENTIFIER"](id)
       case "\\s+" => Token.Ignored
 
-    val (ctx, lexemes) = Lexer.tokenize("abc\ndef")
+    val lexemesResult = Lexer.tokenize("abc\ndef")
+
+    val ctx = lexemesResult.ctx
+
+    val lexemes = lexemesResult.getOrThrow
     assert(
       lexemes.map(_.shape) == List[Shape](
         ("IDENTIFIER", "abc", fields("abc", 4, 1)),
@@ -279,7 +292,7 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       case "\\s+" => Token.Ignored
 
     withLazyReader("(x + 42) * y - 1") { reader =>
-      val (_, lexemes) = Lexer.tokenize(reader)
+      val lexemes = Lexer.tokenize(reader).getOrThrow
 
       assert(
         lexemes.map(_.shape) == List[Shape](

@@ -102,7 +102,7 @@ final class LexerApiTest extends AnyFunSuite with Matchers {
         Token["check"](ctx.count)
       case " " => Token.Ignored
 
-    val (_, lexemes) = Lexer.tokenize("inc check inc inc check")
+    val lexemes = Lexer.tokenize("inc check inc inc check").getOrThrow
     lexemes.map(_.value) shouldBe List(1, 1, 2, 3, 3)
   }
 
@@ -111,7 +111,7 @@ final class LexerApiTest extends AnyFunSuite with Matchers {
       case brace @ ("\\{" | "\\}") => Token[brace.type]
       case x @ "[a-z]+" => Token["word"](x)
 
-    val (finalCtx, _) = Lexer.tokenize("a{b{c}{d")
+    val finalCtx = Lexer.tokenize("a{b{c}{d").ctx
     finalCtx.depth shouldBe 2
   }
 
@@ -120,7 +120,7 @@ final class LexerApiTest extends AnyFunSuite with Matchers {
       case "\n" => Token.Ignored
       case x @ "[a-z]+" => Token["word"](x)
 
-    val (finalCtx, _) = Lexer.tokenize("ab\ncde")
+    val finalCtx = Lexer.tokenize("ab\ncde").ctx
     finalCtx.line shouldBe 2
     finalCtx.position shouldBe 4
   }

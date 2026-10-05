@@ -39,7 +39,11 @@ val BrainLexer = lexer:
   case "-" => Token["dec"]
   case "\\s+" => Token.Ignored
 
-val (ctx, lexemes) = BrainLexer.tokenize("+ - +")
+val lexed = BrainLexer.tokenize("+ - +")
+
+val ctx = lexed.ctx
+
+val lexemes = lexed.getOrThrow
 // ctx.position == 6
 // ctx.line     == 1
 //
@@ -104,7 +108,9 @@ val BrainLexer = lexer[BrainLexContext]:
 The type parameter `lexer[BrainLexContext]` tells the macro which context to use. The final context state is returned as the `ctx` component of the named tuple from `tokenize()`:
 
 ```scala sc-compile-with:lc-brainlex
-val (finalCtx, lexemes) = BrainLexer.tokenize("[>+<-]")
+val lexed = BrainLexer.tokenize("[>+<-]")
+val finalCtx = lexed.ctx
+val lexemes = lexed.getOrThrow
 // finalCtx.squareBrackets == 0  -- balanced
 ```
 
@@ -136,7 +142,7 @@ val BrainLexer = lexer:
   case "\\+" => Token["inc"]
   case "\\s+" => Token.Ignored
 
-val (_, lexemes) = BrainLexer.tokenize("+ +")
+val lexemes = BrainLexer.tokenize("+ +").getOrThrow
 lexemes(0).position  // 2: Int (post-match position)
 lexemes(0).line      // 1: Int
 lexemes(0).text      // "+": String (the matched text, not remaining input)
@@ -168,7 +174,7 @@ val BrainLexer = lexer[BrainLexContext]:
   case "\\+" => Token["inc"]
   case "." => Token.Ignored
 
-val (_, lexemes) = BrainLexer.tokenize("[+[+]]")
+val lexemes = BrainLexer.tokenize("[+[+]]").getOrThrow
 // lexemes(0).squareBrackets == 1  -- after first [
 // lexemes(2).squareBrackets == 2  -- after second [
 // lexemes(4).squareBrackets == 1  -- after first ]
@@ -250,7 +256,7 @@ val Lexer = lexer[LexerCtx.Empty]:
   case "\\+" => Token["inc"]
   case "." => Token.Ignored
 
-val (_, lexemes) = Lexer.tokenize("+ +")
+val lexemes = Lexer.tokenize("+ +").getOrThrow
 // lexemes(0).text == "+"  -- the only snapshot field: no position, no line
 ```
 

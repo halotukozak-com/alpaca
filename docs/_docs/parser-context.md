@@ -109,7 +109,7 @@ object BrainParser extends Parser[BrainParserCtx]:
 
 ```scala sc-compile-with:brain-parser-ctx-example
 // Parsing "foo(+++)foo!":
-val (_, lexemes) = BrainLexer.tokenize("foo(+++)foo!")
+val lexemes = BrainLexer.tokenize("foo(+++)foo!").getOrThrow
 val finalCtx = BrainParser.parse(lexemes).ctx
 // 1. FunctionDef reduced "foo(+++)": ctx.functions.add("foo")
 // 2. FunctionCall reduced "foo!", observing the mutation from step 1:

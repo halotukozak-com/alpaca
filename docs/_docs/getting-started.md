@@ -102,7 +102,9 @@ Pattern order matters: `"\\."` (literal dot — the print command) must appear b
 Try it:
 
 ```scala sc-compile-with:gs-lexer
-val (finalCtx, lexemes) = BrainLexer.tokenize("foo(++)")
+val lexed = BrainLexer.tokenize("foo(++)")
+val finalCtx = lexed.ctx
+val lexemes = lexed.getOrThrow
 require(finalCtx.brackets == 0 && finalCtx.squareBrackets == 0, "Mismatched brackets")
 println(lexemes.map(_.name))
 // List(functionName, functionOpen, inc, inc, functionClose)
@@ -227,7 +229,9 @@ import halotukozak.alpaca.*
 @main def run(): Unit =
   // Standard BrainFuck: Hello World
   val hello = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."
-  val (ctx1, lexemes1) = BrainLexer.tokenize(hello)
+  val lexed1 = BrainLexer.tokenize(hello)
+  val ctx1 = lexed1.ctx
+  val lexemes1 = lexed1.getOrThrow
   require(ctx1.squareBrackets == 0, "Mismatched brackets")
   val ast1 = BrainParser.parse(lexemes1).getOrThrow
   ast1.eval(Memory())
@@ -235,7 +239,9 @@ import halotukozak.alpaca.*
 
   // Repeat counts and named cells
   val extended = "$a 3+ $b 5+ $a ."
-  val (ctx2, lexemes2) = BrainLexer.tokenize(extended)
+  val lexed2 = BrainLexer.tokenize(extended)
+  val ctx2 = lexed2.ctx
+  val lexemes2 = lexed2.getOrThrow
   require(ctx2.brackets == 0 && ctx2.squareBrackets == 0, "Mismatched brackets")
   val ast2 = BrainParser.parse(lexemes2).getOrThrow
   val mem = Memory()
@@ -244,7 +250,9 @@ import halotukozak.alpaca.*
 
   // Functions: define once, call twice
   val withFunctions = "$a foo(3+)foo!foo!."
-  val (ctx3, lexemes3) = BrainLexer.tokenize(withFunctions)
+  val lexed3 = BrainLexer.tokenize(withFunctions)
+  val ctx3 = lexed3.ctx
+  val lexemes3 = lexed3.getOrThrow
   require(ctx3.brackets == 0 && ctx3.squareBrackets == 0, "Mismatched brackets")
   val ast3 = BrainParser.parse(lexemes3).getOrThrow
   val mem2 = Memory()

@@ -16,9 +16,9 @@ import scala.annotation.implicitNotFound
  * how the lexer should proceed when it encounters an error, such as
  * invalid tokens or characters during parsing.
  *
- * Error handling is essential for customizing lexer behavior in response
- * to specific scenarios, including ignoring or stopping on errors, or
- * throwing specific exceptions.
+ * Whatever the strategy, the unmatched input is reported as a `LexError` in the
+ * `Result.Failure` that `tokenize` returns; the strategy only decides whether
+ * tokenizing stops there or skips the input and goes on.
  *
  * Users must define an implicit instance of this trait to provide the
  * error handling behavior for a custom lexer context.
@@ -35,15 +35,13 @@ trait ErrorHandling[-Ctx <: LexerCtx] extends (Ctx => ErrorHandling.Strategy)
  * ways errors can be addressed during tokenization or parsing workflows.
  */
 object ErrorHandling:
+  /** Every strategy reports the unmatched input as a `LexError`; they differ in how tokenizing goes on. */
   enum Strategy:
-    /** Throws the given exception, aborting tokenization immediately. */
-    case Throw(ex: Exception)
-
     /** Skips the single current character that failed to match any token and continues. */
     case IgnoreChar
 
     /** Skips the entire sequence that failed to match and continues from the next successful match. If the match is not found, it skips the current character. */
     case IgnoreToken
 
-    /** Gracefully stops tokenization at the current position, returning the lexemes collected so far. */
+    /** Stops tokenization at the current position; the failure has no `recovered` lexemes. */
     case Stop

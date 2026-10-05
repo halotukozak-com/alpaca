@@ -34,7 +34,7 @@ final class ScalaMetaCrossTest extends AnyFunSuite:
   private given Dialect = Scala3
 
   private def parseMine(src: String): ScalaTree =
-    val (_, lexemes) = ScalaLexer.tokenize(src)
+    val lexemes = ScalaLexer.tokenize(src).getOrThrow
     val result = ScalaParser.parse(lexemes).getOrThrow
     result
 

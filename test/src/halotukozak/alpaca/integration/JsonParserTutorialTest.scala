@@ -124,7 +124,7 @@ final class JsonParserTutorialTest extends AnyFunSuite:
         |}
         |""".stripMargin
 
-    val (_, lexemes) = JsonLexer.tokenize(input)
+    val lexemes = JsonLexer.tokenize(input).getOrThrow
     val result = JsonTutorialParser.parse(lexemes).getOrThrow
 
     val expected = Map[String, Any](
@@ -143,7 +143,7 @@ final class JsonParserTutorialTest extends AnyFunSuite:
 
   test("parse with ModernJsonParser") {
     val input = """{"a": 1, "b": [true, false, null]}"""
-    val (_, lexemes) = JsonLexer.tokenize(input)
+    val lexemes = JsonLexer.tokenize(input).getOrThrow
     val result = ModernJsonParser.parse(lexemes).getOrThrow
 
     val expected = Map[String, Any](
@@ -154,25 +154,25 @@ final class JsonParserTutorialTest extends AnyFunSuite:
   }
 
   test("parse empty object and array") {
-    val (_, lexemes1) = JsonLexer.tokenize("{}")
+    val lexemes1 = JsonLexer.tokenize("{}").getOrThrow
     val result1 = JsonTutorialParser.parse(lexemes1).getOrThrow
     assert(result1 == Map.empty)
 
-    val (_, lexemes2) = JsonLexer.tokenize("[]")
+    val lexemes2 = JsonLexer.tokenize("[]").getOrThrow
     val result2 = JsonTutorialParser.parse(lexemes2).getOrThrow
     assert(result2 == Nil)
   }
 
   test("parse primitives") {
-    val (_, l1) = JsonLexer.tokenize("42")
+    val l1 = JsonLexer.tokenize("42").getOrThrow
     val r1 = JsonTutorialParser.parse(l1).getOrThrow
     assert(r1 == 42.0)
 
-    val (_, l2) = JsonLexer.tokenize("true")
+    val l2 = JsonLexer.tokenize("true").getOrThrow
     val r2 = JsonTutorialParser.parse(l2).getOrThrow
     assert(r2 == true)
 
-    val (_, l3) = JsonLexer.tokenize("null")
+    val l3 = JsonLexer.tokenize("null").getOrThrow
     val r3 = JsonTutorialParser.parse(l3).getOrThrow
     assert(r3 == null)
   }

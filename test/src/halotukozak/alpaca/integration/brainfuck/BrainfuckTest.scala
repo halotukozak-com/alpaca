@@ -9,7 +9,9 @@ final class BrainfuckTest extends AnyFunSuite:
   // --- Lexer Tests ---
 
   private def tokenize(input: String) =
-    val (ctx, tokens) = BrainLexer.tokenize(input)
+    val tokensResult = BrainLexer.tokenize(input)
+    val ctx = tokensResult.ctx
+    val tokens = tokensResult.getOrThrow
     require(ctx.brackets == 0 && ctx.squareBrackets == 0, "Mismatched brackets")
     (ctx, tokens)
 
@@ -49,7 +51,7 @@ final class BrainfuckTest extends AnyFunSuite:
   // --- Parser Tests ---
 
   private def parse(input: String): BrainAST =
-    val (_, tokens) = BrainLexer.tokenize(input)
+    val tokens = BrainLexer.tokenize(input).getOrThrow
     val ast = BrainParser.parse(tokens).getOrThrow
     ast
 
@@ -91,14 +93,14 @@ final class BrainfuckTest extends AnyFunSuite:
   // --- Eval Tests ---
 
   private def run(input: String): Memory =
-    val (_, tokens) = BrainLexer.tokenize(input)
+    val tokens = BrainLexer.tokenize(input).getOrThrow
     val ast = BrainParser.parse(tokens).getOrThrow
     val mem = new Memory()
     ast.eval(mem)
     mem
 
   private def runAndCapture(input: String): (Memory, String) =
-    val (_, tokens) = BrainLexer.tokenize(input)
+    val tokens = BrainLexer.tokenize(input).getOrThrow
     val ast = BrainParser.parse(tokens).getOrThrow
     val mem = new Memory()
     val out = new java.io.ByteArrayOutputStream()

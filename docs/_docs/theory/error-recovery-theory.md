@@ -18,15 +18,15 @@ Each level has different recovery strategies.
 
 ### Strategy: Fail Fast (Default)
 
-The simplest approach: throw an exception on the first unmatched character. This is Alpaca's default behavior.
+The simplest approach: stop at the first unmatched character and report it. This is Alpaca's default behavior (`ErrorHandling.Strategy.Stop`): `tokenize` returns a `Result.Failure` with a `LexError` such as
 
 ```
-RuntimeException: Unexpected character at line 1, position 5: '@'
+Unexpected character '@' at line 1, column 5
 ```
 
 ### Strategy: Skip and Continue
 
-Skip the unmatched character and resume tokenization from the next position. Alpaca supports this via `ErrorHandling.Strategy.IgnoreChar`. The skipped character is lost — the parser never sees it.
+Skip the unmatched character and resume tokenization from the next position. Alpaca supports this via `ErrorHandling.Strategy.IgnoreChar` (or `IgnoreToken`, which skips the whole unmatched run). The skipped character never reaches the parser, but it is not lost silently: it is reported as a `LexError`, and the lexemes collected around it are the failure's `recovered` value.
 
 ### Strategy: Catch-All Token
 
@@ -41,10 +41,6 @@ val ErrorTokenLexer = lexer:
   case "[a-zA-Z]+" => Token["ID"]
   case "." => Token["ERROR"]
 ```
-
-### Strategy: Stop Gracefully
-
-Stop tokenization and return the lexemes collected so far. Alpaca supports this via `ErrorHandling.Strategy.Stop`. Useful when processing a prefix of the input.
 
 ## Syntactic Error Recovery
 
@@ -84,14 +80,13 @@ The `error` pseudo-terminal matches any sequence of tokens until a recovery poin
 
 ### Lexer
 
-Alpaca provides four `ErrorHandling` strategies (see [Error Recovery](../lexer-error-recovery.md)):
+Alpaca provides three `ErrorHandling` strategies (see [Error Recovery](../lexer-error-recovery.md)); each reports the unmatched input as a `LexError`:
 
 | Strategy | Behavior |
 |----------|----------|
-| `Throw(ex)` | Abort immediately (default) |
-| `IgnoreChar` | Skip one character |
-| `IgnoreToken` | Skip to next match |
-| `Stop` | Return partial results |
+| `Stop` | Stop at the first error (default) |
+| `IgnoreChar` | Skip one character and continue |
+| `IgnoreToken` | Skip to next match and continue |
 
 ### Parser
 

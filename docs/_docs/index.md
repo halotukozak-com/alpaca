@@ -119,7 +119,7 @@ object MyParser extends Parser:
 import halotukozak.alpaca.*
 
 val input = "2 + 3 * 4"
-val (_, lexemes) = MyLexer.tokenize(input)
+val lexemes = MyLexer.tokenize(input).getOrThrow
 val result = MyParser.parse(lexemes).getOrThrow
 println(result) // 14.0
 ```

@@ -52,7 +52,9 @@ object BrainParser extends Parser:
 ```
 
 ```scala sc-compile-with:otm-brainfuck
-val (finalCtx, lexemes) = BrainLexer.tokenize("[>+<-]")
+val lexed = BrainLexer.tokenize("[>+<-]")
+val finalCtx = lexed.ctx
+val lexemes = lexed.getOrThrow
 val ast = BrainParser.parse(lexemes).getOrThrow
 ```
 
@@ -60,10 +62,12 @@ This page explains what is inside those lexemes, how the pipeline advances the c
 
 ## Connecting Lexer Output to Parser Input
 
-The `tokenize()` method returns a named tuple `(ctx: Ctx, lexemes: List[Lexeme])`:
+The `tokenize()` method returns a `Result` holding the final context (`ctx`) and the lexemes (`getOrThrow`):
 
 ```scala sc-compile-with:otm-brainfuck
-val (finalCtx, lexemes) = BrainLexer.tokenize("++[>+<-].")
+val lexed = BrainLexer.tokenize("++[>+<-].")
+val finalCtx = lexed.ctx
+val lexemes = lexed.getOrThrow
 
 // finalCtx holds the final lexer context state
 // lexemes holds the matched tokens (Token.Ignored entries are excluded)
@@ -76,7 +80,9 @@ The parser accepts `List[Lexeme[?, ?]]` and appends `Lexeme.EOF` internally befo
 The final context (the tuple's `ctx` field) is useful for post-tokenization checks. For example, the BrainFuck lexer tracks bracket depth — after tokenization, you can verify all brackets are balanced:
 
 ```scala sc-compile-with:otm-brainfuck
-val (finalCtx, lexemes) = BrainLexer.tokenize("[>+<-]")
+val lexed = BrainLexer.tokenize("[>+<-]")
+val finalCtx = lexed.ctx
+val lexemes = lexed.getOrThrow
 require(finalCtx.squareBrackets == 0, "Mismatched brackets")
 val ast = BrainParser.parse(lexemes).getOrThrow
 ```
@@ -111,7 +117,7 @@ Each call to `tokenize()` follows this sequence:
 3. Each tracked field's `Tracking` update runs, producing a fresh context via one functional `copy`.
 4. The rule body's context changes (`ctx.field = ...`) are applied, again as a `copy`.
 5. For a `DefinedToken`, a `Lexeme` is built from the token name, value, and a snapshot of the context's case fields, with `text` set to the matched string. `Token.Ignored` (and text skipped by the `IgnoreChar`/`IgnoreToken` error strategies) still run steps 2–4 but emit no `Lexeme` — they are invisible to the parser.
-6. This repeats until the entire input is consumed. `tokenize()` then returns the named tuple `(ctx, lexemes)` -- the final context state and the complete lexeme list.
+6. This repeats until the entire input is consumed. `tokenize()` then returns a `Result` with the final context state and the complete lexeme list (or, if some input matched no token, the `LexError`s).
 7. `parse(lexemes)` receives the list, appends `Lexeme.EOF` internally, and runs the parser grammar against the sequence.
 
 The `Lexeme` list is immutable after `tokenize()` returns. The parser does not alter the lexeme data.

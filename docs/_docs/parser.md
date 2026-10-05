@@ -304,12 +304,12 @@ extension (ast: BrainAST)
 ```
 
 ```scala sc-name:brain-tokenize sc-compile-with:brain-eval-defs
-val (_, lexemes) = BrainLexer.tokenize("++[>+<-]")
+val lexemes = BrainLexer.tokenize("++[>+<-]").getOrThrow
 val parsed = BrainParser.parse(lexemes)
 // parsed: Result[ParserCtx.Empty, BrainAST, ParseError]
 ```
 
-`parse()` does not throw when the input does not match the grammar. It returns a `Result`, which is one of two cases, both carrying the parser context (`ctx`) as it was when parsing ended:
+`parse()` does not throw when the input does not match the grammar. It returns a `Result` -- the same type `tokenize` returns -- which is one of two cases, both carrying the parser context (`ctx`) as it was when parsing ended:
 
 - `Result.Success(ctx, value)` -- the input matched, and `value` is what the root rule produced (a `BrainAST` here);
 - `Result.Failure(ctx, recovered, errors)` -- the input did not match; `errors` is a non-empty list of `ParseError`s. `recovered` is a value produced anyway by an error-handling strategy that skips past errors; the parser does not have one yet, so here it is always `None`.
@@ -337,7 +337,7 @@ Unexpected PLUS "+" at line 1, column 5. Expected one of: NUMBER
 ```
 
 ```scala sc-compile-with:brain-tokenize
-BrainParser.parse(BrainLexer.tokenize("[+").lexemes) match
+BrainParser.parse(BrainLexer.tokenize("[+").getOrThrow) match
   case Result.Failure(_, _, errors) =>
     println(errors.head.message)    // Unexpected end of input. Expected one of: ...
     println(errors.head.expected)   // the token names the grammar would have accepted

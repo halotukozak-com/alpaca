@@ -23,7 +23,7 @@ final class Issue148ReproTest extends AnyFunSuite with Matchers:
           val y = 2
           x + y
 
-    val (_, lexemes) = MyLexer.tokenize("T")
+    val lexemes = MyLexer.tokenize("T").getOrThrow
     val result = Issue148Parser.parse(lexemes).getOrThrow
     result shouldBe 3
   }

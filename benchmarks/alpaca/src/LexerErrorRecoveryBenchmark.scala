@@ -64,7 +64,7 @@ class LexerErrorRecoveryBenchmark:
   @Param(Array("0", "1", "5", "10"))
   var errorRatePercent: String = uninitialized
 
-  @Param(Array("Throw", "IgnoreChar", "IgnoreToken", "Stop"))
+  @Param(Array("IgnoreChar", "IgnoreToken", "Stop"))
   var strategyName: String = uninitialized
 
   @Param(Array("20000"))
@@ -79,7 +79,6 @@ class LexerErrorRecoveryBenchmark:
   @Setup(Level.Invocation)
   def selectStrategy(): Unit =
     currentStrategy = strategyName match
-      case "Throw" => ErrorHandling.Strategy.Throw(RuntimeException("benchmark error"))
       case "IgnoreChar" => ErrorHandling.Strategy.IgnoreChar
       case "IgnoreToken" => ErrorHandling.Strategy.IgnoreToken
       case "Stop" => ErrorHandling.Strategy.Stop

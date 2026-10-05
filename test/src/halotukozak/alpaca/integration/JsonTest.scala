@@ -67,7 +67,7 @@ final class JsonTest extends AnyFunSuite:
       )
 
     withLazyReader("true"): input =>
-      val (_, lexemes) = JsonLexer.tokenize(input)
+      val lexemes = JsonLexer.tokenize(input).getOrThrow
       val result = JsonE2EParser.parse(lexemes).getOrThrow
       assert(result == true)
 
@@ -86,7 +86,7 @@ final class JsonTest extends AnyFunSuite:
         "nullValue": null
       }
       """) { input =>
-      val (_, lexemes) = JsonLexer.tokenize(input)
+      val lexemes = JsonLexer.tokenize(input).getOrThrow
       val result = JsonE2EParser.parse(lexemes).getOrThrow
 
       val expected = Map[String, Any](
@@ -122,7 +122,7 @@ final class JsonTest extends AnyFunSuite:
         }
       ]
       """) { input =>
-      val (_, lexemes) = JsonLexer.tokenize(input)
+      val lexemes = JsonLexer.tokenize(input).getOrThrow
       val result = JsonE2EParser.parse(lexemes).getOrThrow
 
       val expected = List(
@@ -149,7 +149,7 @@ final class JsonTest extends AnyFunSuite:
         }
       }
       """) { input =>
-      val (_, lexemes) = JsonLexer.tokenize(input)
+      val lexemes = JsonLexer.tokenize(input).getOrThrow
       val result = JsonE2EParser.parse(lexemes).getOrThrow
 
       val expected = Map(

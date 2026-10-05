@@ -167,7 +167,9 @@ import halotukozak.alpaca.*
 
 @main def run(): Unit =
   val program = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."
-  val (ctx, lexemes) = BrainLexer.tokenize(program)
+  val lexed = BrainLexer.tokenize(program)
+  val ctx = lexed.ctx
+  val lexemes = lexed.getOrThrow
   require(ctx.squareBrackets == 0 && ctx.brackets == 0, "Mismatched brackets")
   val ast = BrainParser.parse(lexemes).getOrThrow
   ast.eval(Memory())
@@ -180,7 +182,7 @@ With repeat counts and named cells:
 val program = "$a 3+ $b 5+ $a ."
 val lexed = BrainLexer.tokenize(program)
 require(lexed.ctx.squareBrackets == 0 && lexed.ctx.brackets == 0, "Mismatched brackets")
-val parsed = BrainParser.parse(lexed.lexemes)
+val parsed = BrainParser.parse(lexed.getOrThrow)
 val mem = Memory()
 parsed.getOrThrow.eval(mem)
 // cell 'a' (index 0) = 3, cell 'b' (index 1) = 5, pointer back to 'a', prints char 3
@@ -192,7 +194,7 @@ With functions:
 val program = "$a foo(3+)foo!foo!."
 val lexed = BrainLexer.tokenize(program)
 require(lexed.ctx.squareBrackets == 0 && lexed.ctx.brackets == 0, "Mismatched brackets")
-val parsed = BrainParser.parse(lexed.lexemes)
+val parsed = BrainParser.parse(lexed.getOrThrow)
 val mem = Memory()
 parsed.getOrThrow.eval(mem)
 // cell 'a' = 6 (two calls to foo, each adding 3), then prints char 6
@@ -204,11 +206,11 @@ Assertions covering the base eight commands, matching Alpaca's own integration t
 
 ```scala sc-compile-with:brainEval
 // Lexer
-val tokens = BrainLexer.tokenize("><+-.,").lexemes
+val tokens = BrainLexer.tokenize("><+-.,").getOrThrow
 assert(tokens.map(_.name) == List("next", "prev", "inc", "dec", "print", "read"))
 
 // Parser
-val ast = BrainParser.parse(BrainLexer.tokenize("[>+<-]").lexemes).getOrThrow
+val ast = BrainParser.parse(BrainLexer.tokenize("[>+<-]").getOrThrow).getOrThrow
 assert(ast == BrainAST.Root(List(
   BrainAST.While(List(BrainAST.Next, BrainAST.Inc, BrainAST.Prev, BrainAST.Dec))
 )))
@@ -218,17 +220,17 @@ The repeat-count, named-cell, and function extensions built up over this guide a
 
 ```scala sc-compile-with:brainEval
 // Repeat count
-val ast2 = BrainParser.parse(BrainLexer.tokenize("3+").lexemes).getOrThrow
+val ast2 = BrainParser.parse(BrainLexer.tokenize("3+").getOrThrow).getOrThrow
 assert(ast2 == BrainAST.Root(List(BrainAST.Repeat(3, BrainAST.Inc))))
 
 // Named cells
 val mem = Memory()
-BrainParser.parse(BrainLexer.tokenize("$a 3+ $b 5+").lexemes).getOrThrow.eval(mem)
+BrainParser.parse(BrainLexer.tokenize("$a 3+ $b 5+").getOrThrow).getOrThrow.eval(mem)
 assert(mem.cells(0) == 3 && mem.cells(1) == 5)  // auto-allocated indices
 
 // Evaluator
 val mem2 = Memory()
-BrainParser.parse(BrainLexer.tokenize("+++++[-]").lexemes).getOrThrow.eval(mem2)
+BrainParser.parse(BrainLexer.tokenize("+++++[-]").getOrThrow).getOrThrow.eval(mem2)
 assert(mem2.cells(0) == 0)  // cell cleared by loop
 ```
 

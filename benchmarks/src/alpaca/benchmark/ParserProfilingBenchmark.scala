@@ -100,7 +100,7 @@ class ParserProfilingBenchmark:
     input = new String(Files.readAllBytes(inputPath))
 
     // Pre-tokenize: this happens once in setup, not during measurement
-    val (_, toks) = ProfilingJsonLexer.tokenize(input)
+    val toks = ProfilingJsonLexer.tokenize(input).getOrThrow
     tokens = toks
   }
 
@@ -114,6 +114,6 @@ class ParserProfilingBenchmark:
   @Benchmark
   def parseWithLex(bh: Blackhole): Unit =
     try
-      val (_, t) = ProfilingJsonLexer.tokenize(input)
+      val t = ProfilingJsonLexer.tokenize(input).getOrThrow
       bh.consume(ProfilingJsonParser.parse(t).getOrThrow)
     catch case _: StackOverflowError => bh.consume("StackOverflowError")

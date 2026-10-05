@@ -46,7 +46,9 @@ val BrainLexer = lexer[BrainLexContext]:
 After tokenization, check the final context:
 
 ```scala sc-compile-with:BrainLexer
-val (finalCtx, lexemes) = BrainLexer.tokenize("foo(+++)foo!")
+val lexed = BrainLexer.tokenize("foo(+++)foo!")
+val finalCtx = lexed.ctx
+val lexemes = lexed.getOrThrow
 require(finalCtx.squareBrackets == 0 && finalCtx.brackets == 0, "Mismatched brackets")
 ```
 

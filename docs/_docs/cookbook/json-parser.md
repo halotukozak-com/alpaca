@@ -75,7 +75,7 @@ object JsonParser extends Parser:
 
 ```scala sc-compile-with:json-parser-parser
 val input = """{"name": "Alice", "age": 30, "tags": ["a", "b"]}"""
-val (_, lexemes) = JsonLexer.tokenize(input)
+val lexemes = JsonLexer.tokenize(input).getOrThrow
 val result = JsonParser.parse(lexemes).getOrThrow
 println(result)
 // Map(name -> Alice, age -> 30.0, tags -> List(a, b))
