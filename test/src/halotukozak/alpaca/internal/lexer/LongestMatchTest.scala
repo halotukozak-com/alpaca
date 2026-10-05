@@ -1,7 +1,7 @@
 package halotukozak
 package alpaca.internal.lexer
 
-import halotukozak.alpaca.{lexer, Token}
+import halotukozak.alpaca.{lexer, LexerException, Token}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -17,7 +17,7 @@ final class LongestMatchTest extends AnyFunSuite with Matchers:
       case "=" => Token["ASSIGN"]
       case "==" => Token["EQ"]
 
-    val (_, lexemes) = Lexer.tokenize("===")
+    val lexemes = Lexer.tokenize("===").getOrThrow
     lexemes.tokens shouldBe List(("EQ", "=="), ("ASSIGN", "="))
   }
 
@@ -27,7 +27,7 @@ final class LongestMatchTest extends AnyFunSuite with Matchers:
       case float @ "[0-9]+\\.[0-9]+" => Token["FLOAT"](float.toDouble)
       case "\\s+" => Token.Ignored
 
-    val (_, lexemes) = Lexer.tokenize("15 1.5")
+    val lexemes = Lexer.tokenize("15 1.5").getOrThrow
     lexemes.tokens shouldBe List(("INT", "15"), ("FLOAT", "1.5"))
   }
 
@@ -38,7 +38,7 @@ final class LongestMatchTest extends AnyFunSuite with Matchers:
       case "\\s+" => Token.Ignored
 
     // "fade" ties (both match 4 chars), so the earlier ID wins; "fade1" is longer only for HEX.
-    val (_, lexemes) = Lexer.tokenize("fade fade1 0a")
+    val lexemes = Lexer.tokenize("fade fade1 0a").getOrThrow
     lexemes.tokens shouldBe List(("ID", "fade"), ("HEX", "fade1"), ("HEX", "0a"))
   }
 
@@ -48,7 +48,7 @@ final class LongestMatchTest extends AnyFunSuite with Matchers:
       case id @ "[a-z]+" => Token["ID"](id)
       case "\\s+" => Token.Ignored
 
-    val (_, lexemes) = Lexer.tokenize("if iffy i")
+    val lexemes = Lexer.tokenize("if iffy i").getOrThrow
     lexemes.tokens shouldBe List(("IF", "if"), ("ID", "iffy"), ("ID", "i"))
   }
 
@@ -59,7 +59,7 @@ final class LongestMatchTest extends AnyFunSuite with Matchers:
       case "//[^\n]*" => Token.Ignored
       case "\\s+" => Token.Ignored
 
-    val (_, lexemes) = Lexer.tokenize("6/2 // halve\n1")
+    val lexemes = Lexer.tokenize("6/2 // halve\n1").getOrThrow
     lexemes.tokens shouldBe List(("NUM", "6"), ("DIV", "/"), ("NUM", "2"), ("NUM", "1"))
   }
 
@@ -70,8 +70,8 @@ final class LongestMatchTest extends AnyFunSuite with Matchers:
       case "\\s+" => Token.Ignored
 
     // Maximal munch: "-2" is longer than "-", so "1-2" is two numbers, not a subtraction.
-    Lexer.tokenize("1-2").lexemes.tokens shouldBe List(("NUM", "1"), ("NUM", "-2"))
-    Lexer.tokenize("1 - 2").lexemes.tokens shouldBe List(("NUM", "1"), ("MINUS", "-"), ("NUM", "2"))
+    Lexer.tokenize("1-2").getOrThrow.tokens shouldBe List(("NUM", "1"), ("NUM", "-2"))
+    Lexer.tokenize("1 - 2").getOrThrow.tokens shouldBe List(("NUM", "1"), ("MINUS", "-"), ("NUM", "2"))
   }
 
   test("a match is never shortened to let the rest of the input tokenize") {
@@ -81,8 +81,8 @@ final class LongestMatchTest extends AnyFunSuite with Matchers:
       case "bc" => Token["BC"]
 
     // "a" + "bc" would cover the input, but the lexer commits to the longest "ab" and gets stuck on "c".
-    val exception = intercept[RuntimeException](Lexer.tokenize("abc"))
-    exception.getMessage should include("Unexpected character at line 1, position 3: 'c'")
+    val exception = intercept[LexerException](Lexer.tokenize("abc").getOrThrow)
+    exception.getMessage shouldBe "Unexpected character 'c' at line 1, column 3"
   }
 
   test("a single pattern matches as much as it can, across what look like separate tokens") {
@@ -91,6 +91,6 @@ final class LongestMatchTest extends AnyFunSuite with Matchers:
       case id @ "[a-z]+" => Token["ID"](id)
       case "\\s+" => Token.Ignored
 
-    val (_, lexemes) = Lexer.tokenize("/* a */ x /* b */")
+    val lexemes = Lexer.tokenize("/* a */ x /* b */").getOrThrow
     lexemes.tokens shouldBe List(("COMMENT", "/* a */ x /* b */"))
   }

@@ -46,8 +46,9 @@ val BrainLexer = lexer[BrainLexContext]:
 After tokenization, check the final context:
 
 ```scala sc-compile-with:BrainLexer
-val (finalCtx, lexemes) = BrainLexer.tokenize("foo(+++)foo!")
-require(finalCtx.squareBrackets == 0 && finalCtx.brackets == 0, "Mismatched brackets")
+val lexed = BrainLexer.tokenize("foo(+++)foo!")
+val lexemes = lexed.getOrThrow
+require(lexed.ctx.squareBrackets == 0 && lexed.ctx.brackets == 0, "Mismatched brackets")
 ```
 
 ## Accessing Lexer Context in the Parser
@@ -126,26 +127,25 @@ object BrainParser extends Parser[BrainParserCtx]:
 
 ## Error Handling Strategies
 
-By default, the lexer throws on unmatched input. You can customize this with an `ErrorHandling` instance:
+By default, the lexer stops at unmatched input and `tokenize()` returns a `Result.Failure` listing it as a `LexerError`. You can customize this with an `ErrorHandling` instance:
 
 ```scala sc-compile-with:BrainLexer
-// Option A: skip unrecognized characters silently
-given ErrorHandling[BrainLexContext] = _ => ErrorHandling.Strategy.IgnoreChar
+// Option A: skip unrecognized characters (each is still reported as a LexerError)
+given ErrorHandling[BrainLexContext, LexerError] = (_, _) => ErrorHandling.Strategy.SkipOne
 ```
 
 ```scala sc-compile-with:BrainLexer
-// Option B: stop gracefully, returning what was tokenized so far
-given ErrorHandling[BrainLexContext] = _ => ErrorHandling.Strategy.Stop
+// Option B: stop at the first unrecognized character (the default)
+given ErrorHandling[BrainLexContext, LexerError] = (_, _) => ErrorHandling.Strategy.Stop
 ```
 
-Four strategies are available:
+Three strategies are available; each reports the unmatched input as a `LexerError`:
 
 | Strategy | Behavior |
 |----------|----------|
-| `Throw(ex)` | Abort with the given exception |
-| `IgnoreChar` | Skip one character and continue |
-| `IgnoreToken` | Skip to the next match and continue |
-| `Stop` | Return lexemes collected so far |
+| `SkipOne` | Skip one character and continue; the lexemes are the failure's `recovered` |
+| `SkipToNextMatch` | Skip to the next match and continue; the lexemes are the failure's `recovered` |
+| `Stop` | Stop at the error (the default); the failure has no `recovered` lexemes |
 
 An alternative to custom `ErrorHandling` is a catch-all pattern at the end of your lexer:
 

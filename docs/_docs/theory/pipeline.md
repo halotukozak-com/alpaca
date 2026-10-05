@@ -64,7 +64,7 @@ object BrainParser extends Parser:
 
 ```scala sc-compile-with:pipeline-setup
 // Full pipeline: source text → typed result
-val (_, lexemes) = BrainLexer.tokenize("++[>+<-].")
+val lexemes = BrainLexer.tokenize("++[>+<-].").getOrThrow
 // lexemes: List[Lexeme] — inc, inc, jumpForward, next, inc, prev, dec, jumpBack, print
 
 val ast = BrainParser.parse(lexemes).getOrThrow

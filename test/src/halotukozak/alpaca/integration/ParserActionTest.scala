@@ -15,7 +15,7 @@ final class ParserActionTest extends AnyFunSuite:
           val x = 1
           x
 
-    val (_, lexemes) = BugLexer.tokenize("T")
+    val lexemes = BugLexer.tokenize("T").getOrThrow
     val result = SingleActionBug.parse(lexemes).getOrThrow
     assert(result == 1)
   }
@@ -46,7 +46,7 @@ final class ParserActionTest extends AnyFunSuite:
       production.add.before(BugLexer.`+`),
     )
 
-    val (_, lexemes) = BugLexer.tokenize("1 + 2")
+    val lexemes = BugLexer.tokenize("1 + 2").getOrThrow
     val result = MultiActionBug.parse(lexemes).getOrThrow
     assert(result == 6) // (1 + 2) * 2
   }
@@ -65,7 +65,7 @@ final class ParserActionTest extends AnyFunSuite:
       override val root: Rule[Any] = rule:
         case R2(f) => f(())
 
-    val (_, lexemes) = BugLexer.tokenize("T")
+    val lexemes = BugLexer.tokenize("T").getOrThrow
     val result = LambdaActionBug.parse(lexemes).getOrThrow
     assert(result == "T")
   }

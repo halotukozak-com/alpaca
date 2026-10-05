@@ -3,7 +3,7 @@ package alpaca
 package internal
 package parser
 
-import halotukozak.alpaca.{lexer, rule, ParseError, ParseResult, ParserCtx, Rule, Token}
+import halotukozak.alpaca.{lexer, rule, ParserCtx, ParserError, ParserException, Result, Rule, Token}
 import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -31,63 +31,65 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers with LoneEle
       case Expr(result) => result
 
   test("builds a parse table for a simple LR(1) grammar without a false-positive conflict") {
-    val (_, lexemes) = CalcLexer.tokenize("1+2+3")
+    val lexemes = CalcLexer.tokenize("1+2+3").getOrThrow
     val result = CalcParser.parse(lexemes).getOrThrow
 
     result shouldBe 6
   }
 
-  private def errorsOf(result: ParseResult[?, ?]): List[ParseError] = result match
-    case ParseResult.Failure(_, errors) => errors
-    case ParseResult.Success(_, _) => fail("expected a parse failure")
+  private def errorsOf(result: Result[?, ?, ParserError]): List[ParserError] = result match
+    case Result.Failure(_, _, errors) => errors
+    case Result.Success(_, _) => fail("expected a parse failure")
 
-  test("unexpected token fails with a ParseError naming the token, its position and the expected terminals") {
-    val (_, lexemes) = CalcLexer.tokenize("1++2")
+  test("unexpected token fails with a ParserError naming the token, its position and the expected terminals") {
+    val lexemes = CalcLexer.tokenize("1++2").getOrThrow
 
     val error = errorsOf(CalcParser.parse(lexemes)).loneElement
     (error.unexpected.name: String) shouldBe "+"
     error.unexpected.text shouldBe "+"
     error.expected shouldBe List("Num")
-    error.getMessage shouldBe """Unexpected + "+" at line 1, column 3. Expected one of: Num"""
+    error.message shouldBe """Unexpected + "+" at line 1, column 3. Expected one of: Num"""
   }
 
-  test("input that ends too early fails with a ParseError for the end of input") {
-    val (_, lexemes) = CalcLexer.tokenize("1+")
+  test("input that ends too early fails with a ParserError for the end of input") {
+    val lexemes = CalcLexer.tokenize("1+").getOrThrow
 
     val error = errorsOf(CalcParser.parse(lexemes)).loneElement
     (error.unexpected.name: String) shouldBe "$"
     error.expected shouldBe List("Num")
-    error.getMessage shouldBe "Unexpected end of input. Expected one of: Num"
+    error.message shouldBe "Unexpected end of input. Expected one of: Num"
   }
 
-  test("ParseError lists only terminals, with the end of input among them when it is accepted") {
-    val (_, leading) = CalcLexer.tokenize("+")
+  test("ParserError lists only terminals, with the end of input among them when it is accepted") {
+    val leading = CalcLexer.tokenize("+").getOrThrow
     errorsOf(CalcParser.parse(leading)).loneElement.expected shouldBe List("Num")
 
-    val (_, one) = CalcLexer.tokenize("1")
+    val one = CalcLexer.tokenize("1").getOrThrow
     val error = errorsOf(CalcParser.parse(one :+ one.head)).loneElement
     error.expected shouldBe List("$", "+")
-    error.getMessage should endWith("Expected one of: end of input, +")
+    error.message should endWith("Expected one of: end of input, +")
   }
 
-  test("a successful ParseResult gives the value through every accessor") {
-    val (_, lexemes) = CalcLexer.tokenize("1+2")
+  test("a successful Result gives the value through every accessor") {
+    val lexemes = CalcLexer.tokenize("1+2").getOrThrow
     val result = CalcParser.parse(lexemes)
 
-    result shouldBe a[ParseResult.Success[?, ?]]
+    result shouldBe a[Result.Success[?, ?, ?]]
     result.ctx shouldBe CalcContext()
     result.getOrThrow shouldBe 3
     result.toOption shouldBe Some(3)
     result.toEither shouldBe Right(3)
   }
 
-  test("a failed ParseResult keeps the context and throws its first error from getOrThrow") {
-    val (_, lexemes) = CalcLexer.tokenize("1+")
+  test("a failed Result keeps the context, and getOrThrow throws its errors as a ParserException") {
+    val lexemes = CalcLexer.tokenize("1+").getOrThrow
     val result = CalcParser.parse(lexemes)
     val error = errorsOf(result).head
 
     result.ctx shouldBe CalcContext()
     result.toOption shouldBe None
     result.toEither shouldBe Left(List(error))
-    (intercept[ParseError](result.getOrThrow) should be).theSameInstanceAs(error)
+    val exception = intercept[ParserException](result.getOrThrow)
+    exception.errors shouldBe List(error)
+    exception.getMessage shouldBe error.message
   }

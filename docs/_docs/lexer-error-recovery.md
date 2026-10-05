@@ -99,58 +99,66 @@ val BrainLexer = lexer:
 
 ## Runtime Error Handling
 
-When `tokenize()` hits a character that matches no pattern, the lexer consults the `ErrorHandling` strategy for the context type.
+When `tokenize()` hits input that matches no pattern, it records a `LexerError` and consults the `ErrorHandling` strategy for the context type to decide how to go on. Either way, `tokenize()` does not throw: it returns a `Result.Failure` listing the errors.
 
 ### Default Behavior
 
-The default strategy throws a `RuntimeException`:
+By default the lexer stops at the first unmatched character. The `LexerError` names it, and its `message` gives the line and column when the context has `line` and `position` fields (as `LexerCtx.Default` does):
 
 ```
-Unexpected character at line 1, position 5: '@'
+Unexpected character '@' at line 1, column 5
 ```
 
-Only `LexerCtx.Default` comes with an `ErrorHandling` that reports line and position. Every other context -- `LexerCtx.Empty` and custom contexts alike, even ones that declare `Column`/`Line` fields -- falls back to a handler that shows only the character (`Unexpected character: '@'`), unless you provide your own `ErrorHandling` as shown below.
+`getOrThrow` throws the errors as a `LexerException`; match on the result to handle them without an exception:
+
+```scala
+import halotukozak.alpaca.*
+
+val Lexer = lexer:
+  case "[a-z]+" => Token["WORD"]
+  case "\\s+" => Token.Ignored
+
+Lexer.tokenize("abc @def") match
+  case Result.Success(_, lexemes) => println(lexemes.size)
+  case Result.Failure(_, _, errors) =>
+    errors.foreach(error => println(error.message)) // Unexpected character '@' at line 1, column 5
+```
 
 ### Error Handling Strategies
 
-You can provide a custom `ErrorHandling` instance for your context type. Four strategies are available:
+You can provide a custom `ErrorHandling` instance for your context type. Every strategy records the unmatched input as a `LexerError`; they differ in how tokenizing goes on:
 
 | Strategy | Behavior |
 |----------|----------|
-| `Throw(ex)` | Throw the given exception, aborting tokenization immediately |
-| `IgnoreChar` | Skip the single unmatched character and continue |
-| `IgnoreToken` | Skip to the next successful match and continue |
-| `Stop` | Stop tokenization gracefully, returning lexemes collected so far |
+| `Stop` (default) | Stop at the unmatched character; the failure has no `recovered` lexemes |
+| `SkipOne` | Skip the single unmatched character and continue |
+| `SkipToNextMatch` | Skip to the next successful match and continue; one `LexerError` covers the whole skipped run |
+
+With `SkipOne` or `SkipToNextMatch` the lexer reaches the end of the input, so the `Result.Failure` also carries the lexemes it collected in `recovered`:
 
 ```scala
 import halotukozak.alpaca.*
 
-case class BrainLexContext(
-  squareBrackets: Int = 0,
-  position: Column = Column.Start,
-  line: Line = Line.Start,
-) extends LexerCtx
+// Skip unrecognized characters, but keep a record of them
+given ErrorHandling[LexerCtx.Default, LexerError] = (_, _) => ErrorHandling.Strategy.SkipOne
 
-// Custom error handler: report position and throw
-given ErrorHandling[BrainLexContext] = ctx =>
-  ErrorHandling.Strategy.Throw:
-    RuntimeException(s"Unexpected character at line ${ctx.line}, position ${ctx.position}: '${ctx.remainingText.charAt(0)}'")
+val Lexer = lexer:
+  case "[a-z]+" => Token["WORD"]
+  case "\\s+" => Token.Ignored
+
+Lexer.tokenize("abc @def") match
+  case Result.Failure(_, recovered, errors) =>
+    println(recovered.map(_.map(_.name))) // Some(List(WORD, WORD))
+    println(errors.map(_.message))        // List(Unexpected character '@' at line 1, column 5)
+  case Result.Success(_, _) => ()
 ```
 
-To silently skip unknown characters (useful for BrainFuck where non-command characters are comments):
+The strategy receives the context and the `LexerError` for the unmatched character, so it can choose per character. It is the same `ErrorHandling` type the parser uses, with `LexerError` as its error type.
 
-```scala
-import halotukozak.alpaca.*
-
-// Skip unrecognized characters instead of throwing
-given ErrorHandling[LexerCtx.Default] = _ =>
-  ErrorHandling.Strategy.IgnoreChar
-```
-
-Note that the BrainFuck lexer from [Getting Started](getting-started.md) already handles this more explicitly with a `"." => Token.Ignored` catch-all pattern, which is the recommended approach when you want to ignore unknown input.
+Note that the BrainFuck lexer from [Getting Started](getting-started.md) handles unknown characters with a `"." => Token.Ignored` catch-all pattern instead. That is the recommended approach when unknown input is not an error at all, as BrainFuck comments are: a catch-all produces no `LexerError`.
 
 ## Limitations
 
-- **No skip-and-continue by default.** The default strategy aborts on the first unmatched character. Use a custom `ErrorHandling` or a catch-all pattern for resilience.
+- **No skip-and-continue by default.** The default strategy stops at the first unmatched character. Use a custom `ErrorHandling` or a catch-all pattern for resilience.
 - **Guards are not supported.** Pattern guards in lexer rules are a compile-time error. Move conditions into rule bodies.
-- **Error position is only reported by `LexerCtx.Default`'s handler.** For any other context, define an `ErrorHandling` that reads your `Column`/`Line` fields, as in the `BrainLexContext` example above.
+- **Error positions come from fields named `line` and `position`.** A context that tracks them under other names gets `LexerError`s without a line or column.

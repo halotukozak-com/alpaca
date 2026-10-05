@@ -107,7 +107,7 @@ final class MathTest extends AnyFunSuite:
     )
 
     val input = "1 + 2"
-    val (_, lexemes) = CalcLexer.tokenize(input)
+    val lexemes = CalcLexer.tokenize(input).getOrThrow
     val result = MathParser.parse(lexemes).getOrThrow
     assert(result == 3.0)
 
@@ -117,7 +117,7 @@ final class MathTest extends AnyFunSuite:
       - (24 / (3 + 1) * (7 - 5) + ((9 - 2 * (3 + 1)) * (8 / 4 - (6 - 2)))) 
       + (11 * (2 + (5 - 3) * (9 - (8 / (4 - 2)))) - ((13 - 7) / (5 + 1) * (2 * 3 - 4)))
     """): input =>
-      val (_, lexemes) = CalcLexer.tokenize(input)
+      val lexemes = CalcLexer.tokenize(input).getOrThrow
       val result = MathParser.parse(lexemes).getOrThrow
       assert(result == 2096.0)
 
@@ -129,7 +129,7 @@ final class MathTest extends AnyFunSuite:
       + (((12 / 5) + (20 // 3) - (17 % 5)) * ((3 + 2) ** 3 / (2 ** 3)))
       + atan2(1, 0)
     """) { input =>
-      val (_, lexemes) = CalcLexer.tokenize(input)
+      val lexemes = CalcLexer.tokenize(input).getOrThrow
       val result = MathParser.parse(lexemes).getOrThrow
       val expected = 2.0 + 128.0 + 12.0 + 0.0 + 100.0 + (math.Pi / 2.0)
 

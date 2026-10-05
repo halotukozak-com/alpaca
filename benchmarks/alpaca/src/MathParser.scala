@@ -44,7 +44,7 @@ given Resolutions[MathParser.type] = resolutions(
   )
 
   try
-    val (_, tokens) = MathLexer.tokenize(fileContentIterative)
+    val tokens = MathLexer.tokenize(fileContentIterative).getOrThrow
     val result = MathParser.parse(tokens).getOrThrow
     println(s"\nResult Iterative: $result")
   catch
@@ -58,7 +58,7 @@ given Resolutions[MathParser.type] = resolutions(
   )
 
   try
-    val (_, tokens) = MathLexer.tokenize(fileContentRecursive)
+    val tokens = MathLexer.tokenize(fileContentRecursive).getOrThrow
     val result = MathParser.parse(tokens).getOrThrow
     println(s"\nResult Recursive: $result")
   catch

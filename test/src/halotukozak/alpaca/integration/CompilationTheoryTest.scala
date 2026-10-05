@@ -192,7 +192,7 @@ final class CompilationTheoryTest extends AnyFunSuite:
       x = 2;
       y = 2.5;
       """) { input =>
-      val (_, lexems) = CTLexer.tokenize(input)
+      val lexems = CTLexer.tokenize(input).getOrThrow
       val result = ASTPrinterParser.parse(lexems).getOrThrow
 
       val expected = ASTNode(
@@ -270,7 +270,7 @@ final class CompilationTheoryTest extends AnyFunSuite:
     C *= A ;  # multiply A with C
     C /= A ;  # divide A by C
     """) { input =>
-      val (_, lexemes) = CTLexer.tokenize(input)
+      val lexemes = CTLexer.tokenize(input).getOrThrow
       val result = ASTPrinterParser.parse(lexemes).getOrThrow
       val expected = ASTNode(
         "program",
@@ -351,7 +351,7 @@ final class CompilationTheoryTest extends AnyFunSuite:
             return 0;
     }
     """): input =>
-      val (_, lexemes) = CTLexer.tokenize(input)
+      val lexemes = CTLexer.tokenize(input).getOrThrow
       val result = ASTPrinterParser.parse(lexemes).getOrThrow
       val expected = ASTNode(
         "program",

@@ -62,7 +62,7 @@ val Lexer = lexer:
   case id @ "[a-z]+" => Token["ID"](id)
   case "\\s+" => Token.Ignored
 
-println(Lexer.tokenize("== = if iffy").lexemes.map(_.name)) // List(EQ, ASSIGN, IF, ID)
+println(Lexer.tokenize("== = if iffy").getOrThrow.map(_.name)) // List(EQ, ASSIGN, IF, ID)
 ```
 
 `"=="` beats the earlier `"="` because it is longer. `if` is matched equally long by `IF` and `ID`, so the earlier `IF` wins the tie. `iffy` is longer only for `ID`, so it stays a single identifier instead of splitting into `if` + `fy`.
@@ -87,7 +87,7 @@ val Lexer = lexer:
   case id @ "[a-z]+" => Token["ID"](id)
   case "\\s+" => Token.Ignored
 
-println(Lexer.tokenize("/* a */ x /* b */").lexemes.map(_.name)) // List(ID)
+println(Lexer.tokenize("/* a */ x /* b */").getOrThrow.map(_.name)) // List(ID)
 ```
 
 ## Regular Expressions
@@ -134,7 +134,7 @@ val BrainLexer = lexer:
   case "\\+" => Token["inc"]
   case "\\s+" => Token.Ignored
 
-val (_, lexemes) = BrainLexer.tokenize("> < +")
+val lexemes = BrainLexer.tokenize("> < +").getOrThrow
 // lexemes: next, prev, inc
 ```
 
@@ -150,7 +150,7 @@ val BrainLexer = lexer:
   case "!" => Token["functionCall"]
   case "\\s+" => Token.Ignored
 
-val (_, lexemes) = BrainLexer.tokenize("foo!")
+val lexemes = BrainLexer.tokenize("foo!").getOrThrow
 // lexemes: functionName("foo"), functionCall
 ```
 
@@ -168,7 +168,7 @@ val BrainLexer = lexer:
   case "." => Token.Ignored   // any non-command character
   case "\n" => Token.Ignored  // newlines
 
-val (_, lexemes) = BrainLexer.tokenize("+ hello +\n+")
+val lexemes = BrainLexer.tokenize("+ hello +\n+").getOrThrow
 // lexemes: inc, inc, inc (everything else is ignored)
 ```
 
@@ -223,15 +223,30 @@ Keywords like `if` always need backticks. `-` is a valid Scala identifier and do
 Call `tokenize()` on your lexer with an input string:
 
 ```scala sc-compile-with:BrainLexer
-val (ctx, lexemes) = BrainLexer.tokenize("++[>+<-].")
+val lexed = BrainLexer.tokenize("++[>+<-].")
+val lexemes = lexed.getOrThrow
 ```
 
-The method returns a named tuple `(ctx: Ctx, lexemes: List[Lexeme])`:
+The method returns a `Result` -- the same type `parse` returns (see [Parsing Input](parser.md#parsing-input)):
 
 - **`ctx`** -- the final lexer context after processing all input. With `LexerCtx.Default`, this includes `position` and `line`.
-- **`lexemes`** -- matched tokens with `Token.Ignored` entries removed. Each `Lexeme` carries the token `name`, extracted `value`, and a snapshot of context fields at match time.
+- **`getOrThrow`** -- the lexemes: matched tokens with `Token.Ignored` entries removed. Each `Lexeme` carries the token `name`, extracted `value`, and a snapshot of context fields at match time.
 
-If the input contains a character that matches no pattern, `tokenize` throws a `RuntimeException`. See [Error Recovery](lexer-error-recovery.md) for alternatives.
+If the input contains a character that matches no pattern, `tokenize` does not throw: it returns a `Result.Failure` listing `LexerError`s, and `getOrThrow` throws them as a `LexerException`. Match on the result to handle them yourself:
+
+```scala
+import halotukozak.alpaca.*
+
+val Digits = lexer:
+  case "[0-9]+" => Token["NUM"]
+
+Digits.tokenize("12a") match
+  case Result.Success(_, lexemes) => println(lexemes.size)
+  case Result.Failure(_, _, errors) =>
+    errors.foreach(error => println(error.message)) // Unexpected character 'a' at line 1, column 3
+```
+
+See [Error Recovery](lexer-error-recovery.md) for how to skip unmatched input instead of stopping.
 
 ### Tokenizing Files with LazyReader
 
@@ -241,8 +256,8 @@ For large files, use `LazyReader` instead of loading the entire file into a `Str
 import java.nio.file.Path
 
 val reader = LazyReader.from(Path.of("program.bf"))
-val (ctx, lexemes) =
-  try BrainLexer.tokenize(reader)
+val lexemes =
+  try BrainLexer.tokenize(reader).getOrThrow
   finally reader.close()
 ```
 
@@ -278,7 +293,7 @@ val Lexer = lexer:
   case num @ "[0-9]+" => Token["NUM"](num.toInt)
   case "\\s+" => Token.Ignored
 
-val (_, lexemes) = Lexer.tokenize("42 13")
+val lexemes = Lexer.tokenize("42 13").getOrThrow
 lexemes(0).position  // 3: Int (post-match position)
 lexemes(0).line      // 1: Int
 lexemes(0).text      // "42": String (the matched text, not remaining input)
@@ -316,7 +331,7 @@ val BrainLexer = lexer:
   case "." => Token.Ignored
   case "\n" => Token.Ignored
 
-val (_, lexemes) = BrainLexer.tokenize("++[>+<-].")
+val lexemes = BrainLexer.tokenize("++[>+<-].").getOrThrow
 // lexemes.map(_.name) == List("inc", "inc", "jumpForward", "next", "inc", "prev", "dec", "jumpBack", "print")
 ```
 

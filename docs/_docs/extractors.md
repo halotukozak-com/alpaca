@@ -250,7 +250,7 @@ val MiniLang = lexer:
   case "\\+"          => Token["PLUS"]
   case "\\s+"         => Token.Ignored
 
-val (_, lexemes) = MiniLang.tokenize("42 + 13")
+val lexemes = MiniLang.tokenize("42 + 13").getOrThrow
 // lexemes(0): name = "NUM",  value = 42, text = "42", position = 3, line = 1
 // lexemes(1): name = "PLUS", value = (), text = "+",  position = 5, line = 1
 // lexemes(2): name = "NUM",  value = 13, text = "13", position = 8, line = 1

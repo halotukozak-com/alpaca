@@ -1,7 +1,6 @@
 package bench.alpaca
 
-import halotukozak.alpaca.internal.lexer.ErrorHandling
-import halotukozak.alpaca.{lexer, LexerCtx, Token}
+import halotukozak.alpaca.{lexer, ErrorHandling, LexerCtx, LexerError, Token}
 import org.openjdk.jmh.annotations.*
 import org.openjdk.jmh.infra.Blackhole
 
@@ -11,10 +10,10 @@ import scala.util.Random
 
 // The strategy is read from a mutable var (set in @Setup from the @Param string below)
 // rather than fixed at compile time, so a single lexer definition can be reused across
-// all four ErrorHandling.Strategy variants.
+// all three ErrorHandling.Strategy variants.
 private var currentStrategy: ErrorHandling.Strategy = ErrorHandling.Strategy.Stop
 
-private given ErrorHandling[LexerCtx.Default] = _ => currentStrategy
+private given ErrorHandling[LexerCtx.Default, LexerError] = (_, _) => currentStrategy
 
 private val ErrorRecoveryLexer = lexer[LexerCtx.Default] {
   case "\\s+" => Token.Ignored
@@ -50,7 +49,7 @@ private object ErrorRecoveryInputs:
  * `Throw` and `Stop` terminate at the first unmatched character, so at any error rate
  * above 0 they measure "cost to reach and handle the first error" rather than full-input
  * throughput -- this is intentional, it's the actual cost difference between strategies
- * this benchmark is meant to surface. `IgnoreChar` and `IgnoreToken` always process the
+ * this benchmark is meant to surface. `SkipOne` and `SkipToNextMatch` always process the
  * full input, recovering from every error along the way.
  */
 @State(Scope.Benchmark)
@@ -64,7 +63,7 @@ class LexerErrorRecoveryBenchmark:
   @Param(Array("0", "1", "5", "10"))
   var errorRatePercent: String = uninitialized
 
-  @Param(Array("Throw", "IgnoreChar", "IgnoreToken", "Stop"))
+  @Param(Array("SkipOne", "SkipToNextMatch", "Stop"))
   var strategyName: String = uninitialized
 
   @Param(Array("20000"))
@@ -79,9 +78,8 @@ class LexerErrorRecoveryBenchmark:
   @Setup(Level.Invocation)
   def selectStrategy(): Unit =
     currentStrategy = strategyName match
-      case "Throw" => ErrorHandling.Strategy.Throw(RuntimeException("benchmark error"))
-      case "IgnoreChar" => ErrorHandling.Strategy.IgnoreChar
-      case "IgnoreToken" => ErrorHandling.Strategy.IgnoreToken
+      case "SkipOne" => ErrorHandling.Strategy.SkipOne
+      case "SkipToNextMatch" => ErrorHandling.Strategy.SkipToNextMatch
       case "Stop" => ErrorHandling.Strategy.Stop
       case other => throw IllegalArgumentException(s"Unknown strategy: $other")
 

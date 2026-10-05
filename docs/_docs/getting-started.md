@@ -102,8 +102,9 @@ Pattern order matters: `"\\."` (literal dot — the print command) must appear b
 Try it:
 
 ```scala sc-compile-with:gs-lexer
-val (finalCtx, lexemes) = BrainLexer.tokenize("foo(++)")
-require(finalCtx.brackets == 0 && finalCtx.squareBrackets == 0, "Mismatched brackets")
+val lexed = BrainLexer.tokenize("foo(++)")
+val lexemes = lexed.getOrThrow
+require(lexed.ctx.brackets == 0 && lexed.ctx.squareBrackets == 0, "Mismatched brackets")
 println(lexemes.map(_.name))
 // List(functionName, functionOpen, inc, inc, functionClose)
 ```
@@ -227,16 +228,18 @@ import halotukozak.alpaca.*
 @main def run(): Unit =
   // Standard BrainFuck: Hello World
   val hello = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."
-  val (ctx1, lexemes1) = BrainLexer.tokenize(hello)
-  require(ctx1.squareBrackets == 0, "Mismatched brackets")
+  val lexed1 = BrainLexer.tokenize(hello)
+  val lexemes1 = lexed1.getOrThrow
+  require(lexed1.ctx.squareBrackets == 0, "Mismatched brackets")
   val ast1 = BrainParser.parse(lexemes1).getOrThrow
   ast1.eval(Memory())
   // prints: Hello World!
 
   // Repeat counts and named cells
   val extended = "$a 3+ $b 5+ $a ."
-  val (ctx2, lexemes2) = BrainLexer.tokenize(extended)
-  require(ctx2.brackets == 0 && ctx2.squareBrackets == 0, "Mismatched brackets")
+  val lexed2 = BrainLexer.tokenize(extended)
+  val lexemes2 = lexed2.getOrThrow
+  require(lexed2.ctx.brackets == 0 && lexed2.ctx.squareBrackets == 0, "Mismatched brackets")
   val ast2 = BrainParser.parse(lexemes2).getOrThrow
   val mem = Memory()
   ast2.eval(mem)
@@ -244,15 +247,16 @@ import halotukozak.alpaca.*
 
   // Functions: define once, call twice
   val withFunctions = "$a foo(3+)foo!foo!."
-  val (ctx3, lexemes3) = BrainLexer.tokenize(withFunctions)
-  require(ctx3.brackets == 0 && ctx3.squareBrackets == 0, "Mismatched brackets")
+  val lexed3 = BrainLexer.tokenize(withFunctions)
+  val lexemes3 = lexed3.getOrThrow
+  require(lexed3.ctx.brackets == 0 && lexed3.ctx.squareBrackets == 0, "Mismatched brackets")
   val ast3 = BrainParser.parse(lexemes3).getOrThrow
   val mem2 = Memory()
   ast3.eval(mem2)
   // cell 'a' = 6 (two calls to foo, each adding 3), then prints char 6
 ```
 
-The pipeline is always the same: `tokenize` produces lexemes, `parse` produces a `ParseResult` holding the AST (`getOrThrow` takes the `BrainAST` out of it; input that does not match the grammar comes back as a `ParseResult.Failure` listing the `ParseError`s, see [Parsing Input](parser.md#parsing-input)), and you evaluate the result however you want.
+The pipeline is always the same: `tokenize` produces lexemes, `parse` produces a `Result` holding the AST (`getOrThrow` takes the `BrainAST` out of it; input that does not match the grammar comes back as a `Result.Failure` listing the `ParserError`s, see [Parsing Input](parser.md#parsing-input)), and you evaluate the result however you want.
 
 ## What's Next
 

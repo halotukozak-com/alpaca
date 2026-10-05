@@ -12,7 +12,7 @@ import scala.annotation.{compileTimeOnly, publicInBinary, unused}
  *  (custom `given` instances, tracking traits, large-file tokenization) even
  *  though they are implemented under `internal.lexer`.
  */
-export alpaca.internal.lexer.{Column, ErrorHandling, LazyReader, Line, Tracking}
+export alpaca.internal.lexer.{Column, LazyReader, Line, Tracking}
 
 /**
  * Creates a lexer from a DSL-based definition.
@@ -41,7 +41,7 @@ transparent inline def lexer[Ctx <: LexerCtx](
   inline rules: Ctx ?=> LexerDefinition[Ctx],
 )(using
   m: Mirror.ProductOf[Ctx],
-  errorHandling: ErrorHandling[Ctx],
+  errorHandling: ErrorHandling[Ctx, LexerError],
   empty: Empty[Ctx],
 ): Tokenization[Ctx] { type LexemeFields = NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes] } =
   ${
@@ -210,9 +210,8 @@ trait LexerCtx extends Product, Selectable:
   /**
    * A read-only view of the text still remaining to be tokenized.
    *
-   * Exposed so a custom [[alpaca.internal.lexer.ErrorHandling]] instance can inspect the character(s)
-   * that failed to match any token rule, e.g. to build a diagnostic message
-   * such as `unexpected '${ctx.remainingText.charAt(0)}'`.
+   * Exposed so a custom [[ErrorHandling]] instance can inspect the character(s)
+   * that failed to match any token rule, e.g. to pick a recovery strategy based on what comes next.
    */
   final def remainingText: CharSequence = text
 
@@ -249,11 +248,8 @@ trait LexerCtx extends Product, Selectable:
 
 object LexerCtx:
 
-  /** Default error handler for any [[LexerCtx]] that throws on the first unrecognised character. */
-  given ErrorHandling[LexerCtx] = ctx =>
-    ErrorHandling.Strategy.Throw(
-      new RuntimeException(s"Unexpected character: '${printable(ctx.text.charAt(0).toString)}'"),
-    )
+  /** Default error handler for any [[LexerCtx]]: stop at the first unrecognised character and report it. */
+  given ErrorHandling[LexerCtx, LexerError] = (_, _) => ErrorHandling.Strategy.Stop
 
   /**
    * An empty lexer context with no extra state tracking.
@@ -283,13 +279,53 @@ object LexerCtx:
     line: Line = Line.Start,
   ) extends LexerCtx
 
-  object Default:
-    /** Default error handler for [[Default]] that includes line and position information in the error message. */
-    given ErrorHandling[Default] = ctx =>
-      ErrorHandling.Strategy.Throw:
-        new RuntimeException(
-          s"Unexpected character at line ${ctx.line}, position ${ctx.position}: '${printable(ctx.text.charAt(0).toString)}'",
-        )
+/**
+ * Input that did not match any token, as reported by `tokenize` in a [[Result.Failure]].
+ *
+ * @param unexpected the input that was not matched: one character, or with `ErrorHandling.Strategy.SkipToNextMatch`
+ *                   everything skipped up to the next match
+ * @param line       the line it starts on, when the lexer context tracks a `line` field
+ * @param column     the column it starts at, when the lexer context tracks a `position` field
+ */
+final case class LexerError(unexpected: String, line: Option[Int], column: Option[Int]):
+  /** A readable description, e.g. `Unexpected character '@' at line 1, column 5`. */
+  def message: String = {
+    val what =
+      if unexpected.codePointCount(0, unexpected.length) == 1 then s"character '${printable(unexpected)}'"
+      else s"""input "${printable(unexpected)}""""
+    val where = (line, column) match
+      case (Some(line), Some(column)) => s" at line $line, column $column"
+      case (Some(line), None) => s" at line $line"
+      case (None, Some(column)) => s" at column $column"
+      case (None, None) => ""
+    s"Unexpected $what$where"
+  }
+
+object LexerError:
+  extension [Ctx, A](result: Result[Ctx, A, LexerError])
+    /** The value; throws the errors as a [[LexerException]] if any input did not match a token. */
+    def getOrThrow: A = result match
+      case Result.Success(_, value) => value
+      case Result.Failure(_, _, errors) => throw LexerException(errors)
+
+  /** An error for `unexpected`, positioned by `ctx`'s `line` and `position` fields when it has them. */
+  private[alpaca] def at(unexpected: String, ctx: LexerCtx): LexerError = {
+    def field(name: String): Option[Int] =
+      ctx.productElementNames.indexOf(name) match
+        case -1 => None
+        case i =>
+          ctx.productElement(i) match
+            case n: Int => Some(n)
+            case _ => None
+    LexerError(unexpected, field("line"), field("position"))
+  }
+
+/**
+ * Thrown by `getOrThrow` on a lexer [[Result]] when some input did not match a token.
+ *
+ * @param errors the errors the lexer reported, in input order
+ */
+final class LexerException(val errors: ::[LexerError]) extends RuntimeException(errors.map(_.message).mkString("\n"))
 
 /**
  * Type alias for lexer rule definitions.

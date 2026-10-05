@@ -70,7 +70,7 @@ val BrainLexer = lexer:
 ```scala sc-compile-with:tokens-brain-lexer
 import halotukozak.alpaca.*
 
-val (_, lexemes) = BrainLexer.tokenize("foo(++)")
+val lexemes = BrainLexer.tokenize("foo(++)").getOrThrow
 // lexemes: List[Lexeme] =
 //   functionName("foo"), functionOpen, inc, inc, functionClose
 //

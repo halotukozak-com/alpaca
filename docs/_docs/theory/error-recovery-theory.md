@@ -18,15 +18,15 @@ Each level has different recovery strategies.
 
 ### Strategy: Fail Fast (Default)
 
-The simplest approach: throw an exception on the first unmatched character. This is Alpaca's default behavior.
+The simplest approach: stop at the first unmatched character and report it. This is Alpaca's default behavior (`ErrorHandling.Strategy.Stop`): `tokenize` returns a `Result.Failure` with a `LexerError` such as
 
 ```
-RuntimeException: Unexpected character at line 1, position 5: '@'
+Unexpected character '@' at line 1, column 5
 ```
 
 ### Strategy: Skip and Continue
 
-Skip the unmatched character and resume tokenization from the next position. Alpaca supports this via `ErrorHandling.Strategy.IgnoreChar`. The skipped character is lost — the parser never sees it.
+Skip the unmatched character and resume tokenization from the next position. Alpaca supports this via `ErrorHandling.Strategy.SkipOne` (or `SkipToNextMatch`, which skips the whole unmatched run). The skipped character never reaches the parser, but it is not lost silently: it is reported as a `LexerError`, and the lexemes collected around it are the failure's `recovered` value.
 
 ### Strategy: Catch-All Token
 
@@ -41,10 +41,6 @@ val ErrorTokenLexer = lexer:
   case "[a-zA-Z]+" => Token["ID"]
   case "." => Token["ERROR"]
 ```
-
-### Strategy: Stop Gracefully
-
-Stop tokenization and return the lexemes collected so far. Alpaca supports this via `ErrorHandling.Strategy.Stop`. Useful when processing a prefix of the input.
 
 ## Syntactic Error Recovery
 
@@ -84,20 +80,19 @@ The `error` pseudo-terminal matches any sequence of tokens until a recovery poin
 
 ### Lexer
 
-Alpaca provides four `ErrorHandling` strategies (see [Error Recovery](../lexer-error-recovery.md)):
+Alpaca provides three `ErrorHandling` strategies (see [Error Recovery](../lexer-error-recovery.md)); each reports the unmatched input as a `LexerError`:
 
 | Strategy | Behavior |
 |----------|----------|
-| `Throw(ex)` | Abort immediately (default) |
-| `IgnoreChar` | Skip one character |
-| `IgnoreToken` | Skip to next match |
-| `Stop` | Return partial results |
+| `Stop` | Stop at the first error (default) |
+| `SkipOne` | Skip one character and continue |
+| `SkipToNextMatch` | Skip to next match and continue |
 
 ### Parser
 
 Alpaca's parser currently has minimal error recovery:
 
-- On a parse table miss (no action for the current state and token), `parse()` returns a `ParseResult.Failure` with a `ParseError` carrying the unexpected lexeme and the token names that were expected, with a message like `Unexpected PLUS "+" at line 1, column 5. Expected one of: NUMBER`
+- On a parse table miss (no action for the current state and token), `parse()` returns a `Result.Failure` with a `ParserError` carrying the unexpected lexeme and the token names that were expected, with a message like `Unexpected PLUS "+" at line 1, column 5. Expected one of: NUMBER`
 - No panic mode, phrase-level recovery, or error productions: parsing stops at the first error
 
 ### Semantic

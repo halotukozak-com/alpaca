@@ -39,9 +39,12 @@ val BrainLexer = lexer:
   case "-" => Token["dec"]
   case "\\s+" => Token.Ignored
 
-val (ctx, lexemes) = BrainLexer.tokenize("+ - +")
-// ctx.position == 6
-// ctx.line     == 1
+val lexed = BrainLexer.tokenize("+ - +")
+
+
+val lexemes = lexed.getOrThrow
+// lexed.ctx.position == 6
+// lexed.ctx.line     == 1
 //
 // Each lexeme carries a snapshot of context fields at match time:
 // inc: text="+", position=2, line=1
@@ -101,11 +104,12 @@ val BrainLexer = lexer[BrainLexContext]:
   case "\n" => Token.Ignored
 ```
 
-The type parameter `lexer[BrainLexContext]` tells the macro which context to use. The final context state is returned as the `ctx` component of the named tuple from `tokenize()`:
+The type parameter `lexer[BrainLexContext]` tells the macro which context to use. The final context state is the `ctx` of the `Result` that `tokenize()` returns:
 
 ```scala sc-compile-with:lc-brainlex
-val (finalCtx, lexemes) = BrainLexer.tokenize("[>+<-]")
-// finalCtx.squareBrackets == 0  -- balanced
+val lexed = BrainLexer.tokenize("[>+<-]")
+val lexemes = lexed.getOrThrow
+// lexed.ctx.squareBrackets == 0  -- balanced
 ```
 
 ## Accessing Context in Patterns
@@ -136,7 +140,7 @@ val BrainLexer = lexer:
   case "\\+" => Token["inc"]
   case "\\s+" => Token.Ignored
 
-val (_, lexemes) = BrainLexer.tokenize("+ +")
+val lexemes = BrainLexer.tokenize("+ +").getOrThrow
 lexemes(0).position  // 2: Int (post-match position)
 lexemes(0).line      // 1: Int
 lexemes(0).text      // "+": String (the matched text, not remaining input)
@@ -168,7 +172,7 @@ val BrainLexer = lexer[BrainLexContext]:
   case "\\+" => Token["inc"]
   case "." => Token.Ignored
 
-val (_, lexemes) = BrainLexer.tokenize("[+[+]]")
+val lexemes = BrainLexer.tokenize("[+[+]]").getOrThrow
 // lexemes(0).squareBrackets == 1  -- after first [
 // lexemes(2).squareBrackets == 2  -- after second [
 // lexemes(4).squareBrackets == 1  -- after first ]
@@ -250,7 +254,7 @@ val Lexer = lexer[LexerCtx.Empty]:
   case "\\+" => Token["inc"]
   case "." => Token.Ignored
 
-val (_, lexemes) = Lexer.tokenize("+ +")
+val lexemes = Lexer.tokenize("+ +").getOrThrow
 // lexemes(0).text == "+"  -- the only snapshot field: no position, no line
 ```
 
