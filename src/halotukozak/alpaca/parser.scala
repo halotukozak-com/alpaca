@@ -281,6 +281,9 @@ object Production:
 
 object ParserCtx:
 
+  /** Default error handler for any [[ParserCtx]]: stop at the first input that does not match the grammar. */
+  given ErrorHandling[ParserCtx, ParserError] = (_, _) => ErrorHandling.Strategy.Stop
+
   /**
    * An empty parser context with no state.
    *

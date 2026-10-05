@@ -3,7 +3,7 @@ package alpaca
 package internal
 package parser
 
-import halotukozak.alpaca.{rule, ParserCtx, ParserError, ProductionDefinition, Result, Rule}
+import halotukozak.alpaca.{rule, ErrorHandling, ParserCtx, ParserError, ProductionDefinition, Result, Rule}
 import halotukozak.alpaca.internal.{fieldsTpeFrom, refinementTpeFrom, withDefault, Empty, RevertedArray, RuleOnly, ValidName, *}
 import halotukozak.alpaca.internal.lexer.Lexeme
 import halotukozak.alpaca.internal.parser.{Tables, *}
@@ -35,6 +35,7 @@ abstract class Parser[Ctx <: ParserCtx](
 )(using
   empty: Empty[Ctx],
   tables: Tables[Ctx],
+  errorHandling: ErrorHandling[Ctx, ParserError],
 ):
 
   /**
@@ -60,7 +61,8 @@ abstract class Parser[Ctx <: ParserCtx](
    *
    * @tparam R the result type
    * @param lexemes the list of lexemes to parse
-   * @return the value the root rule produced, or the errors that stopped the parser, with the context either way
+   * @return the value the root rule produced, or the errors met on the way, with the context either way; when the
+   *         context's [[ErrorHandling]] skipped past the errors, the value is the failure's `recovered`
    */
   @publicInBinary private[alpaca] def parseResult[R](lexemes: List[Lexeme[?, ?]]): Result[Ctx, R, ParserError] = {
     enum Node:
@@ -77,13 +79,24 @@ abstract class Parser[Ctx <: ParserCtx](
     val nodeStack = mutable.ArrayDeque.empty[Node]
     stateStack += 0
     nodeStack += Node.Result(null)
+    val errors = mutable.ListBuffer.empty[ParserError]
 
-    @tailrec def loop(remaining: List[Lexeme[?, ?]]): Node | ParserError = {
+    // The accepted root node, or `None` when an error stopped the parser.
+    @tailrec def loop(remaining: List[Lexeme[?, ?]]): Option[Node] = {
       val current = if remaining.isEmpty then Lexeme.EOF else remaining.head
       val nextSymbol = Terminal(current.name)
       val action = tables.parseTable.get(stateStack.last, nextSymbol)
-      if action == null then ParserError(current, tables.parseTable.expectedTerminals(stateStack.last))
-      else {
+      if action == null then {
+        val error = ParserError(current, tables.parseTable.expectedTerminals(stateStack.last))
+        errors += error
+        // the end of the input cannot be skipped
+        errorHandling(ctx, error) match
+          case ErrorHandling.Strategy.SkipOne if remaining.nonEmpty => loop(remaining.tail)
+          case ErrorHandling.Strategy.SkipToNextMatch if remaining.nonEmpty =>
+            val state = stateStack.last
+            loop(remaining.tail.dropWhile(lexeme => tables.parseTable.get(state, Terminal(lexeme.name)) == null))
+          case _ => None
+      } else {
         action match {
           case ParseAction.Shift(gotoState) =>
             stateStack += gotoState
@@ -94,7 +107,7 @@ abstract class Parser[Ctx <: ParserCtx](
             val n = rhs.size
             val newStateIdx = stateStack(stateStack.size - 1 - n)
 
-            if lhs == Symbol.Start && newStateIdx == 0 then nodeStack.last
+            if lhs == Symbol.Start && newStateIdx == 0 then Some(nodeStack.last)
             else {
               val top = nodeStack.size - 1
               val children = Array.better.tabulate(n)(i => nodeStack(top - i).get)
@@ -109,7 +122,7 @@ abstract class Parser[Ctx <: ParserCtx](
             }
 
           case ParseAction.Reduction(Production.Empty(Symbol.Start, name, _)) if stateStack.last == 0 =>
-            nodeStack.last
+            Some(nodeStack.last)
 
           case ParseAction.Reduction(prod @ Production.Empty(lhs, name, _)) =>
             val ParseAction.Shift(gotoState) = tables.parseTable(stateStack.last, lhs).runtimeChecked
@@ -121,13 +134,13 @@ abstract class Parser[Ctx <: ParserCtx](
       }
     }
 
-    loop(lexemes) match
-      case error: ParserError => Result.Failure(ctx, None, ::(error, Nil))
-      case node: Node @unchecked =>
-        val value = node match
-          case Node.Result(value) => value
-          case Node.Token(_) => null
-        Result.Success(ctx, value.asInstanceOf[R])
+    val value = loop(lexemes).map:
+      case Node.Result(value) => value.asInstanceOf[R]
+      case Node.Token(_) => null.asInstanceOf[R]
+
+    errors.toList match
+      case Nil => Result.Success(ctx, value.get)
+      case first :: rest => Result.Failure(ctx, value, ::(first, rest))
   }
 
 private val cachedProductions: mutable.Map[Type[? <: AnyKind], (Type[? <: AnyKind], Type[? <: AnyKind])] =

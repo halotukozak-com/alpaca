@@ -312,7 +312,7 @@ val parsed = BrainParser.parse(lexemes)
 `parse()` does not throw when the input does not match the grammar. It returns a `Result` -- the same type `tokenize` returns -- which is one of two cases, both carrying the parser context (`ctx`) as it was when parsing ended:
 
 - `Result.Success(ctx, value)` -- the input matched, and `value` is what the root rule produced (a `BrainAST` here);
-- `Result.Failure(ctx, recovered, errors)` -- the input did not match; `errors` is a non-empty list of `ParserError`s. `recovered` is a value produced anyway by an error-handling strategy that skips past errors; the parser does not have one yet, so here it is always `None`.
+- `Result.Failure(ctx, recovered, errors)` -- the input did not match; `errors` is a non-empty list of `ParserError`s. `recovered` is the value produced anyway when the parser's error-handling strategy skipped past the errors and parsing still reached the end (see [Error Recovery](#error-recovery)), and `None` when parsing stopped before producing a value -- at the first error by default, or at a later error that was not skipped.
 
 Match on it to handle both outcomes:
 
@@ -344,7 +344,35 @@ BrainParser.parse(BrainLexer.tokenize("[+").getOrThrow) match
   case Result.Success(_, _) => ()
 ```
 
-The parser currently stops at the first error, so `errors` has one element; it is a list so that error recovery can report more than one without changing the API.
+### Error Recovery
+
+By default the parser stops at the first error, so `errors` has one element. An `ErrorHandling[Ctx, ParserError]` for your parser context can tell it to skip the unexpected input and go on instead -- the same `ErrorHandling` type the lexer uses, with `ParserError` as its error type (see [Error Recovery](lexer-error-recovery.md#error-handling-strategies)). Every skip is still reported as a `ParserError`, and if parsing then reaches the end, its value is the failure's `recovered`:
+
+```scala sc-compile-with:brain-tokenize
+case class RecoveringCtx() extends ParserCtx
+
+given ErrorHandling[RecoveringCtx, ParserError] = (ctx, error) => ErrorHandling.Strategy.SkipOne
+
+object RecoveringParser extends Parser[RecoveringCtx]:
+  val root: Rule[Int] = rule:
+    case BrainLexer.inc.List(incs) => incs.size
+
+RecoveringParser.parse(BrainLexer.tokenize("++>+").getOrThrow) match
+  case Result.Failure(_, recovered, errors) =>
+    println(recovered)                     // Some(3)
+    println(errors.map(_.unexpected.text)) // List(>)
+  case Result.Success(_, _) => ()
+```
+
+| Strategy | Behavior |
+|----------|----------|
+| `Stop` (default) | Stop at the error; the failure has no `recovered` value |
+| `SkipOne` | Skip the unexpected lexeme and go on |
+| `SkipToNextMatch` | Skip ahead to the next lexeme the parser can accept at that point and go on; one `ParserError` covers the whole skipped run |
+
+The end of the input cannot be skipped, so an error there stops the parser whatever the strategy.
+
+The strategy receives the parser context and the `ParserError`, so it can decide per error -- for example skip stray separators but stop on anything else. Define the `given` where the parser is defined, or in the context's companion object.
 
 `map` transforms the value, and `flatMap` runs the next stage on it, keeping the errors of both stages in input order.
 
