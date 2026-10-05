@@ -168,9 +168,8 @@ import halotukozak.alpaca.*
 @main def run(): Unit =
   val program = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."
   val lexed = BrainLexer.tokenize(program)
-  val ctx = lexed.ctx
   val lexemes = lexed.getOrThrow
-  require(ctx.squareBrackets == 0 && ctx.brackets == 0, "Mismatched brackets")
+  require(lexed.ctx.squareBrackets == 0 && lexed.ctx.brackets == 0, "Mismatched brackets")
   val ast = BrainParser.parse(lexemes).getOrThrow
   ast.eval(Memory())
   // prints: Hello World!

@@ -9,11 +9,10 @@ final class BrainfuckTest extends AnyFunSuite:
   // --- Lexer Tests ---
 
   private def tokenize(input: String) =
-    val tokensResult = BrainLexer.tokenize(input)
-    val ctx = tokensResult.ctx
-    val tokens = tokensResult.getOrThrow
-    require(ctx.brackets == 0 && ctx.squareBrackets == 0, "Mismatched brackets")
-    (ctx, tokens)
+    val lexed = BrainLexer.tokenize(input)
+    val tokens = lexed.getOrThrow
+    require(lexed.ctx.brackets == 0 && lexed.ctx.squareBrackets == 0, "Mismatched brackets")
+    (lexed.ctx, tokens)
 
   test("tokenize basic operators") {
     val (_, tokens) = tokenize("><+-.,")

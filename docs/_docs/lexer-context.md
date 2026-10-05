@@ -41,11 +41,10 @@ val BrainLexer = lexer:
 
 val lexed = BrainLexer.tokenize("+ - +")
 
-val ctx = lexed.ctx
 
 val lexemes = lexed.getOrThrow
-// ctx.position == 6
-// ctx.line     == 1
+// lexed.ctx.position == 6
+// lexed.ctx.line     == 1
 //
 // Each lexeme carries a snapshot of context fields at match time:
 // inc: text="+", position=2, line=1
@@ -109,9 +108,8 @@ The type parameter `lexer[BrainLexContext]` tells the macro which context to use
 
 ```scala sc-compile-with:lc-brainlex
 val lexed = BrainLexer.tokenize("[>+<-]")
-val finalCtx = lexed.ctx
 val lexemes = lexed.getOrThrow
-// finalCtx.squareBrackets == 0  -- balanced
+// lexed.ctx.squareBrackets == 0  -- balanced
 ```
 
 ## Accessing Context in Patterns

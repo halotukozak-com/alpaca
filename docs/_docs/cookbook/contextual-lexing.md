@@ -47,9 +47,8 @@ After tokenization, check the final context:
 
 ```scala sc-compile-with:BrainLexer
 val lexed = BrainLexer.tokenize("foo(+++)foo!")
-val finalCtx = lexed.ctx
 val lexemes = lexed.getOrThrow
-require(finalCtx.squareBrackets == 0 && finalCtx.brackets == 0, "Mismatched brackets")
+require(lexed.ctx.squareBrackets == 0 && lexed.ctx.brackets == 0, "Mismatched brackets")
 ```
 
 ## Accessing Lexer Context in the Parser

@@ -103,9 +103,8 @@ Try it:
 
 ```scala sc-compile-with:gs-lexer
 val lexed = BrainLexer.tokenize("foo(++)")
-val finalCtx = lexed.ctx
 val lexemes = lexed.getOrThrow
-require(finalCtx.brackets == 0 && finalCtx.squareBrackets == 0, "Mismatched brackets")
+require(lexed.ctx.brackets == 0 && lexed.ctx.squareBrackets == 0, "Mismatched brackets")
 println(lexemes.map(_.name))
 // List(functionName, functionOpen, inc, inc, functionClose)
 ```
@@ -230,9 +229,8 @@ import halotukozak.alpaca.*
   // Standard BrainFuck: Hello World
   val hello = "++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++."
   val lexed1 = BrainLexer.tokenize(hello)
-  val ctx1 = lexed1.ctx
   val lexemes1 = lexed1.getOrThrow
-  require(ctx1.squareBrackets == 0, "Mismatched brackets")
+  require(lexed1.ctx.squareBrackets == 0, "Mismatched brackets")
   val ast1 = BrainParser.parse(lexemes1).getOrThrow
   ast1.eval(Memory())
   // prints: Hello World!
@@ -240,9 +238,8 @@ import halotukozak.alpaca.*
   // Repeat counts and named cells
   val extended = "$a 3+ $b 5+ $a ."
   val lexed2 = BrainLexer.tokenize(extended)
-  val ctx2 = lexed2.ctx
   val lexemes2 = lexed2.getOrThrow
-  require(ctx2.brackets == 0 && ctx2.squareBrackets == 0, "Mismatched brackets")
+  require(lexed2.ctx.brackets == 0 && lexed2.ctx.squareBrackets == 0, "Mismatched brackets")
   val ast2 = BrainParser.parse(lexemes2).getOrThrow
   val mem = Memory()
   ast2.eval(mem)
@@ -251,9 +248,8 @@ import halotukozak.alpaca.*
   // Functions: define once, call twice
   val withFunctions = "$a foo(3+)foo!foo!."
   val lexed3 = BrainLexer.tokenize(withFunctions)
-  val ctx3 = lexed3.ctx
   val lexemes3 = lexed3.getOrThrow
-  require(ctx3.brackets == 0 && ctx3.squareBrackets == 0, "Mismatched brackets")
+  require(lexed3.ctx.brackets == 0 && lexed3.ctx.squareBrackets == 0, "Mismatched brackets")
   val ast3 = BrainParser.parse(lexemes3).getOrThrow
   val mem2 = Memory()
   ast3.eval(mem2)

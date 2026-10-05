@@ -224,7 +224,6 @@ Call `tokenize()` on your lexer with an input string:
 
 ```scala sc-compile-with:BrainLexer
 val lexed = BrainLexer.tokenize("++[>+<-].")
-val ctx = lexed.ctx
 val lexemes = lexed.getOrThrow
 ```
 

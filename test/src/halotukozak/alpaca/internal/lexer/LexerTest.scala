@@ -265,19 +265,17 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       case id @ "[a-zA-Z]+" => Token["IDENTIFIER"](id)
       case "\\s+" => Token.Ignored
 
-    val lexemesResult = Lexer.tokenize("abc\ndef")
+    val lexed = Lexer.tokenize("abc\ndef")
 
-    val ctx = lexemesResult.ctx
-
-    val lexemes = lexemesResult.getOrThrow
+    val lexemes = lexed.getOrThrow
     assert(
       lexemes.map(_.shape) == List[Shape](
         ("IDENTIFIER", "abc", fields("abc", 4, 1)),
         ("IDENTIFIER", "def", fields("def", 4, 2)),
       ),
     )
-    ctx.line shouldBe 2
-    ctx.position shouldBe 4
+    lexed.ctx.line shouldBe 2
+    lexed.ctx.position shouldBe 4
   }
 
   test("tokenize file") {

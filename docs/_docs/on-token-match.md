@@ -53,7 +53,6 @@ object BrainParser extends Parser:
 
 ```scala sc-compile-with:otm-brainfuck
 val lexed = BrainLexer.tokenize("[>+<-]")
-val finalCtx = lexed.ctx
 val lexemes = lexed.getOrThrow
 val ast = BrainParser.parse(lexemes).getOrThrow
 ```
@@ -66,10 +65,9 @@ The `tokenize()` method returns a `Result` holding the final context (`ctx`) and
 
 ```scala sc-compile-with:otm-brainfuck
 val lexed = BrainLexer.tokenize("++[>+<-].")
-val finalCtx = lexed.ctx
 val lexemes = lexed.getOrThrow
 
-// finalCtx holds the final lexer context state
+// lexed.ctx holds the final lexer context state
 // lexemes holds the matched tokens (Token.Ignored entries are excluded)
 
 val ast = BrainParser.parse(lexemes).getOrThrow
@@ -81,9 +79,8 @@ The final context (the result's `ctx`) is useful for post-tokenization checks. F
 
 ```scala sc-compile-with:otm-brainfuck
 val lexed = BrainLexer.tokenize("[>+<-]")
-val finalCtx = lexed.ctx
 val lexemes = lexed.getOrThrow
-require(finalCtx.squareBrackets == 0, "Mismatched brackets")
+require(lexed.ctx.squareBrackets == 0, "Mismatched brackets")
 val ast = BrainParser.parse(lexemes).getOrThrow
 ```
 
