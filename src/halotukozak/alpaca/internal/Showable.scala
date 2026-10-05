@@ -17,7 +17,7 @@ import scala.annotation.publicInBinary
  *
  * @tparam T the type to show
  */
-private[internal] trait Showable[-T]:
+private[alpaca] trait Showable[-T]:
   /**
    * Extension method to convert a value to its string representation.
    *
@@ -28,16 +28,16 @@ private[internal] trait Showable[-T]:
   def transform[U](f: U => T): Showable[U] = u => f(u).show
 
 /** String interpolator for values that have Showable instances. */
-extension (sc: StringContext) @publicInBinary private[internal] def show(args: Shown*): Shown = sc.s(args*)
+extension (sc: StringContext) @publicInBinary private[alpaca] def show(args: Shown*): Shown = sc.s(args*)
 
 /**
  * An opaque type representing a string that has been shown.
  *
  * Used to ensure type safety in string interpolation.
  */
-opaque into private[internal] type Shown <: String = String
+opaque into private[alpaca] type Shown <: String = String
 
-private[internal] object Shown:
+private[alpaca] object Shown:
 
   /**
    * Implicit conversion from any Showable type to Shown.
@@ -46,9 +46,23 @@ private[internal] object Shown:
    */
   given [T: Showable] => Conversion[T, Shown] = _.show
 
-private[internal] object Showable:
-  /** Showable instance for String (identity). */
-  given Showable[String] = (_.asInstanceOf[Shown])
+  /** Already shown text goes into another `show` as it is. */
+  given Showable[Shown] = identity(_)
+
+  extension (text: Shown)
+    /** `stripMargin` for shown text: dropping the margin of lines already shown keeps them shown. */
+    def trimMargin: Shown = augmentString(text).stripMargin
+
+/**
+ * `text` as it is, without escaping anything.
+ *
+ * There is deliberately no `Showable[String]`: a `String` reaches a message either as [[Printable]], which escapes
+ * what would not show up, when it may hold text from the user's grammar or input, or through `showRaw`, which says
+ * it does not.
+ */
+extension (text: String) @publicInBinary private[alpaca] def showRaw: Shown = text.asInstanceOf[Shown]
+
+private[alpaca] object Showable:
 
   /** Showable instance for Int. */
   given Showable[Int] = fromToString
@@ -68,7 +82,7 @@ private[internal] object Showable:
   /** Showable instance for Char. */
   given Showable[Char] = fromToString
 
-  def fromToString[T]: Showable[T] = (_.toString)
+  def fromToString[T]: Showable[T] = _.toString.showRaw
 
   inline given [N <: Tuple, V <: Tuple] => (m: Made.Of[NamedTuple[N, V]]) => Showable[NamedTuple[N, V]] =
     derived[NamedTuple[N, V]](using m)
@@ -79,7 +93,7 @@ private[internal] object Showable:
     summon[Showable[Tree]].transform(_.asTerm)
 
   given [T] => (quotes: Quotes) => Showable[quotes.reflect.TypeRepr] = tpe =>
-    show"[${quotes.reflect.Printer.TypeReprShortCode.show(tpe)}](${quotes.reflect.Printer.TypeReprStructure.show(tpe)})"
+    show"[${quotes.reflect.Printer.TypeReprShortCode.show(tpe).showRaw}](${quotes.reflect.Printer.TypeReprStructure.show(tpe).showRaw})"
 
   given [T] => (quotes: Quotes) => Showable[Type[T]] =
     import quotes.reflect.*
@@ -92,10 +106,11 @@ private[internal] object Showable:
   // its toString is written to read as a message
   given Showable[halotukozak.regex.RegexParseError] = fromToString
 
-  given (quotes: Quotes) => Showable[quotes.reflect.Tree] =
-    quotes.reflect.Printer.TreeShortCode.show(_)
+  given (quotes: Quotes) => Showable[quotes.reflect.Tree] = tree =>
+    quotes.reflect.Printer.TreeShortCode.show(tree).showRaw
 
-  given (quotes: Quotes) => Showable[quotes.reflect.Symbol] = (_.name)
+  // the name of a definition in the user's code
+  given (quotes: Quotes) => Showable[quotes.reflect.Symbol] = symbol => Printable(symbol.name).show
   // $COVERAGE-ON$
 
   given [A: Showable, B: Showable] => Showable[(A, B)] = (a, b) => show"$a : $b"
@@ -118,15 +133,15 @@ private[internal] object Showable:
           compiletime.summonAll[Tuple.Map[m.ElemTypes, Showable]].toArrayOf[Showable[Any]](using containsOnly.refl)
         val values = t.asInstanceOf[Product].productIterator
         val shown = showables.zip(values).map(_.show(_))
-        if showables.isEmpty then show"$name"
-        else show"$name(${fields.zip(shown).map((f, v) => s"$f: $v").mkShow(", ")})"
+        if showables.isEmpty then name.showRaw
+        else show"${name.showRaw}(${fields.zip(shown).map((f, v) => show"${f.showRaw}: $v").mkShow(", ")})"
       case m: Made.SumOf[T] =>
         val name = m.label
         val showables =
           compiletime.summonAll[Tuple.Map[m.ElemTypes, Showable]].toArrayOf[Showable[Any]](using containsOnly.refl)
         val index = m.ordinal(t)
         val shown = showables(index).show(t)
-        show"$name($shown)"
+        show"${name.showRaw}($shown)"
 
 extension [C[X] <: Iterable[X], T: Showable](c: C[T]) {
 
@@ -138,7 +153,7 @@ extension [C[X] <: Iterable[X], T: Showable](c: C[T]) {
    * @param end   the string to append
    * @return the formatted string
    */
-  private[internal] def mkShow(start: String, sep: String, end: String): Shown =
+  private[alpaca] def mkShow(start: String, sep: String, end: String): Shown =
     c.iterator.map(_.show).mkString(start, sep, end)
 
   /**
@@ -147,17 +162,17 @@ extension [C[X] <: Iterable[X], T: Showable](c: C[T]) {
    * @param sep the separator between elements
    * @return the formatted string
    */
-  @publicInBinary private[internal] def mkShow(sep: String): Shown = mkShow("", sep, "")
+  @publicInBinary private[alpaca] def mkShow(sep: String): Shown = mkShow("", sep, "")
 
   /**
    * Creates a string representation with elements concatenated.
    *
    * @return the concatenated string
    */
-  private[internal] def mkShow: Shown = mkShow("")
+  private[alpaca] def mkShow: Shown = mkShow("")
 }
 
 extension [T: Showable](it: Iterator[T])
-  private[internal] def mkShow(start: String, sep: String, end: String): Shown = it.map(_.show).mkString(start, sep, end)
-  private[internal] def mkShow(sep: String): Shown = mkShow("", sep, "")
-  private[internal] def mkShow: Shown = mkShow("")
+  private[alpaca] def mkShow(start: String, sep: String, end: String): Shown = it.map(_.show).mkString(start, sep, end)
+  private[alpaca] def mkShow(sep: String): Shown = mkShow("", sep, "")
+  private[alpaca] def mkShow: Shown = mkShow("")

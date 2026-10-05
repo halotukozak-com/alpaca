@@ -8,20 +8,17 @@ import halotukozak.alpaca.internal.Showable
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-/**
- * Type representing a key in the conflict resolution table.
- *
- * A conflict key can be either a Production or a String (token name).
- */
-opaque private[parser] type ConflictKey = Production | String
+/** A key in the conflict resolution table: the production a reduction uses, or the token a shift reads. */
+private[parser] enum ConflictKey:
+  case Reduction(production: Production)
+  case Shift(token: Printable)
 
 private[parser] object ConflictKey:
-  inline def apply(key: Production | String): ConflictKey = key
 
   /** In the same form conflict messages use: productions as `lhs -> rhs (name)`, tokens quoted. */
   given Showable[ConflictKey] =
-    case p: Production => p.show
-    case s: String => show"\"${printable(s)}\""
+    case Reduction(production) => production.show
+    case Shift(token) => show"\"$token\""
 
 /**
  * Opaque type representing a table of conflict resolution rules.
@@ -57,8 +54,8 @@ private[parser] object ConflictResolutionTable:
     def get(first: ParseAction, second: ParseAction)(symbol: Symbol): Option[ParseAction] = {
       extension (action: ParseAction)
         def toConflictKey: ConflictKey = action match
-          case ParseAction.Reduction(prod) => prod
-          case _: ParseAction.Shift => symbol.name
+          case ParseAction.Reduction(prod) => ConflictKey.Reduction(prod)
+          case _: ParseAction.Shift => ConflictKey.Shift(symbol.name)
 
       def winsOver(first: ParseAction, second: ParseAction): Option[ParseAction] = {
         val to = second.toConflictKey
@@ -111,7 +108,7 @@ private[parser] object ConflictResolutionTable:
                       |$cycle before $key
                       |There are elements being both before and after $key at the same time.
                       |Consider revising the before/after rules to eliminate cycles
-                      |""".stripMargin,
+                      |""".trimMargin,
                 table(path.head)(node),
               )
             // $COVERAGE-ON$
@@ -136,10 +133,10 @@ private[parser] object ConflictResolutionTable:
         idMap.getOrElseUpdate(
           key,
           key match
-            case _: Production =>
+            case _: ConflictKey.Reduction =>
               prodIdx += 1
               s"P_$prodIdx"
-            case _: String =>
+            case _: ConflictKey.Shift =>
               tokIdx += 1
               s"T_$tokIdx",
         )
@@ -153,8 +150,8 @@ private[parser] object ConflictResolutionTable:
           .replace("#", "#35;")
 
       def nodeLabel(key: ConflictKey): String = key match
-        case p: Production => show"$p"
-        case s: String => show"Token($s)"
+        case ConflictKey.Reduction(production) => show"$production"
+        case ConflictKey.Shift(token) => show"Token($token)"
 
       val nodes = (table.keySet ++ table.values.flatMap(_.keys)).toList.sortBy(nodeLabel)
       for node <- nodes do sb.append(s"  ${nodeId(node)}[\"${escapeLabel(nodeLabel(node))}\"]\n")
@@ -173,8 +170,8 @@ private[parser] object ConflictResolutionTable:
    */
   given Showable[ConflictResolutionTable] = { table =>
     given Showable[ConflictKey] =
-      case p: Production => show"$p"
-      case s: String => show"Token[$s]"
+      case ConflictKey.Reduction(production) => show"$production"
+      case ConflictKey.Shift(token) => show"Token[$token]"
 
     table
       .map((k, v) => show"$k before ${v.keys.mkShow(", ")}")

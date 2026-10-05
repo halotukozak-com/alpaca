@@ -67,8 +67,8 @@ private[alpaca] object Tables:
   parserTpe.asType match {
     case '[type p <: Parser[Ctx]; p] =>
       val ctxSymbol = parserSymbol.methodMember("ctx").head
-      val parserName = declaredName(parserSymbol)
-      val exportName = exportId(parserName)
+      val parserName = Printable(declaredName(parserSymbol))
+      val exportName = exportId(parserName.raw)
 
       def extractEBNF(ruleName: String)
         : PartialFunction[Expr[Rule[?]], Seq[(production: Production, action: Expr[Action[Ctx]])]] = {
@@ -100,24 +100,25 @@ private[alpaca] object Tables:
               case (Lambda(_, Match(_, List(caseDef))), name) => (caseDef, name)
               case (l @ Lambda(_, Match(_, _)), _) =>
                 errorAndAbort(
-                  """Each production must have exactly one case. Split multiple cases into separate productions:
+                  show"""Each production must have exactly one case. Split multiple cases into separate productions:
                     |  rule(
                     |    { case (a(x)) => ... },
                     |    { case (b(y)) => ... }
-                    |  )""".stripMargin,
+                    |  )""".trimMargin,
                   l.pos,
                 )
               case (other, _) =>
                 errorAndAbort(show"Unexpected production definition: $other", other.pos)
             .flatMap:
               case (c @ CaseDef(_, Some(_), _), _) =>
-                error("Guards are not supported yet", c.pos)
+                error(show"Guards are not supported yet", c.pos)
                 None
               // Tuple1
               case (c @ CaseDef(skipTypedOrTest(pattern @ Unapply(_, _, List(_))), None, rhs), name) =>
                 val (symbol, bind, others) = extractEBNFAndAction[Ctx](pattern)
                 val source = Source(c.pos)
-                val production = Production.NonEmpty(NonTerminal(ruleName), NEL(symbol), name, source)
+                val production =
+                  Production.NonEmpty(NonTerminal(Printable(ruleName)), NEL(symbol), Printable.nullable(name), source)
                 (production = production, action = createAction(List(bind), rhs)) :: others
 
               // TupleN, N > 1
@@ -125,7 +126,12 @@ private[alpaca] object Tables:
                 val (symbols, binds, others) = patterns.map(extractEBNFAndAction[Ctx]).unzip3(using _.toTuple)
                 val source = Source(c.pos)
                 val production =
-                  Production.NonEmpty(NonTerminal(ruleName), NEL(symbols.head, symbols.tail*), name, source)
+                  Production.NonEmpty(
+                    NonTerminal(Printable(ruleName)),
+                    NEL(symbols.head, symbols.tail*),
+                    Printable.nullable(name),
+                    source,
+                  )
                 (production = production, action = createAction(binds, rhs)) :: others.flatten
               case other => raiseShouldNeverBeCalled(other)
             .toList
@@ -140,19 +146,19 @@ private[alpaca] object Tables:
           case DefinitionRhs(ruleName, rhs) => extractEBNF(ruleName)(rhs.asExprOf[Rule[?]])
           case other: ValOrDefDef =>
             errorAndAbort(
-              show"Cannot read the definition of rule ${other.name}. Enable -Yretain-trees compiler flag",
+              show"Cannot read the definition of rule ${Printable(other.name)}. Enable -Yretain-trees compiler flag",
               other.pos,
             )
           case other => raiseShouldNeverBeCalled(other)
         .toList
         .tap: table =>
           // csv may be not the best format for this due to the commas
-          logger.toFile(show"$parserName/actionTable.dbg.csv", true)(table.toCsv)
+          logger.toFile(s"${parserName.raw}/actionTable.dbg.csv", true)(table.toCsv)
 
       val productions = table
         .map(_.production)
         .tap: table =>
-          logger.toFile(show"$parserName/productions.dbg", true)(table.mkShow("\n"))
+          logger.toFile(s"${parserName.raw}/productions.dbg", true)(table.mkShow("\n"))
         .tap(JsonExport.maybeWrite(exportName, "productions", _))
 
       // Built once and reused by every findProduction call below, instead of once per call --
@@ -168,7 +174,7 @@ private[alpaca] object Tables:
 
       def findProduction(call: Expr[Production]): Production = call match {
         case '{ ($_ : ProductionSelector).selectDynamic(${ Expr(name) }).$asInstanceOf$[i] } =>
-          val decodedName = NameTransformer.decode(name)
+          val decodedName = Printable(NameTransformer.decode(name))
           productionsByName.getOrElse(
             decodedName,
             errorAndAbort(show"Production with name '$decodedName' not found", call.asTerm.pos),
@@ -177,10 +183,14 @@ private[alpaca] object Tables:
         case '{ alpaca.Production(${ Varargs(rhs) }*) } =>
           val args = rhs
             .map[parser.Symbol.NonEmpty]:
-              case '{ type ruleType <: Rule[?]; $_ : ruleType } => NonTerminal(TypeRepr.of[ruleType].termSymbol.name)
-              case '{ type name <: ValidName; $_ : Token[name, ?, ?] } => Terminal(ValidName.from[name])
+              case '{ type ruleType <: Rule[?]; $_ : ruleType } =>
+                NonTerminal(Printable(TypeRepr.of[ruleType].termSymbol.name))
+              case '{ type name <: ValidName; $_ : Token[name, ?, ?] } => Terminal(Printable(ValidName.from[name]))
               case other =>
-                errorAndAbort("Arguments of `Production(...)` must be rules or tokens of this parser", other.asTerm.pos)
+                errorAndAbort(
+                  show"Arguments of `Production(...)` must be rules or tokens of this parser",
+                  other.asTerm.pos,
+                )
             .toList
 
           productionsByRhs.getOrElse(NEL.unsafe(args), Nil) match
@@ -190,20 +200,20 @@ private[alpaca] object Tables:
               errorAndAbort(
                 show"""Production with RHS '${args.mkShow(" ")}' is ambiguous, it matches:
                       |${candidates.mkShow("  ", "\n  ", "")}
-                      |Name the production you mean and refer to it with `production.<name>`""".stripMargin,
+                      |Name the production you mean and refer to it with `production.<name>`""".trimMargin,
                 call.asTerm.pos,
               )
 
         case definition =>
           errorAndAbort(
-            "Refer to a production with `production.<name>` or `Production(<symbols>...)`",
+            show"Refer to a production with `production.<name>` or `Production(<symbols>...)`",
             definition.asTerm.pos,
           )
       }
 
       val givenResolutions: Option[Term] = Implicits.search(TypeRepr.of[Resolutions[p]]) match
         case _: NoMatchingImplicits => None
-        case failure: ImplicitSearchFailure => errorAndAbort(failure.explanation, Position.ofMacroExpansion)
+        case failure: ImplicitSearchFailure => errorAndAbort(failure.explanation.showRaw, Position.ofMacroExpansion)
         case success: ImplicitSearchSuccess => Some(success.tree)
 
       // a missing given just means no resolutions; any other failure to read them is reported where they're defined,
@@ -216,7 +226,7 @@ private[alpaca] object Tables:
           def unsupported(pos: Position): Nothing = errorAndAbort(
             show"""Cannot read the conflict resolutions of $parserName.
                   |Define them directly with a call to `resolutions`, e.g.:
-                  |  given Resolutions[$parserName.type] = resolutions(...)""".stripMargin,
+                  |  given Resolutions[$parserName.type] = resolutions(...)""".trimMargin,
             pos,
           )
 
@@ -230,8 +240,8 @@ private[alpaca] object Tables:
       }
 
       def extractKey(expr: Expr[Production | Token[?, ?, ?]]): ConflictKey = expr match
-        case '{ $prod: Production } => ConflictKey(findProduction(prod))
-        case '{ $_ : Token[name, ?, ?] } => ConflictKey(ValidName.from[name])
+        case '{ $prod: Production } => ConflictKey.Reduction(findProduction(prod))
+        case '{ $_ : Token[name, ?, ?] } => ConflictKey.Shift(Printable(ValidName.from[name]))
 
       // each rule remembers the `.before(...)`/`.after(...)` argument it came from, so errors about it can point there;
       // kept in declaration order, so a cycle is searched from the first declared rule and reported at the one closing it
@@ -246,20 +256,20 @@ private[alpaca] object Tables:
               afters.map(after => (extractKey(before), extractKey(after), Source(after.asTerm.pos)))
             case other =>
               errorAndAbort(
-                "Each conflict resolution must be a direct `x.before(...)` or `x.after(...)` call",
+                show"Each conflict resolution must be a direct `x.before(...)` or `x.after(...)` call",
                 other.asTerm.pos,
               )
           .foldLeft(VectorMap.empty[ConflictKey, Map[ConflictKey, Source]]):
             case (table, (before, after, source)) =>
               table + (before -> (table.getOrElse(before, VectorMap.empty) + (after -> source))),
       ).tap: table =>
-        logger.toFile(show"$parserName/conflictResolutions.dbg", true)(table)
-        logger.toFile(show"$parserName/conflictResolutions.mmd", true)(table.toMermaid)
+        logger.toFile(s"${parserName.raw}/conflictResolutions.dbg", true)(table)
+        logger.toFile(s"${parserName.raw}/conflictResolutions.mmd", true)(table.toMermaid.showRaw)
         table.verifyNoConflicts()
 
       val root = table
         .collectFirst:
-          case (p @ Production.NonEmpty(NonTerminal("root"), _, _, _), _) => p
+          case (p @ Production.NonEmpty(lhs, _, _, _), _) if lhs == NonTerminal(Printable("root")) => p
         .getOrElse:
           errorAndAbort(
             show"No root rule defined in $parserName. Define a root rule: val root: Rule[Any] = rule { ... }",
@@ -275,7 +285,7 @@ private[alpaca] object Tables:
           start :: table.map(_.production),
           conflictResolutionTable,
         ).tap: parseTable =>
-          logger.toFile(s"$parserName/parseTable.dbg.csv", true)(parseTable.toCsv)
+          logger.toFile(s"${parserName.raw}/parseTable.dbg.csv", true)(parseTable.toCsv)
         .tap(JsonExport.maybeWrite(exportName, "table", _))
 
       val actionTable = Expr.ofList:

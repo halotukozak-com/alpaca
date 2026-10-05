@@ -3,7 +3,7 @@ package alpaca
 package internal
 package lexer
 
-import halotukozak.alpaca.internal.{Default, RuleOnly, Showable, ValidName}
+import halotukozak.alpaca.internal.{Default, Printable, RuleOnly, Showable, ValidName}
 import halotukozak.alpaca.{LexerCtx, SepValue}
 import halotukozak.mcodec.MCodec
 import halotukozak.regex.{Regex, RegexParser}
@@ -39,9 +39,9 @@ private[lexer] type CtxManipulation[Ctx <: LexerCtx] = Ctx => Ctx
  * @param ignored whether matches of this token are dropped from the lexeme stream
  */
 private[lexer] final case class TokenInfo(
-  name: String,
+  name: Printable,
   regexGroupName: String,
-  pattern: String,
+  pattern: Printable,
   ignored: Boolean,
   source: Source | Null = null,
 ) derives ToExprFactory
@@ -74,11 +74,11 @@ private[lexer] object TokenInfo:
     import quotes.reflect.*
     ValidName.check(name, pos)
     val regex = RegexParser.parse(pattern) match
-      case Left(err) => errorAndAbort(show"""Invalid regex pattern for token "${printable(name)}": $err""", pos)
+      case Left(err) => errorAndAbort(show"""Invalid regex pattern for token "${Printable(name)}": $err""", pos)
       case Right(regex) => regex
     (
       ConstantType(StringConstant(name)).asType.asInstanceOf[Type[? <: ValidName]],
-      TokenInfo(name, nextRegexGroupName(), pattern, ignored, Source(pos)),
+      TokenInfo(Printable(name), nextRegexGroupName(), Printable(pattern), ignored, Source(pos)),
       regex,
     )
 
@@ -89,14 +89,14 @@ private[lexer] object TokenInfo:
    */
   private def nextRegexGroupName(): String = s"token${counter.getAndIncrement()}"
 
-  given Default[TokenInfo] = () => TokenInfo("", "", "", ignored = false)
+  given Default[TokenInfo] = () => TokenInfo(Printable(""), "", Printable(""), ignored = false)
 
   given Showable[TokenInfo] = Showable.fromToString
 
   // Excludes regexGroupName, an internal-only detail with no meaning to the export's consumer.
   given MCodec[TokenInfo] =
     MCodec
-      .derived[(name: String, pattern: String, ignored: Boolean, source: Source | Null)]
+      .derived[(name: Printable, pattern: Printable, ignored: Boolean, source: Source | Null)]
       .transform(
         onWrite = { case TokenInfo(name, _, pattern, ignored, source) =>
           (name = name, pattern = pattern, ignored = ignored, source = source)
@@ -161,7 +161,10 @@ private[alpaca] final case class IgnoredToken[Name <: ValidName, -Ctx <: LexerCt
 ) extends Token[Name, Ctx, Nothing]
 
 private[alpaca] def RecoveredToken[Ctx <: LexerCtx](matched: String): IgnoredToken[matched.type, Ctx] =
-  IgnoredToken(TokenInfo(matched, s"<unrecognized \"$matched\">", matched, ignored = true), identity)
+  IgnoredToken(
+    TokenInfo(Printable(matched), s"<unrecognized \"$matched\">", Printable(matched), ignored = true),
+    identity,
+  )
 
 @publicInBinary private[alpaca] object DefinedToken
 

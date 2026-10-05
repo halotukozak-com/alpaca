@@ -3,7 +3,7 @@ package alpaca
 package internal
 package parser
 
-import halotukozak.alpaca.internal.{DebugSettings, NEL, Showable, ValidName}
+import halotukozak.alpaca.internal.{DebugSettings, NEL, Printable, Showable}
 import halotukozak.mcodec.MCodec
 
 import scala.quoted.ToExprFactory
@@ -23,7 +23,7 @@ private[alpaca] enum Production(val rhs: NEL[Symbol.NonEmpty] | Symbol.Empty.typ
   val lhs: NonTerminal
 
   /** An optional name for the production. */
-  val name: ValidName | Null
+  val name: Printable | Null
 
   /** Where the production is defined; desugared and synthetic productions point at what they stand for. */
   val source: Source
@@ -53,13 +53,13 @@ private[alpaca] enum Production(val rhs: NEL[Symbol.NonEmpty] | Symbol.Empty.typ
   case NonEmpty(
     lhs: NonTerminal & Symbol.NonEmpty,
     override val rhs: NEL[Symbol.NonEmpty],
-    name: ValidName | Null = null,
+    name: Printable | Null = null,
     source: Source,
   ) extends Production(rhs)
 
   case Empty(
     lhs: NonTerminal,
-    name: ValidName | Null = null,
+    name: Printable | Null = null,
     source: Source,
   ) extends Production(Symbol.Empty)
 
@@ -68,18 +68,18 @@ private[alpaca] object Production:
   /** Showable instance for displaying productions in human-readable form. */
   given Showable[Production] =
     case NonEmpty(lhs, rhs, null, _) => show"$lhs -> ${rhs.mkShow(" ")}"
-    case NonEmpty(lhs, rhs, name: String, _) => show"$lhs -> ${rhs.mkShow(" ")} ($name)"
+    case NonEmpty(lhs, rhs, name, _) => show"$lhs -> ${rhs.mkShow(" ")} (${name.nn})"
     case Empty(lhs, null, _) => show"$lhs -> ${Symbol.Empty}"
-    case Empty(lhs, name: String, _) => show"$lhs -> ${Symbol.Empty} ($name)"
+    case Empty(lhs, name, _) => show"$lhs -> ${Symbol.Empty} (${name.nn})"
 
   given Ordering[Production] = Ordering.by(_.hashCode)
 
   // $COVERAGE-OFF$
-  private given MCodec[String | Null] = MCodec[String].nullable
+  private given MCodec[Printable | Null] = MCodec[Printable].nullable
 
   // NonEmpty/Empty share one flat shape rather than a tagged union; rhs.isEmpty distinguishes them.
   given MCodec[Production] = MCodec
-    .derived[(lhs: String, rhs: List[Symbol], name: String | Null, source: Source)]
+    .derived[(lhs: Printable, rhs: List[Symbol], name: Printable | Null, source: Source)]
     .transform(
       onWrite = {
         case NonEmpty(lhs, rhs, name, source) => (lhs = lhs.name, rhs = rhs.toList, name = name, source = source)

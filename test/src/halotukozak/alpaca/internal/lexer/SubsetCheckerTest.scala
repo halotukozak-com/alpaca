@@ -2,7 +2,7 @@ package halotukozak
 package alpaca.internal.lexer
 
 import halotukozak.alpaca.internal.lexer.SubsetChecker
-import halotukozak.alpaca.internal.show
+import halotukozak.alpaca.internal.{show, Printable}
 import halotukozak.regex.Subset
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -10,14 +10,16 @@ import org.scalatest.matchers.should.Matchers
 final class SubsetCheckerTest extends AnyFunSuite with Matchers:
 
   private def check(patterns: String*) =
-    SubsetChecker.checkRegexes(
-      patterns.iterator
-        .map: p =>
-          Subset.parse(p) match
-            case Right(subset) => (name = p, subset = subset)
-            case Left(err) => fail(show"expected successful parse of /$p/, got $err")
-        .toList,
-    )
+    SubsetChecker
+      .checkRegexes(
+        patterns.iterator
+          .map: p =>
+            Subset.parse(p) match
+              case Right(subset) => (name = Printable(p), subset = subset)
+              case Left(err) => fail(show"expected successful parse of /${Printable(p)}/, got $err")
+          .toList,
+      )
+      .map((first, second) => (first = first.raw, second = second.map(_.raw)))
 
   test("checkRegexes should pass for non-overlapping patterns") {
     check(

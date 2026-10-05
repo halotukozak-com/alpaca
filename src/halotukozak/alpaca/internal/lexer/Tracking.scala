@@ -99,8 +99,9 @@ object Tracking:
         modifyCtx(afterFields)
           .carryEngineStateFrom(afterFields)
           .tap: c =>
+            val name = info.name.raw
             c.lastLexeme = Lexeme(
-              name = info.name,
+              name = name,
               value = remapping(c),
               text = raw,
               fieldNames = fieldNames,
