@@ -77,7 +77,7 @@ val ast = BrainParser.parse(lexemes).getOrThrow
 
 The parser accepts `List[Lexeme[?, ?]]` and appends `Lexeme.EOF` internally before processing begins. You do not need to add an end-of-input marker yourself.
 
-The final context (the tuple's `ctx` field) is useful for post-tokenization checks. For example, the BrainFuck lexer tracks bracket depth — after tokenization, you can verify all brackets are balanced:
+The final context (the result's `ctx`) is useful for post-tokenization checks. For example, the BrainFuck lexer tracks bracket depth — after tokenization, you can verify all brackets are balanced:
 
 ```scala sc-compile-with:otm-brainfuck
 val lexed = BrainLexer.tokenize("[>+<-]")
@@ -112,7 +112,7 @@ val LoggingLexer = lexer[BrainLexContext]:
 
 Each call to `tokenize()` follows this sequence:
 
-1. The lexer finds the longest prefix of the remaining input that any rule pattern matches; if several patterns match equally long text, the one declared first wins. If no pattern matches, the context's `ErrorHandling` strategy decides what happens (by default, a `RuntimeException` with the unexpected character).
+1. The lexer finds the longest prefix of the remaining input that any rule pattern matches; if several patterns match equally long text, the one declared first wins. If no pattern matches, the input is reported as a `LexError` and the context's `ErrorHandling` strategy decides whether tokenizing stops or skips it (by default it stops, and `tokenize()` returns a `Result.Failure`; `getOrThrow` on it throws a `LexerException`).
 2. The text cursor (`ctx.text`) advances past the matched string and the matched text is recorded in `ctx.lastRawMatched`.
 3. Each tracked field's `Tracking` update runs, producing a fresh context via one functional `copy`.
 4. The rule body's context changes (`ctx.field = ...`) are applied, again as a `copy`.

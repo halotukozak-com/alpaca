@@ -128,26 +128,25 @@ object BrainParser extends Parser[BrainParserCtx]:
 
 ## Error Handling Strategies
 
-By default, the lexer throws on unmatched input. You can customize this with an `ErrorHandling` instance:
+By default, the lexer stops at unmatched input and `tokenize()` returns a `Result.Failure` listing it as a `LexError`. You can customize this with an `ErrorHandling` instance:
 
 ```scala sc-compile-with:BrainLexer
-// Option A: skip unrecognized characters silently
+// Option A: skip unrecognized characters (each is still reported as a LexError)
 given ErrorHandling[BrainLexContext, LexError] = (_, _) => ErrorHandling.Strategy.SkipOne
 ```
 
 ```scala sc-compile-with:BrainLexer
-// Option B: stop gracefully, returning what was tokenized so far
+// Option B: stop at the first unrecognized character (the default)
 given ErrorHandling[BrainLexContext, LexError] = (_, _) => ErrorHandling.Strategy.Stop
 ```
 
-Four strategies are available:
+Three strategies are available; each reports the unmatched input as a `LexError`:
 
 | Strategy | Behavior |
 |----------|----------|
-| `Throw(ex)` | Abort with the given exception |
-| `SkipOne` | Skip one character and continue |
-| `SkipToNextMatch` | Skip to the next match and continue |
-| `Stop` | Return lexemes collected so far |
+| `SkipOne` | Skip one character and continue; the lexemes are the failure's `recovered` |
+| `SkipToNextMatch` | Skip to the next match and continue; the lexemes are the failure's `recovered` |
+| `Stop` | Stop at the error (the default); the failure has no `recovered` lexemes |
 
 An alternative to custom `ErrorHandling` is a catch-all pattern at the end of your lexer:
 

@@ -105,7 +105,7 @@ val BrainLexer = lexer[BrainLexContext]:
   case "\n" => Token.Ignored
 ```
 
-The type parameter `lexer[BrainLexContext]` tells the macro which context to use. The final context state is returned as the `ctx` component of the named tuple from `tokenize()`:
+The type parameter `lexer[BrainLexContext]` tells the macro which context to use. The final context state is the `ctx` of the `Result` that `tokenize()` returns:
 
 ```scala sc-compile-with:lc-brainlex
 val lexed = BrainLexer.tokenize("[>+<-]")
