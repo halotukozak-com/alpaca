@@ -8,7 +8,6 @@ import halotukozak.alpaca.internal.{fieldsTpeFrom, refinementTpeFrom, withDefaul
 import halotukozak.alpaca.internal.lexer.Lexeme
 import halotukozak.alpaca.internal.parser.{Tables, *}
 
-import scala.NamedTuple.NamedTuple
 import scala.annotation.{compileTimeOnly, publicInBinary, tailrec}
 import scala.collection.mutable
 
@@ -130,12 +129,6 @@ abstract class Parser[Ctx <: ParserCtx](
           case Node.Token(_) => null
         ParseResult.Success(ctx, value.asInstanceOf[R])
   }
-
-  // Kept for binary compatibility: `parse` up to 0.3.x is inline and called this from user code.
-  @publicInBinary private[alpaca] def unsafeParse[R](lexemes: List[Lexeme[?, ?]]): (ctx: Ctx, result: R | Null) =
-    parseResult[R](lexemes) match
-      case ParseResult.Success(ctx, value) => (ctx, value)
-      case ParseResult.Failure(_, errors) => throw errors.head
 
 private val cachedProductions: mutable.Map[Type[? <: AnyKind], (Type[? <: AnyKind], Type[? <: AnyKind])] =
   mutable.Map.empty
