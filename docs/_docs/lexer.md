@@ -22,7 +22,7 @@ At runtime, `tokenize()` executes the generated code. If a pattern is invalid or
 
 ## Defining a Lexer
 
-A lexer is defined with the `lexer` block. Each `case` branch maps a regex pattern to a token constructor. At each position the lexer takes the **longest** match; when several patterns match equally long text, the one declared first wins.
+A lexer is defined with the `lexer` block. Each `case` branch maps a regex pattern to a token constructor. At each position the lexer takes the **longest** match; when several patterns match equally long text, the one declared first wins (see [How a Token Is Chosen](#how-a-token-is-chosen)).
 
 ```scala sc-name:BrainLexer
 import halotukozak.alpaca.*
@@ -41,6 +41,54 @@ val BrainLexer = lexer:
 ```
 
 The result is a `Tokenization` object. It can tokenize input strings, provides typed accessors for each defined token (e.g., `BrainLexer.inc`), and exposes a `.tokens` list for introspection (`BrainLexer.tokens` returns all defined tokens including ignored ones).
+
+## How a Token Is Chosen
+
+A `lexer` block looks like a Scala `match`, but it does **not** pick the first `case` that fits. At each position in the input:
+
+1. every pattern is tried against the remaining input,
+2. the pattern that matches the **longest** text wins (*longest match*, also called *maximal munch*),
+3. only when several patterns match text of the same length does declaration order decide: the `case` declared first wins.
+
+This is the rule used by flex, JFlex and ocamllex (which, like Alpaca, writes its rules in `match`-like syntax).
+
+```scala sc-name:longest-match
+import halotukozak.alpaca.*
+
+val Lexer = lexer:
+  case "=" => Token["ASSIGN"]
+  case "==" => Token["EQ"]
+  case "if" => Token["IF"]
+  case id @ "[a-z]+" => Token["ID"](id)
+  case "\\s+" => Token.Ignored
+
+println(Lexer.tokenize("== = if iffy").lexemes.map(_.name)) // List(EQ, ASSIGN, IF, ID)
+```
+
+`"=="` beats the earlier `"="` because it is longer. `if` is matched equally long by `IF` and `ID`, so the earlier `IF` wins the tie. `iffy` is longer only for `ID`, so it stays a single identifier instead of splitting into `if` + `fy`.
+
+In practice this means:
+
+- **Patterns that extend each other can go in any order.** `"="` and `"=="`, or `"[0-9]+"` and `"[0-9]+\\.[0-9]+"`, work either way round.
+- **Keywords go before the identifier pattern.** That order only decides the exact tie. The other order is a compile-time error, because the keyword could never win (see [Shadowed Patterns](lexer-error-recovery.md#shadowed-patterns)).
+- **Ignored patterns compete too.** A comment pattern `"//[^\n]*"` beats a `"/"` operator wherever both match, because it is longer.
+
+Longest match decides one token at a time, so it has some consequences that surprise people coming from `match`:
+
+- **It does not look at what comes next.** With `"-?[0-9]+"` for numbers and `"-"` for minus, `1-2` lexes as `1` followed by `-2`, because `-2` is longer than `-`. Handle the sign in the parser instead of in the number pattern.
+- **It never backtracks.** With `"a"`, `"ab"` and `"bc"`, the input `abc` fails at `c`. The lexer commits to the longest `ab` and does not go back to try `a` + `bc`.
+- **A single pattern takes as much as it can.** `"/\\*.*\\*/"` reads `/* a */ x /* b */` as one comment. Exclude the closing delimiter from the body instead, since lazy quantifiers are not supported:
+
+```scala sc-name:longest-match-comment
+import halotukozak.alpaca.*
+
+val Lexer = lexer:
+  case "/\\*([^*]|\\*+[^*/])*\\*+/" => Token.Ignored
+  case id @ "[a-z]+" => Token["ID"](id)
+  case "\\s+" => Token.Ignored
+
+println(Lexer.tokenize("/* a */ x /* b */").lexemes.map(_.name)) // List(ID)
+```
 
 ## Regular Expressions
 
