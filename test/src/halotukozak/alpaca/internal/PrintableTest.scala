@@ -19,6 +19,11 @@ final class PrintableTest extends AnyFunSuite with Matchers:
     Printable("​").show shouldBe "\\u200b"
   }
 
+  test("escapes Unicode line and paragraph separators, which break the line like a newline") {
+    Printable("a\u2028b").show shouldBe "a\\u2028b"
+    Printable("a\u2029b").show shouldBe "a\\u2029b"
+  }
+
   test("leaves visible characters alone") {
     Printable("+").show shouldBe "+"
     Printable("\\+").show shouldBe "\\+"

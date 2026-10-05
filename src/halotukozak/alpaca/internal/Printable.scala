@@ -28,12 +28,16 @@ private val stringCodec: MCodec[String] = MCodec[String]
 
   extension (text: Printable) inline def raw: String = text
 
+  // Format characters are invisible; line and paragraph separators (U+2028, U+2029) break the line like `\n` does.
+  private val escapedTypes: Set[Int] =
+    Set(Character.FORMAT, Character.LINE_SEPARATOR, Character.PARAGRAPH_SEPARATOR).map(_.toInt)
+
   given Showable[Printable] = text =>
     val escaped = text.flatMap:
       case '\n' => "\\n"
       case '\r' => "\\r"
       case '\t' => "\\t"
-      case c if c.isControl || Character.getType(c) == Character.FORMAT => "\\u%04x".format(c.toInt)
+      case c if c.isControl || escapedTypes.contains(Character.getType(c)) => "\\u%04x".format(c.toInt)
       case c => c.toString
     escaped.showRaw
 

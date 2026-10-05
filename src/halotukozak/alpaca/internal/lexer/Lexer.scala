@@ -164,7 +164,8 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
         case List(only) =>
           show"""Declare ${quote(first)} (${literal(shadowed)}) before ${quote(only)} (${literal(byName(only))})."""
         case _ =>
-          show"""${quote(first)} is redundant: remove it, or narrow ${quoted.mkShow(" and ")} so they no longer cover it."""
+          val coveringAll = quoted.mkShow(" and ")
+          show"""${quote(first)} is redundant: remove it, or narrow $coveringAll so they no longer cover it."""
       errorAndAbort(
         show"""Token ${quote(first)} can never match: every input it matches is also matched by $covering,
            |$which defined earlier, so $wins.
