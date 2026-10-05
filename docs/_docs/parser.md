@@ -306,31 +306,31 @@ extension (ast: BrainAST)
 ```scala sc-name:brain-tokenize sc-compile-with:brain-eval-defs
 val (_, lexemes) = BrainLexer.tokenize("++[>+<-]")
 val parsed = BrainParser.parse(lexemes)
-// parsed: ParseResult[ParserCtx.Empty, BrainAST]
+// parsed: Result[ParserCtx.Empty, BrainAST, ParseError]
 ```
 
-`parse()` does not throw when the input does not match the grammar. It returns a `ParseResult`, which is one of two cases, both carrying the parser context (`ctx`) as it was when parsing ended:
+`parse()` does not throw when the input does not match the grammar. It returns a `Result`, which is one of two cases, both carrying the parser context (`ctx`) as it was when parsing ended:
 
-- `ParseResult.Success(ctx, value)` -- the input matched, and `value` is what the root rule produced (a `BrainAST` here);
-- `ParseResult.Failure(ctx, errors)` -- the input did not match; `errors` is a non-empty list of `ParseError`s.
+- `Result.Success(ctx, value)` -- the input matched, and `value` is what the root rule produced (a `BrainAST` here);
+- `Result.Failure(ctx, recovered, errors)` -- the input did not match; `errors` is a non-empty list of `ParseError`s. `recovered` is a value produced anyway by an error-handling strategy that skips past errors; the parser does not have one yet, so here it is always `None`.
 
 Match on it to handle both outcomes:
 
 ```scala sc-compile-with:brain-tokenize
 parsed match
-  case ParseResult.Success(_, ast) => ast.eval(Memory())
-  case ParseResult.Failure(_, errors) => errors.foreach(error => println(error.getMessage))
+  case Result.Success(_, ast) => ast.eval(Memory())
+  case Result.Failure(_, _, errors) => errors.foreach(error => println(error.message))
 ```
 
-When failing is not an option you want to handle at that point, `getOrThrow` returns the value or throws the first `ParseError`, and `toOption` / `toEither` convert the result:
+When failing is not an option you want to handle at that point, `getOrThrow` returns the value or throws a `ParserException` holding the errors, and `toOption` / `toEither` convert the result:
 
 ```scala sc-compile-with:brain-tokenize
-parsed.getOrThrow.eval(Memory())  // the AST, or throws the first ParseError
+parsed.getOrThrow.eval(Memory())  // the AST, or throws a ParserException
 parsed.toOption                   // Some(ast), or None
 parsed.toEither                   // Right(ast), or Left(errors)
 ```
 
-A `ParseError` carries the lexeme the parser could not accept (`unexpected`) and the token names the grammar would have accepted there (`expected`, with `"$"` standing for the end of the input). Its message also gives the token's line and column when the lexer tracks them, e.g. for `1 + + 2` in a grammar of numbers and `+`:
+A `ParseError` is plain data: it carries the lexeme the parser could not accept (`unexpected`) and the token names the grammar would have accepted there (`expected`, with `"$"` standing for the end of the input). Its `message` also gives the token's line and column when the lexer tracks them, e.g. for `1 + + 2` in a grammar of numbers and `+`:
 
 ```
 Unexpected PLUS "+" at line 1, column 5. Expected one of: NUMBER
@@ -338,13 +338,15 @@ Unexpected PLUS "+" at line 1, column 5. Expected one of: NUMBER
 
 ```scala sc-compile-with:brain-tokenize
 BrainParser.parse(BrainLexer.tokenize("[+").lexemes) match
-  case ParseResult.Failure(_, errors) =>
-    println(errors.head.getMessage) // Unexpected end of input. Expected one of: ...
+  case Result.Failure(_, _, errors) =>
+    println(errors.head.message)    // Unexpected end of input. Expected one of: ...
     println(errors.head.expected)   // the token names the grammar would have accepted
-  case ParseResult.Success(_, _) => ()
+  case Result.Success(_, _) => ()
 ```
 
 The parser currently stops at the first error, so `errors` has one element; it is a list so that error recovery can report more than one without changing the API.
+
+`map` transforms the value, and `flatMap` runs the next stage on it, keeping the errors of both stages in input order.
 
 ## Conflict Resolution
 

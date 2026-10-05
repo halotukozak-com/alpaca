@@ -3,7 +3,7 @@ package alpaca
 package internal
 package parser
 
-import halotukozak.alpaca.{rule, ParseError, ParseResult, ParserCtx, ProductionDefinition, Rule}
+import halotukozak.alpaca.{rule, ParseError, ParserCtx, ProductionDefinition, Result, Rule}
 import halotukozak.alpaca.internal.{fieldsTpeFrom, refinementTpeFrom, withDefault, Empty, RevertedArray, RuleOnly, ValidName, *}
 import halotukozak.alpaca.internal.lexer.Lexeme
 import halotukozak.alpaca.internal.parser.{Tables, *}
@@ -62,7 +62,7 @@ abstract class Parser[Ctx <: ParserCtx](
    * @param lexemes the list of lexemes to parse
    * @return the value the root rule produced, or the errors that stopped the parser, with the context either way
    */
-  @publicInBinary private[alpaca] def parseResult[R](lexemes: List[Lexeme[?, ?]]): ParseResult[Ctx, R] = {
+  @publicInBinary private[alpaca] def parseResult[R](lexemes: List[Lexeme[?, ?]]): Result[Ctx, R, ParseError] = {
     enum Node:
       case Result(value: Any)
       case Token(lexeme: Lexeme[?, ?])
@@ -122,12 +122,12 @@ abstract class Parser[Ctx <: ParserCtx](
     }
 
     loop(lexemes) match
-      case error: ParseError => ParseResult.Failure(ctx, ::(error, Nil))
+      case error: ParseError => Result.Failure(ctx, None, ::(error, Nil))
       case node: Node @unchecked =>
         val value = node match
           case Node.Result(value) => value
           case Node.Token(_) => null
-        ParseResult.Success(ctx, value.asInstanceOf[R])
+        Result.Success(ctx, value.asInstanceOf[R])
   }
 
 private val cachedProductions: mutable.Map[Type[? <: AnyKind], (Type[? <: AnyKind], Type[? <: AnyKind])] =

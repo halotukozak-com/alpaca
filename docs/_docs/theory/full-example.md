@@ -124,7 +124,7 @@ val r2 = CalcParser.parse(l2).getOrThrow
 println(result)
 ```
 
-`1 + 2 * 3 = 7.0` (not 9.0) confirms that the `times`/`div` resolutions give `*` higher precedence than `+`. Parentheses `(1 + 2) * 3 = 9.0` override precedence as expected. `parse()` returns a `ParseResult`, and `getOrThrow` takes the `Double` out of it. Input that the grammar does not match, such as `1 + * 2`, comes back as a `ParseResult.Failure` listing the `ParseError`s instead (which `getOrThrow` would throw); see [Parser](../parser.md#parsing-input).
+`1 + 2 * 3 = 7.0` (not 9.0) confirms that the `times`/`div` resolutions give `*` higher precedence than `+`. Parentheses `(1 + 2) * 3 = 9.0` override precedence as expected. `parse()` returns a `Result`, and `getOrThrow` takes the `Double` out of it. Input that the grammar does not match, such as `1 + * 2`, comes back as a `Result.Failure` listing the `ParseError`s instead (`getOrThrow` would throw them as a `ParserException`); see [Parser](../parser.md#parsing-input).
 
 ## Step 6: Semantic Action Trace
 

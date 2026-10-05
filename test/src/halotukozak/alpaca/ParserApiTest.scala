@@ -82,21 +82,21 @@ final class ParserApiTest extends AnyFunSuite with Matchers:
 
   test("basic recognition of various tokens and literals") {
     CalcApiParser.parse(CalcLexer.tokenize("a = 3 + 4 * (5 + 6)").lexemes) should matchPattern:
-      case ParseResult.Success(ctx: CalcContext, _) if ctx.names("a") == 47 =>
+      case Result.Success(ctx: CalcContext, _) if ctx.names("a") == 47 =>
 
     CalcApiParser.parse(CalcLexer.tokenize("3 + 4 * (5 + 6)").lexemes) should matchPattern:
-      case ParseResult.Success(_, 47) =>
+      case Result.Success(_, 47) =>
   }
 
   test("ebnf") {
     CalcApiParser.parse(CalcLexer.tokenize("a()").lexemes) should matchPattern:
-      case ParseResult.Success(_, ("a", None)) =>
+      case Result.Success(_, ("a", None)) =>
 
     CalcApiParser.parse(CalcLexer.tokenize("a(2+3)").lexemes) should matchPattern:
-      case ParseResult.Success(_, ("a", Some(Seq(5)))) =>
+      case Result.Success(_, ("a", Some(Seq(5)))) =>
 
     CalcApiParser.parse(CalcLexer.tokenize("a(2+3,4+5)").lexemes) should matchPattern:
-      case ParseResult.Success(_, ("a", Some(Seq(5, 9)))) =>
+      case Result.Success(_, ("a", Some(Seq(5, 9)))) =>
   }
 
   test("ebnf Option on a token") {
@@ -105,10 +105,10 @@ final class ParserApiTest extends AnyFunSuite with Matchers:
         case (CalcLexer.NUMBER.Option(number), CalcLexer.ID(id)) => (id.value, number.map(_.value))
 
     TokenOptionParser.parse(CalcLexer.tokenize("a").lexemes) should matchPattern:
-      case ParseResult.Success(_, ("a", None)) =>
+      case Result.Success(_, ("a", None)) =>
 
     TokenOptionParser.parse(CalcLexer.tokenize("1 a").lexemes) should matchPattern:
-      case ParseResult.Success(_, ("a", Some(1))) =>
+      case Result.Success(_, ("a", Some(1))) =>
   }
 
   test("ebnf Option on a token as the whole pattern") {
@@ -119,10 +119,10 @@ final class ParserApiTest extends AnyFunSuite with Matchers:
         case CalcLexer.NUMBER.Option(number) => number.map(_.value)
 
     LoneTokenOptionParser.parse(CalcLexer.tokenize("").lexemes) should matchPattern:
-      case ParseResult.Success(_, None) =>
+      case Result.Success(_, None) =>
 
     LoneTokenOptionParser.parse(CalcLexer.tokenize("7").lexemes) should matchPattern:
-      case ParseResult.Success(_, Some(7)) =>
+      case Result.Success(_, Some(7)) =>
   }
 
   test("ebnf List on a token") {
@@ -131,10 +131,10 @@ final class ParserApiTest extends AnyFunSuite with Matchers:
         case (CalcLexer.NUMBER.List(numbers), CalcLexer.ID(id)) => (id.value, numbers.map(_.value))
 
     TokenListParser.parse(CalcLexer.tokenize("a").lexemes) should matchPattern:
-      case ParseResult.Success(_, ("a", Nil)) =>
+      case Result.Success(_, ("a", Nil)) =>
 
     TokenListParser.parse(CalcLexer.tokenize("1 2 3 a").lexemes) should matchPattern:
-      case ParseResult.Success(_, ("a", List(1, 2, 3))) =>
+      case Result.Success(_, ("a", List(1, 2, 3))) =>
   }
 
   test("ebnf SeparatedBy on a token") {
@@ -144,10 +144,10 @@ final class ParserApiTest extends AnyFunSuite with Matchers:
           items.collect[Any] { case lexeme: Lexeme[?, ?] if lexeme.name == "NUMBER" => lexeme.value }
 
     TokenSeparatedByParser.parse(CalcLexer.tokenize("()").lexemes) should matchPattern:
-      case ParseResult.Success(_, Nil) =>
+      case Result.Success(_, Nil) =>
 
     TokenSeparatedByParser.parse(CalcLexer.tokenize("(1, 2, 3)").lexemes) should matchPattern:
-      case ParseResult.Success(_, List(1, 2, 3)) =>
+      case Result.Success(_, List(1, 2, 3)) =>
   }
 
   test("api") {
@@ -160,16 +160,16 @@ final class ParserApiTest extends AnyFunSuite with Matchers:
           (n, numOpt, numList)
 
     ApiParser.parse(CalcLexer.tokenize("1,,").lexemes) should matchPattern:
-      case ParseResult.Success(_, (1, None, Nil)) =>
+      case Result.Success(_, (1, None, Nil)) =>
 
     ApiParser.parse(CalcLexer.tokenize("1,2,").lexemes) should matchPattern:
-      case ParseResult.Success(_, (1, Some(2), Nil)) =>
+      case Result.Success(_, (1, Some(2), Nil)) =>
 
     ApiParser.parse(CalcLexer.tokenize("1,2,1 2 3").lexemes) should matchPattern:
-      case ParseResult.Success(_, (1, Some(2), List(1, 2, 3))) =>
+      case Result.Success(_, (1, Some(2), List(1, 2, 3))) =>
 
     ApiParser.parse(CalcLexer.tokenize("1,,3").lexemes) should matchPattern:
-      case ParseResult.Success(_, (1, None, List(3))) =>
+      case Result.Success(_, (1, None, List(3))) =>
   }
 
   test("a rule can return a lexeme") {
