@@ -285,10 +285,13 @@ object ParserCtx:
    * An empty parser context with no state.
    *
    * This is the default context used by parsers when no custom context
-   * is needed. Most simple parsers can use this.
+   * is needed. Most simple parsers can use this. It holds no state, so one
+   * instance is shared by every parse.
    */
-  final case class Empty(
-  ) extends ParserCtx
+  case object Empty extends ParserCtx
+
+  /** The type of [[Empty]], so it can be named like any other context type, e.g. `Parser[ParserCtx.Empty]`. */
+  type Empty = Empty.type
 
 extension [Ctx <: ParserCtx](parser: Parser[Ctx]) {
 
