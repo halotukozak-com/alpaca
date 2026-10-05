@@ -108,7 +108,7 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using quotes: Q
         ) =>
       val source = Source(pattern.pos)
       val fresh = NonTerminal.fresh(show"${element.name}.SeparatedBy")
-      val nonEmpty = NonTerminal.fresh(show"${element.name}.SeparatedBy")
+      val nonEmpty = NonTerminal.fresh(show"${element.name}.SeparatedBy.nonEmpty")
       (
         symbol = fresh,
         bind = bind,

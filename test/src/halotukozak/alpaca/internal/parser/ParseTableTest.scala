@@ -93,6 +93,17 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
     (message should not).include("synthetic")
   }
 
+  test("conflict messages tell apart the two non-terminals SeparatedBy creates") {
+    val message = typeCheckErrors("""
+    object SeparatedConflictParser extends Parser[CalcContext]:
+      val root = rule(
+        { case CalcLexer.Num.SeparatedBy[CalcLexer.`+`](nums) => nums.size },
+        { case (CalcLexer.Num.SeparatedBy[CalcLexer.`+`](nums), CalcLexer.`+`(_)) => nums.size },
+      )
+    """).map(_.message).mkString("\n")
+    message should include("Reduce Num.SeparatedBy -> Num.SeparatedBy.nonEmpty")
+  }
+
   test("parse table Reduce-Reduce conflict") {
     val conflict: scala.compiletime.testing.Error = typeCheckErrors("""
     object ReduceReduceCalcParser extends Parser[CalcContext]:
