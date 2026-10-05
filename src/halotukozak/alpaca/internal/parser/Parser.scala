@@ -17,7 +17,7 @@ import scala.collection.mutable
  * It is typically used when specifying conflict resolutions, enabling you to refer to productions
  * in a type-safe and compile-time-checked manner.
  *
- * @note This is a compile-time only feature and should be used within parser definitions.
+ * @note This is a compile-time only feature and can be used only inside `resolutions(...)`.
  */
 transparent private[alpaca] trait ProductionSelector extends Selectable:
   def selectDynamic(name: String): Any
@@ -28,7 +28,7 @@ transparent private[alpaca] trait ProductionSelector extends Selectable:
  * Users should extend this class and define their grammar rules as `Rule` instances.
  * The parser uses an LR parsing algorithm with automatic parse table generation.
  *
- * @tparam Ctx the global context type, defaults to EmptyGlobalCtx
+ * @tparam Ctx the parser context type; `Parser` without a type argument uses [[ParserCtx.Empty]]
  */
 abstract class Parser[Ctx <: ParserCtx](
   using Ctx withDefault ParserCtx.Empty,

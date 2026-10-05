@@ -14,12 +14,12 @@ package alpaca
  *   case Result.Failure(ctx, recovered, errors) => errors.foreach(e => println(e.message))
  * }}}
  *
+ * For Alpaca's own error types, `getOrThrow` returns the value or throws the errors as an exception
+ * ([[LexerException]] for [[LexerError]]s, [[ParserException]] for [[ParserError]]s).
+ *
  * @tparam Ctx the lexer or parser context type
  * @tparam A   the value: the lexemes for `tokenize`, the root rule's result for `parse`
  * @tparam E   the error type: [[LexerError]] for `tokenize`, [[ParserError]] for `parse`
- *
- * For Alpaca's own error types, `getOrThrow` returns the value or throws the errors as an exception
- * ([[LexerException]] for [[LexerError]]s, [[ParserException]] for [[ParserError]]s).
  */
 enum Result[+Ctx, +A, +E]:
   /** The context as it was when the run ended. */

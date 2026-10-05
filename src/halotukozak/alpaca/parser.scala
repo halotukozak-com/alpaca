@@ -9,15 +9,38 @@ import scala.annotation.{compileTimeOnly, unused}
 
 type Parser[Ctx <: ParserCtx] = parser.Parser[Ctx]
 
+/**
+ * How the parser `P` resolves the conflicts in its grammar. Provide one as a `given` declared after the parser object,
+ * built with [[resolutions]]:
+ * {{{
+ * given Resolutions[CalcParser.type] = resolutions(
+ *   production.plus.before(CalcLexer.PLUS), // + is left-associative
+ * )
+ * }}}
+ *
+ * @tparam P the parser's singleton type
+ */
 opaque type Resolutions[P <: parser.Parser[?]] = Set[ConflictResolution]
 
+/** Gives `production` and `before`/`after` the parser they refer to, inside [[resolutions]]. */
 sealed trait ResolutionCtx[P <: parser.Parser[?]]
 object ResolutionCtx:
   private val reusable = new ResolutionCtx[parser.Parser[?]] {}
   private[alpaca] def refl[P <: parser.Parser[?]]: ResolutionCtx[P] = reusable.asInstanceOf[ResolutionCtx[P]]
+/**
+ * Collects the conflict resolutions for the parser `P`, each written with `before` or `after` (see [[Resolutions]]).
+ *
+ * @param elements the resolutions; inside them, `production.<name>` refers to `P`'s named productions
+ */
 def resolutions[P <: parser.Parser[?]](elements: (ResolutionCtx[P] ?=> ConflictResolution)*): Resolutions[P] =
   elements.map(_.apply(using ResolutionCtx.refl)).toSet
 
+/**
+ * Selects one of the parser's named productions by its name: `production.plus` is the production named `"plus"`.
+ * Names that are not Scala identifiers go in backticks (`` production.`if then` ``).
+ *
+ * This is compile-time only and can be used only inside [[resolutions]].
+ */
 @compileTimeOnly(ConflictResolutionOnly)
 transparent inline def production[P <: parser.Parser[?]](using ResolutionCtx[P]): ProductionSelector =
   ${ productionImpl[P] }
@@ -50,9 +73,9 @@ type ProductionDefinition[R] = PartialFunction[Tuple | Lexeme[?, ?], R]
  *
  * Example:
  * {{{
- * val expr: Rule[Int] = rule(
- *   { case (number(a), Lexer.+(_), number(b)) => a.toInt + b.toInt },
- *   { case (number(n)) => n.toInt }
+ * val Expr: Rule[Int] = rule(
+ *   { case (Expr(a), CalcLexer.PLUS(_), CalcLexer.NUMBER(b)) => a + b.value },
+ *   { case CalcLexer.NUMBER(n) => n.value },
  * )
  * }}}
  *
@@ -68,19 +91,19 @@ extension (name: String)
    * Defines a named production for use in grammar rules and conflict resolution.
    *
    * This extension method allows you to assign a name to a specific production within a rule.
-   * Named productions can be referenced in conflict resolution rules using the `Production` selector,
+   * Named productions can be referenced in conflict resolution rules as `production.<name>`,
    * enabling fine-grained control over precedence and associativity.
    *
    * Usage:
    * {{{
-   * val add: Rule[Int] = rule(
-   *   "sum" { case (number(a), Lexer.+(_), number(b)) => a.toInt + b.toInt },
-   *   { case (number(n)) => n.toInt }
+   * val Expr: Rule[Int] = rule(
+   *   "plus" { case (Expr(a), CalcLexer.PLUS(_), Expr(b)) => a + b },
+   *   { case CalcLexer.NUMBER(n) => n.value },
    * )
    *
    * // In conflict resolution:
-   * given Resolutions[MyParser.type] = resolutions(
-   *   production.sum.after(Lexer.+),
+   * given Resolutions[CalcParser.type] = resolutions(
+   *   production.plus.before(CalcLexer.PLUS),
    * )
    * }}}
    *
@@ -231,16 +254,13 @@ type ConflictResolution
 extension (first: Production | Token[?, ?, ?]) {
 
   /**
-   * Specifies that this production/token should have higher precedence than others.
+   * Resolves the conflicts between this production or token and each of `second` in favour of `second`: the
+   * reverse of [[before]]. `production.plus.after(CalcLexer.TIMES)` shifts `*` instead of reducing `plus`, so `*`
+   * binds tighter than `+`.
    *
-   * This is compile-time only and should only be used inside parser rule definitions.
+   * This is compile-time only and can be used only inside [[resolutions]].
    *
-   * Example:
-   * {{{
-   * Production(expr, "*", expr) after Production(expr, "+", expr)
-   * }}}
-   *
-   * @param second the productions/tokens that should have lower precedence
+   * @param second the productions and tokens that win over this one
    * @return a conflict resolution rule
    */
   @compileTimeOnly(RuleOnly)
@@ -248,16 +268,14 @@ extension (first: Production | Token[?, ?, ?]) {
     null.asInstanceOf[ConflictResolution]
 
   /**
-   * Specifies that this production/token should have lower precedence than others.
+   * Resolves the conflicts between this production or token and each of `second` in favour of this one: a production
+   * is reduced rather than shifting a token of `second` or reducing a production of `second`; a token is shifted
+   * rather than reducing a production of `second`. `production.plus.before(CalcLexer.PLUS)` reduces `1 + 2` before
+   * shifting the next `+`, so `+` is left-associative.
    *
-   * This is compile-time only and should only be used inside parser rule definitions.
+   * This is compile-time only and can be used only inside [[resolutions]].
    *
-   * Example:
-   * {{{
-   * Production(expr, "+", expr) before Production(expr, "*", expr)
-   * }}}
-   *
-   * @param second the productions/tokens that should have higher precedence
+   * @param second the productions and tokens this one wins over
    * @return a conflict resolution rule
    */
   @compileTimeOnly(RuleOnly)
@@ -270,8 +288,8 @@ object Production:
   /**
    * Creates a production reference from symbols.
    *
-   * This is compile-time only and used in conflict resolution definitions
-   * to refer to productions by their right-hand side.
+   * This is compile-time only and can be used only inside [[resolutions]], to refer to a production by its
+   * right-hand side, e.g. `Production(CalcParser.Expr, CalcLexer.MINUS, CalcParser.Expr)`.
    *
    * @param symbols the symbols on the right-hand side of the production
    * @return a production reference
