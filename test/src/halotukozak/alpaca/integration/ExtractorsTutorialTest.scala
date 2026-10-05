@@ -166,7 +166,7 @@ final class ExtractorsTutorialTest extends AnyFunSuite:
 
     val (_, lexemes) = MyLexer.tokenize("1,2,3")
     val (_, result) = P.parse(lexemes)
-    assert(result == List[Any](1, ",", 2, ",", 3))
+    assert(result == List[Int | String](1, ",", 2, ",", 3))
   }
 
   // Section 4: Tuple matching
