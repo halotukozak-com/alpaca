@@ -12,7 +12,7 @@ import halotukozak.alpaca.*
 val CalcLexer = lexer:
   case "\\s+" => Token.Ignored
   case "#.*" => Token.Ignored
-  case "\\*\\*" => Token["exp"]   // multi-char operators before single-char
+  case "\\*\\*" => Token["exp"]
   case literal @ ("\\+" | "-" | "\\*" | "/" | "\\(" | "\\)" | ",") =>
     Token[literal.type]
   case keyword @ ("pi" | "sin" | "atan2") =>
@@ -21,7 +21,7 @@ val CalcLexer = lexer:
   case x @ "\\d+" => Token["int"](x.toInt)
 ```
 
-Note that `"\\*\\*"` (exponentiation) must appear before `"\\*"` (multiplication) to avoid shadowing.
+`"\\*\\*"` (exponentiation) and `"\\*"` (multiplication) can be declared in either order: the lexer takes the longest match, so `**` is always one `exp` token (see [How a Token Is Chosen](../lexer.md#how-a-token-is-chosen)).
 
 ## The Parser
 

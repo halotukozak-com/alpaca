@@ -156,7 +156,7 @@ Runtime benchmarks are **not** run automatically in CI on push or pull requests.
 ### Prerequisites
 
 - JDK 21 or later
-- Mill 1.1.8 or later
+- Mill 1.1.10 or later
 
 ### Build Commands
 

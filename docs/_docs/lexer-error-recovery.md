@@ -5,7 +5,7 @@ The Alpaca lexer provides two layers of error feedback: compile-time validation 
 <details>
 <summary>Under the hood: compile-time validation</summary>
 
-The `lexer` macro validates token definitions at compile time. Pattern shadowing, invalid or unsupported regex syntax, and guards are caught during compilation. The macro performs pairwise regex inclusion checks using Alpaca's own `regex` library (`SubsetChecker`) to ensure every pattern is reachable.
+The `lexer` macro validates token definitions at compile time. Pattern shadowing, invalid or unsupported regex syntax, and guards are caught during compilation. The macro checks every pattern against the ones declared before it -- each on its own, and together -- using Alpaca's own `regex` library (`SubsetChecker`), so that every pattern can produce a token.
 
 </details>
 
@@ -33,11 +33,28 @@ Declare "IF" ("if") before "ID" ("[a-z]+").
 
 The fix: declare the keyword first. Longest match still turns `iffy` into a single `ID`, so keywords never split identifiers.
 
+A pattern can also be dead because several earlier patterns cover it together, though none does alone:
+
+```scala sc:fail
+import halotukozak.alpaca.*
+
+val Lexer = lexer:
+  case "a" => Token["A"]
+  case "b" => Token["B"]
+  case "[ab]" => Token["AB"]  // error: covered by A and B together
+```
+
+```
+Token "AB" can never match: every input it matches is also matched by "A" or "B",
+which are defined earlier, so one of them always wins.
+"AB" is redundant: remove it, or narrow "A" and "B" so they no longer cover it.
+```
+
 A pattern is reported only when it really can never win -- an earlier pattern matching just a *prefix* of it (`"a"` before `"ab"`) is fine. When one pattern's language contains the other's in the wrong order, e.g. `"[0-9]+(\\.[0-9]+)?"` before `"[0-9]+"`, give the later pattern inputs of its own -- e.g. `"[0-9]+\\.[0-9]+"` before `"[0-9]+"` -- or use a single pattern. See [Shadowing Detection](theory/lexer-fa.md#shadowing-detection) for the details.
 
 ### Invalid Regex
 
-Patterns use Java-style regex syntax, but they are parsed by Alpaca's own [`regex`](https://github.com/halotukozak/regex) library, not by `java.util.regex`. Malformed patterns -- unmatched parentheses, invalid quantifiers, bad character class syntax -- and the few constructs the library does not support (for example lookbehind `(?<=...)`, lazy quantifiers like `*?`, possessive quantifiers like `++`, and `\\p{...}` classes) produce a compile-time error naming the token and the position in the pattern:
+Patterns use Java-style regex syntax, but they are parsed by Alpaca's own [`regex`](https://github.com/halotukozak-com/regex) library, not by `java.util.regex`. Malformed patterns -- unmatched parentheses, invalid quantifiers, bad character class syntax -- and the few constructs the library does not support (for example lookbehind `(?<=...)`, lazy quantifiers like `*?`, possessive quantifiers like `++`, and `\\p{...}` classes) produce a compile-time error naming the token and the position in the pattern:
 
 ```
 Invalid regex pattern for token "T": unsupported regex feature `lookbehind` (at position 3 in "(?<=a)b")

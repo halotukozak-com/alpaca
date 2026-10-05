@@ -3,10 +3,10 @@
 ## What Does a Lexer Do?
 
 A lexer reads a character stream from left to right and emits a token stream. At each scan step,
-it tries the token class patterns in a fixed order and picks the first pattern whose regex
-matches at the current position, consuming that matched prefix. When no pattern matches the
-current position, the lexer throws an error. The result is a flat list of lexemes that the parser
-consumes next.
+it finds the longest prefix of the remaining input that any token class pattern matches, and
+consumes it; when several patterns match that prefix, the one declared first wins (see
+[Combining Token Patterns into One Automaton](#combining-token-patterns-into-one-automaton)). When no pattern matches the current position, the lexer
+reports an error. The result is a flat list of lexemes that the parser consumes next.
 
 ## Regular Languages
 

@@ -374,8 +374,6 @@ The end of the input cannot be skipped, so an error there stops the parser whate
 
 The strategy receives the parser context and the `ParserError`, so it can decide per error -- for example skip stray separators but stop on anything else. Define the `given` where the parser is defined, or in the context's companion object.
 
-`map` transforms the value, and `flatMap` runs the next stage on it, keeping the errors of both stages in input order.
-
 ## Conflict Resolution
 
 Ambiguous grammars produce compile-time errors. The BrainFuck grammar has no conflicts (all tokens are unambiguous), but arithmetic grammars do. See [Conflict Resolution](conflict-resolution.md) for the full `before`/`after` DSL.

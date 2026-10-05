@@ -11,7 +11,7 @@ import halotukozak.alpaca.*
 
 The `lexer` block is a Scala 3 macro. At compile time, it:
 
-1. Parses and validates every regex pattern with Alpaca's own [`regex`](https://github.com/halotukozak/regex) library
+1. Parses and validates every regex pattern with Alpaca's own [`regex`](https://github.com/halotukozak-com/regex) library
 2. Checks for shadowed patterns (`SubsetChecker`, a Brzozowski-derivative DFA inclusion check)
 3. Builds a single DFA for all patterns at once (`TokenMatcher`)
 4. Generates the tokenization loop
