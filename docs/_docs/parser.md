@@ -312,7 +312,7 @@ val parsed = BrainParser.parse(lexemes)
 `parse()` does not throw when the input does not match the grammar. It returns a `Result` -- the same type `tokenize` returns -- which is one of two cases, both carrying the parser context (`ctx`) as it was when parsing ended:
 
 - `Result.Success(ctx, value)` -- the input matched, and `value` is what the root rule produced (a `BrainAST` here);
-- `Result.Failure(ctx, recovered, errors)` -- the input did not match; `errors` is a non-empty list of `ParserError`s. `recovered` is the value produced anyway when the parser's error-handling strategy skipped past the errors (see [Error Recovery](#error-recovery)), and `None` when parsing stopped at the first one -- the default.
+- `Result.Failure(ctx, recovered, errors)` -- the input did not match; `errors` is a non-empty list of `ParserError`s. `recovered` is the value produced anyway when the parser's error-handling strategy skipped past the errors and parsing still reached the end (see [Error Recovery](#error-recovery)), and `None` when parsing stopped before producing a value -- at the first error by default, or at a later error that was not skipped.
 
 Match on it to handle both outcomes:
 
