@@ -166,6 +166,80 @@ trait Rule[R]:
     null.asInstanceOf[PartialFunction[Any, List[R | SepValue[Separator]]]]
 
 /**
+ * Why the input does not match the grammar, as reported by `parse` in a [[ParseResult.Failure]]. It is an
+ * `Exception` so that [[ParseResult.getOrThrow]] can throw it.
+ *
+ * @param unexpected the lexeme the parser could not accept; its `name` is `"$"` when the input ended too early
+ * @param expected   the token names the grammar would have accepted at that point (`"$"` stands for the end of
+ *                   the input), sorted
+ */
+final class ParseError(val unexpected: Lexeme[?, ?], val expected: List[String])
+  extends Exception(ParseError.message(unexpected, expected))
+
+object ParseError:
+  private def message(unexpected: Lexeme[?, ?], expected: List[String]): String = {
+    def field(name: String): Option[Int] =
+      unexpected.fieldNames.indexOf(name) match
+        case -1 => None
+        case i =>
+          unexpected.fieldValues(i) match
+            case n: Int => Some(n)
+            case _ => None
+
+    val name: String = unexpected.name
+    val what =
+      if name == "$" then "end of input"
+      else s"""$name "${unexpected.text}""""
+    // `position` is recorded after the match, so the token itself starts `text.length` earlier.
+    val where = (field("line"), field("position")) match
+      case (Some(line), Some(position)) => s" at line $line, column ${position - unexpected.text.length}"
+      case (Some(line), None) => s" at line $line"
+      case (None, Some(position)) => s" at column ${position - unexpected.text.length}"
+      case (None, None) => ""
+    val accepted = expected.map(name => if name == "$" then "end of input" else name).mkString(", ")
+    s"Unexpected $what$where. Expected one of: $accepted"
+  }
+
+/**
+ * The outcome of [[parse]]: either the value the root rule produced, or the errors that stopped the parser.
+ *
+ * Both cases carry the parser context as it was when parsing ended.
+ *
+ * {{{
+ * MyParser.parse(lexemes) match
+ *   case ParseResult.Success(ctx, value) => println(value)
+ *   case ParseResult.Failure(ctx, errors) => errors.foreach(e => println(e.getMessage))
+ * }}}
+ *
+ * @tparam Ctx the parser context type
+ * @tparam R   the type the root rule produces
+ */
+enum ParseResult[+Ctx, +R]:
+  /** The parser context as it was when parsing ended. */
+  def ctx: Ctx
+
+  /** The input matched the grammar and the root rule produced `value`. */
+  case Success(ctx: Ctx, value: R)
+
+  /** The input did not match the grammar; `errors` says where and what was expected instead. */
+  case Failure(ctx: Ctx, errors: ::[ParseError])
+
+  /** The produced value, or `None` if parsing failed. */
+  def toOption: Option[R] = this match
+    case Success(_, value) => Some(value)
+    case Failure(_, _) => None
+
+  /** The produced value on the right, or the errors on the left. */
+  def toEither: Either[::[ParseError], R] = this match
+    case Success(_, value) => Right(value)
+    case Failure(_, errors) => Left(errors)
+
+  /** The produced value; throws the first [[ParseError]] if parsing failed. */
+  def getOrThrow: R = this match
+    case Success(_, value) => value
+    case Failure(_, errors) => throw errors.head
+
+/**
  * Base trait for parser global context.
  *
  * Unlike the lexer, the parser's global context is typically empty by default,
@@ -249,15 +323,15 @@ extension [Ctx <: ParserCtx](parser: Parser[Ctx]) {
   /**
    * Parses a list of lexemes using the defined grammar.
    *
-   * This is a convenience method that infers the result type from the root rule.
+   * The result type is inferred from the root rule. Input that does not match the grammar is not thrown as an
+   * exception: it comes back as a [[ParseResult.Failure]] listing the [[ParseError]]s.
    *
    * @param lexems the list of lexemes to parse
-   * @return a tuple of (context, result), where result may be null on parse failure
+   * @return the value the root rule produced, or the errors that stopped the parser, with the context either way
    */
-  inline def parse(lexems: List[Lexeme[?, ?]]): (
-    ctx: Ctx,
-    result: (parser.root.type match
-      case Rule[t] => t
-    ) | Null,
-  ) = parser.unsafeParse(lexems)
+  inline def parse(lexems: List[Lexeme[?, ?]]): ParseResult[
+    Ctx,
+    parser.root.type match
+      case Rule[t] => t,
+  ] = parser.parseResult(lexems)
 }

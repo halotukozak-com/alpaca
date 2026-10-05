@@ -107,7 +107,7 @@ class ParserProfilingBenchmark:
   /** Pure parse benchmark -- measures only parser.parse() on pre-tokenized input. */
   @Benchmark
   def pureParseOnly(bh: Blackhole): Unit =
-    try bh.consume(ProfilingJsonParser.parse(tokens))
+    try bh.consume(ProfilingJsonParser.parse(tokens).getOrThrow)
     catch case _: StackOverflowError => bh.consume("StackOverflowError")
 
   /** Lex+parse benchmark for comparison -- measures tokenize() + parse(). */
@@ -115,5 +115,5 @@ class ParserProfilingBenchmark:
   def parseWithLex(bh: Blackhole): Unit =
     try
       val (_, t) = ProfilingJsonLexer.tokenize(input)
-      bh.consume(ProfilingJsonParser.parse(t))
+      bh.consume(ProfilingJsonParser.parse(t).getOrThrow)
     catch case _: StackOverflowError => bh.consume("StackOverflowError")

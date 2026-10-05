@@ -113,7 +113,7 @@ The precedence hierarchy from highest to lowest: `**` > unary `-` > `*` `/` > `+
 ```scala sc-compile-with:calc-resolved
 val input = "sin(pi / 2) + 2 ** 3 * 4"
 val (_, lexemes) = CalcLexer.tokenize(input)
-val (_, result) = CalcParser.parse(lexemes)
+val result = CalcParser.parse(lexemes).getOrThrow
 println(result) // 33.0 (1.0 + 8.0 * 4.0)
 ```
 

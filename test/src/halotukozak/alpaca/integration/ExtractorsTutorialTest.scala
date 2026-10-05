@@ -41,7 +41,7 @@ final class ExtractorsTutorialTest extends AnyFunSuite:
     )
 
     val (_, lexemes) = MyLexer.tokenize("1 + 2 + 3")
-    val (_, result) = TerminalMatchParser.parse(lexemes)
+    val result = TerminalMatchParser.parse(lexemes).getOrThrow
     assert(result == 6)
   }
 
@@ -64,7 +64,7 @@ final class ExtractorsTutorialTest extends AnyFunSuite:
     )
 
     val (_, lexemes) = MyLexer.tokenize("1 + 2")
-    val (_, result) = NonTerminalMatchParser.parse(lexemes)
+    val result = NonTerminalMatchParser.parse(lexemes).getOrThrow
     assert(result == "Expression result: 3")
   }
 
@@ -78,7 +78,7 @@ final class ExtractorsTutorialTest extends AnyFunSuite:
         case MyLexer.NUM(n) => n.value
 
     val (_, lexemes) = MyLexer.tokenize("1 2 3")
-    val (_, result) = ListExtractorParser.parse(lexemes)
+    val result = ListExtractorParser.parse(lexemes).getOrThrow
     assert(result == List(1, 2, 3))
   }
 
@@ -93,11 +93,11 @@ final class ExtractorsTutorialTest extends AnyFunSuite:
         case MyLexer.NUM(n) => n.value
 
     val (_, lexemes1) = MyLexer.tokenize("1 , 2")
-    val (_, result1) = OptionExtractorParser.parse(lexemes1)
+    val result1 = OptionExtractorParser.parse(lexemes1).getOrThrow
     assert(result1 == (1, Some(2)))
 
     val (_, lexemes2) = MyLexer.tokenize("1 ,")
-    val (_, result2) = OptionExtractorParser.parse(lexemes2)
+    val result2 = OptionExtractorParser.parse(lexemes2).getOrThrow
     assert(result2 == (1, None))
   }
 
@@ -112,21 +112,21 @@ final class ExtractorsTutorialTest extends AnyFunSuite:
         case MyLexer.NUM(n) => n.value
 
     val (_, emptyLexemes) = MyLexer.tokenize("")
-    val (_, emptyResult) = P.parse(emptyLexemes)
+    val emptyResult = P.parse(emptyLexemes).getOrThrow
     assert(emptyResult == Nil)
 
     val (_, singletonLexemes) = MyLexer.tokenize("1")
-    val (_, singletonResult) = P.parse(singletonLexemes)
+    val singletonResult = P.parse(singletonLexemes).getOrThrow
     assert(singletonResult == List(1))
 
     val (_, repeatedLexemes) = MyLexer.tokenize("1,2,3")
-    val (_, repeatedResult) = P.parse(repeatedLexemes)
+    val repeatedResult = P.parse(repeatedLexemes).getOrThrow
     // Accessing .name only typechecks because separators are typed as Lexeme, not Token.
-    val separatorNames = repeatedResult.nn.collect { case l: Lexeme[?, ?] =>
+    val separatorNames = repeatedResult.collect { case l: Lexeme[?, ?] =>
       l.name
     }
     assert(separatorNames == List(",", ","))
-    assert(repeatedResult.nn match
+    assert(repeatedResult match
       case List(1, _, 2, _, 3) => true
       case _ => false)
   }
@@ -141,14 +141,14 @@ final class ExtractorsTutorialTest extends AnyFunSuite:
         case MyLexer.NUM(n) => n.value
 
     val (_, lexemes) = MyLexer.tokenize("(10,20,30)")
-    val (_, result) = P.parse(lexemes)
-    assert(result.nn._1 == 3)
-    assert(result.nn._2 match
+    val result = P.parse(lexemes).getOrThrow
+    assert(result._1 == 3)
+    assert(result._2 match
       case List(10, _, 20, _, 30) => true
       case _ => false)
 
     val (_, emptyLexemes) = MyLexer.tokenize("()")
-    val (_, emptyResult) = P.parse(emptyLexemes)
+    val emptyResult = P.parse(emptyLexemes).getOrThrow
     assert(emptyResult == (0, Nil))
   }
 
@@ -165,7 +165,7 @@ final class ExtractorsTutorialTest extends AnyFunSuite:
         case MyLexer.`,`(_) => ","
 
     val (_, lexemes) = MyLexer.tokenize("1,2,3")
-    val (_, result) = P.parse(lexemes)
+    val result = P.parse(lexemes).getOrThrow
     assert(result == List[Int | String](1, ",", 2, ",", 3))
   }
 
@@ -186,6 +186,6 @@ final class ExtractorsTutorialTest extends AnyFunSuite:
     )
 
     val (_, lexemes) = MyLexer.tokenize("(2 * 3)")
-    val (_, result) = TupleMatchParser.parse(lexemes)
+    val result = TupleMatchParser.parse(lexemes).getOrThrow
     assert(result == 6)
   }

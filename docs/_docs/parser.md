@@ -305,23 +305,46 @@ extension (ast: BrainAST)
 
 ```scala sc-name:brain-tokenize sc-compile-with:brain-eval-defs
 val (_, lexemes) = BrainLexer.tokenize("++[>+<-]")
-val (finalCtx, ast) = BrainParser.parse(lexemes)
-// finalCtx: ParserCtx.Empty
-// ast: BrainAST | Null -- the parsed result
+val parsed = BrainParser.parse(lexemes)
+// parsed: ParseResult[ParserCtx.Empty, BrainAST]
 ```
 
-The return type is a named tuple `(ctx: Ctx, result: T | Null)`. Input that does not match the grammar makes `parse()` throw an exception whose message names the unexpected token and the symbols that were expected at that point, e.g. for `1 + + 2`:
+`parse()` does not throw when the input does not match the grammar. It returns a `ParseResult`, which is one of two cases, both carrying the parser context (`ctx`) as it was when parsing ended:
 
-```
-Unexpected symbol 'PLUS' in state 4. Expected one of: Expr, NUM
-```
+- `ParseResult.Success(ctx, value)` -- the input matched, and `value` is what the root rule produced (a `BrainAST` here);
+- `ParseResult.Failure(ctx, errors)` -- the input did not match; `errors` is a non-empty list of `ParseError`s.
 
-The exception class is internal to Alpaca, so catch it as `Exception`. The result is still typed `T | Null`; use `.nn` (or a null check) to get a plain `T`:
+Match on it to handle both outcomes:
 
 ```scala sc-compile-with:brain-tokenize
-val (_, parsed) = BrainParser.parse(lexemes)
-parsed.nn.eval(Memory())  // .nn asserts non-null
+parsed match
+  case ParseResult.Success(_, ast) => ast.eval(Memory())
+  case ParseResult.Failure(_, errors) => errors.foreach(error => println(error.getMessage))
 ```
+
+When failing is not an option you want to handle at that point, `getOrThrow` returns the value or throws the first `ParseError`, and `toOption` / `toEither` convert the result:
+
+```scala sc-compile-with:brain-tokenize
+parsed.getOrThrow.eval(Memory())  // the AST, or throws the first ParseError
+parsed.toOption                   // Some(ast), or None
+parsed.toEither                   // Right(ast), or Left(errors)
+```
+
+A `ParseError` carries the lexeme the parser could not accept (`unexpected`) and the token names the grammar would have accepted there (`expected`, with `"$"` standing for the end of the input). Its message also gives the token's line and column when the lexer tracks them, e.g. for `1 + + 2` in a grammar of numbers and `+`:
+
+```
+Unexpected PLUS "+" at line 1, column 5. Expected one of: NUMBER
+```
+
+```scala sc-compile-with:brain-tokenize
+BrainParser.parse(BrainLexer.tokenize("[+").lexemes) match
+  case ParseResult.Failure(_, errors) =>
+    println(errors.head.getMessage) // Unexpected end of input. Expected one of: ...
+    println(errors.head.expected)   // the token names the grammar would have accepted
+  case ParseResult.Success(_, _) => ()
+```
+
+The parser currently stops at the first error, so `errors` has one element; it is a list so that error recovery can report more than one without changing the API.
 
 ## Conflict Resolution
 

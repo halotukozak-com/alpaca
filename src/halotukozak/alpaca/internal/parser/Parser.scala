@@ -3,12 +3,11 @@ package alpaca
 package internal
 package parser
 
-import halotukozak.alpaca.{rule, ParserCtx, ProductionDefinition, Rule}
+import halotukozak.alpaca.{rule, ParseError, ParseResult, ParserCtx, ProductionDefinition, Rule}
 import halotukozak.alpaca.internal.{fieldsTpeFrom, refinementTpeFrom, withDefault, Empty, RevertedArray, RuleOnly, ValidName, *}
 import halotukozak.alpaca.internal.lexer.Lexeme
 import halotukozak.alpaca.internal.parser.{Tables, *}
 
-import scala.NamedTuple.NamedTuple
 import scala.annotation.{compileTimeOnly, publicInBinary, tailrec}
 import scala.collection.mutable
 
@@ -61,9 +60,9 @@ abstract class Parser[Ctx <: ParserCtx](
    *
    * @tparam R the result type
    * @param lexemes the list of lexemes to parse
-   * @return a tuple of (context, result), where result may be null on parse failure
+   * @return the value the root rule produced, or the errors that stopped the parser, with the context either way
    */
-  @publicInBinary private[alpaca] def unsafeParse[R](lexemes: List[Lexeme[?, ?]]): (ctx: Ctx, result: R | Null) = {
+  @publicInBinary private[alpaca] def parseResult[R](lexemes: List[Lexeme[?, ?]]): ParseResult[Ctx, R] = {
     enum Node:
       case Result(value: Any)
       case Token(lexeme: Lexeme[?, ?])
@@ -79,50 +78,56 @@ abstract class Parser[Ctx <: ParserCtx](
     stateStack += 0
     nodeStack += Node.Result(null)
 
-    @tailrec def loop(remaining: List[Lexeme[?, ?]]): Node = {
+    @tailrec def loop(remaining: List[Lexeme[?, ?]]): Node | ParseError = {
       val current = if remaining.isEmpty then Lexeme.EOF else remaining.head
       val nextSymbol = Terminal(current.name)
-      tables.parseTable(stateStack.last, nextSymbol) match {
-        case ParseAction.Shift(gotoState) =>
-          stateStack += gotoState
-          nodeStack += Node.Token(current)
-          loop(if remaining.isEmpty then Nil else remaining.tail)
+      val action = tables.parseTable.get(stateStack.last, nextSymbol)
+      if action == null then ParseError(current, tables.parseTable.expectedTerminals(stateStack.last))
+      else {
+        action match {
+          case ParseAction.Shift(gotoState) =>
+            stateStack += gotoState
+            nodeStack += Node.Token(current)
+            loop(if remaining.isEmpty then Nil else remaining.tail)
 
-        case ParseAction.Reduction(prod @ Production.NonEmpty(lhs, rhs, name, _)) =>
-          val n = rhs.size
-          val newStateIdx = stateStack(stateStack.size - 1 - n)
+          case ParseAction.Reduction(prod @ Production.NonEmpty(lhs, rhs, name, _)) =>
+            val n = rhs.size
+            val newStateIdx = stateStack(stateStack.size - 1 - n)
 
-          if lhs == Symbol.Start && newStateIdx == 0 then nodeStack.last
-          else {
-            val top = nodeStack.size - 1
-            val children = Array.better.tabulate(n)(i => nodeStack(top - i).get)
-            stateStack.dropRightInPlace(n)
-            nodeStack.dropRightInPlace(n)
+            if lhs == Symbol.Start && newStateIdx == 0 then nodeStack.last
+            else {
+              val top = nodeStack.size - 1
+              val children = Array.better.tabulate(n)(i => nodeStack(top - i).get)
+              stateStack.dropRightInPlace(n)
+              nodeStack.dropRightInPlace(n)
 
-            val ParseAction.Shift(gotoState) = tables.parseTable(newStateIdx, lhs).runtimeChecked
-            val result = tables.actionTable(prod)(ctx, RevertedArray(children))
+              val ParseAction.Shift(gotoState) = tables.parseTable(newStateIdx, lhs).runtimeChecked
+              val result = tables.actionTable(prod)(ctx, RevertedArray(children))
+              stateStack += gotoState
+              nodeStack += Node.Result(result)
+              loop(remaining)
+            }
+
+          case ParseAction.Reduction(Production.Empty(Symbol.Start, name, _)) if stateStack.last == 0 =>
+            nodeStack.last
+
+          case ParseAction.Reduction(prod @ Production.Empty(lhs, name, _)) =>
+            val ParseAction.Shift(gotoState) = tables.parseTable(stateStack.last, lhs).runtimeChecked
+            val result = tables.actionTable(prod)(ctx, RevertedArray.empty)
             stateStack += gotoState
             nodeStack += Node.Result(result)
             loop(remaining)
-          }
-
-        case ParseAction.Reduction(Production.Empty(Symbol.Start, name, _)) if stateStack.last == 0 =>
-          nodeStack.last
-
-        case ParseAction.Reduction(prod @ Production.Empty(lhs, name, _)) =>
-          val ParseAction.Shift(gotoState) = tables.parseTable(stateStack.last, lhs).runtimeChecked
-          val result = tables.actionTable(prod)(ctx, RevertedArray.empty)
-          stateStack += gotoState
-          nodeStack += Node.Result(result)
-          loop(remaining)
+        }
       }
     }
 
-    val result: R | Null = loop(lexemes) match
-      case Node.Result(value) => value.asInstanceOf[R]
-      case Node.Token(lexeme) => null
-
-    (ctx, result)
+    loop(lexemes) match
+      case error: ParseError => ParseResult.Failure(ctx, ::(error, Nil))
+      case node: Node @unchecked =>
+        val value = node match
+          case Node.Result(value) => value
+          case Node.Token(_) => null
+        ParseResult.Success(ctx, value.asInstanceOf[R])
   }
 
 private val cachedProductions: mutable.Map[Type[? <: AnyKind], (Type[? <: AnyKind], Type[? <: AnyKind])] =

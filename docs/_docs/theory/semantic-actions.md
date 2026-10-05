@@ -68,7 +68,7 @@ From `Parser.scala` `loop()`: on each `Reduction(prod)`, the runtime pops `rhs.s
 
 The action table entry is of type `(Ctx, Seq[Any]) => Any` — a function applied per production on each reduce. The typed value (a `Double` for CalcParser) is pushed directly onto the stack. The `Seq[Any]` argument holds the popped stack values; the action function casts and uses them according to the pattern match compiled into it at build time.
 
-This is why `CalcParser.parse(lexemes)` returns a named tuple `(ctx: Ctx, result: Double | Null)` — not a tree. The semantic actions produce the final value during the parse itself.
+This is why `CalcParser.parse(lexemes)` returns a `ParseResult[Ctx, Double]` holding the computed `Double` — not a tree. The semantic actions produce the final value during the parse itself.
 
 The calculator's semantic actions therefore operate as a fold over the parse structure: each reduce step folds the children's values into the parent's value, bottom-up, until the root value is the final result.
 
@@ -78,7 +78,7 @@ Each `Rule[R]` has a declared result type `R`. The semantic action for every pro
 
 For `Rule[Double]`: every `case` clause's `=>` expression must evaluate to `Double`. `a + b` where `a: Double` and `b: Double` returns `Double`. `n.value` for a NUMBER token is `Double` (CalcLexer defines `Token["NUMBER"](num.toDouble)`).
 
-The final result type is the type declared for `root`. For CalcParser: `val root: Rule[Double]`, so `parse()` returns `Double | Null`. Input that does not match the grammar makes `parse()` throw an exception rather than return a value.
+The final result type is the type declared for `root`. For CalcParser: `val root: Rule[Double]`, so `parse()` returns a `ParseResult[Ctx, Double]`: a `ParseResult.Success` with the `Double`, or, for input that does not match the grammar, a `ParseResult.Failure` listing the `ParseError`s.
 
 > **Compile-time processing:** Alpaca collects every `{ case pattern => expression }` block at compile time, extracts the action function, and stores it in the action table indexed by production. At runtime, `parse(lexemes)` looks up the action for each reduction and calls it directly — the Scala type checker has already verified that each action returns the declared `Rule[R]` type.
 

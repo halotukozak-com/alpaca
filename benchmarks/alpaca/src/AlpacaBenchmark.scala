@@ -79,56 +79,56 @@ class AlpacaBenchmark:
         lexFn = (in: String) => MathLexer.tokenize(in)
         parseFn = (in: String) =>
           val (_, tokens) = MathLexer.tokenize(in)
-          MathParser.parse(tokens)
+          MathParser.parse(tokens).getOrThrow
         fullParseFn = (in: String) =>
           val (_, tokens) = MathLexer.tokenize(in)
-          MathParser.parse(tokens)
+          MathParser.parse(tokens).getOrThrow
         val (_, preTokenized) = MathLexer.tokenize(input)
-        preTokenizedParseFn = () => MathParser.parse(preTokenized)
+        preTokenizedParseFn = () => MathParser.parse(preTokenized).getOrThrow
 
       case s if s.contains("json") =>
         lexFn = (in: String) => JsonLexer.tokenize(in)
         parseFn = (in: String) =>
           val (_, tokens) = JsonLexer.tokenize(in)
-          JsonParser.parse(tokens)
+          JsonParser.parse(tokens).getOrThrow
         fullParseFn = (in: String) =>
           val (_, tokens) = JsonLexer.tokenize(in)
-          JsonParser.parse(tokens)
+          JsonParser.parse(tokens).getOrThrow
         val (_, preTokenized) = JsonLexer.tokenize(input)
-        preTokenizedParseFn = () => JsonParser.parse(preTokenized)
+        preTokenizedParseFn = () => JsonParser.parse(preTokenized).getOrThrow
 
       case "big_grammar" =>
         lexFn = (in: String) => BigGrammarLexer.tokenize(in)
         parseFn = (in: String) =>
           val (_, tokens) = BigGrammarLexer.tokenize(in)
-          BigGrammarParser.parse(tokens)
+          BigGrammarParser.parse(tokens).getOrThrow
         fullParseFn = (in: String) =>
           val (_, tokens) = BigGrammarLexer.tokenize(in)
-          BigGrammarParser.parse(tokens)
+          BigGrammarParser.parse(tokens).getOrThrow
         val (_, preTokenized) = BigGrammarLexer.tokenize(input)
-        preTokenizedParseFn = () => BigGrammarParser.parse(preTokenized)
+        preTokenizedParseFn = () => BigGrammarParser.parse(preTokenized).getOrThrow
 
       case "flat_list" =>
         lexFn = (in: String) => FlatListLexer.tokenize(in)
         parseFn = (in: String) =>
           val (_, tokens) = FlatListLexer.tokenize(in)
-          FlatListParser.parse(tokens)
+          FlatListParser.parse(tokens).getOrThrow
         fullParseFn = (in: String) =>
           val (_, tokens) = FlatListLexer.tokenize(in)
-          FlatListParser.parse(tokens)
+          FlatListParser.parse(tokens).getOrThrow
         val (_, preTokenized) = FlatListLexer.tokenize(input)
-        preTokenizedParseFn = () => FlatListParser.parse(preTokenized)
+        preTokenizedParseFn = () => FlatListParser.parse(preTokenized).getOrThrow
 
       case "deep_nested" =>
         lexFn = (in: String) => DeepNestedLexer.tokenize(in)
         parseFn = (in: String) =>
           val (_, tokens) = DeepNestedLexer.tokenize(in)
-          DeepNestedParser.parse(tokens)
+          DeepNestedParser.parse(tokens).getOrThrow
         fullParseFn = (in: String) =>
           val (_, tokens) = DeepNestedLexer.tokenize(in)
-          DeepNestedParser.parse(tokens)
+          DeepNestedParser.parse(tokens).getOrThrow
         val (_, preTokenized) = DeepNestedLexer.tokenize(input)
-        preTokenizedParseFn = () => DeepNestedParser.parse(preTokenized)
+        preTokenizedParseFn = () => DeepNestedParser.parse(preTokenized).getOrThrow
     }
   }
 

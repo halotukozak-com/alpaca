@@ -97,9 +97,8 @@ Alpaca provides four `ErrorHandling` strategies (see [Error Recovery](../lexer-e
 
 Alpaca's parser currently has minimal error recovery:
 
-- On a parse table miss (no action for the current state and token), `parse()` throws an exception whose message names the unexpected token and the expected symbols, e.g. `Unexpected symbol 'PLUS' in state 4. Expected one of: Expr, NUM`
-- No panic mode, phrase-level recovery, or error productions
-- No structured error information: the exception class is internal, and the source position of the offending token is not part of the message (the token's `Lexeme` carries `position`/`line` if the lexer tracks them)
+- On a parse table miss (no action for the current state and token), `parse()` returns a `ParseResult.Failure` with a `ParseError` carrying the unexpected lexeme and the token names that were expected, with a message like `Unexpected PLUS "+" at line 1, column 5. Expected one of: NUMBER`
+- No panic mode, phrase-level recovery, or error productions: parsing stops at the first error
 
 ### Semantic
 
