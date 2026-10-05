@@ -50,8 +50,8 @@ object `package` extends Module:
         // Scala 3.9 generates larger trees for lexerImpl/createTablesImpl than 3.8 did, pushing
         // them past the compiler's hardcoded 3000-node coverage-instrumentation threshold
         // (dotty.tools.dotc.transform.InstrumentCoverage.MaxInstrumentableTreeNodes - not
-        // configurable). Silence just that one diagnostic; -Werror stays hard for everything else.
-        "-Wconf:msg=Skipping coverage instrumentation.*:s",
+        // configurable). Report just that one diagnostic as info; -Werror stays hard for everything else.
+        "-Wconf:msg=Skipping coverage instrumentation.*:i",
         // lexerImpl/createTablesImpl exceed Scoverage's hardcoded instrumentation size limit
         // under this compiler version (dotty's MaxInstrumentableTreeNodes = 3000 tree nodes,
         // not configurable); excluded rather than left uninstrumented with a -Werror warning.
