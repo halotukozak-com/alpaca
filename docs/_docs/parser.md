@@ -1,6 +1,6 @@
 # Parser
 
-The Alpaca parser transforms a `List[Lexeme]` into a typed result by matching token sequences against grammar rules. You define rules using pattern matching, and the macro builds an LR(1) parse table at compile time.
+The Alpaca parser transforms a `List[Lexeme]` into a typed result by matching token sequences against grammar rules. You define rules using pattern matching, and the macro builds an LALR(1) parse table at compile time.
 
 <details>
 <summary>Under the hood: compile-time table generation</summary>
@@ -8,9 +8,9 @@ The Alpaca parser transforms a `List[Lexeme]` into a typed result by matching to
 When you define `object MyParser extends Parser`, the Alpaca macro:
 
 1. Reads every `Rule` val declaration
-2. Builds an LR(1) parse table (states, transitions, actions)
+2. Builds an LALR(1) parse table (states, transitions, actions)
 3. Compiles semantic actions (your `case` bodies) into the action table
-4. Reports grammar conflicts (`ShiftReduceConflict`, `ReduceReduceConflict`) as compile errors
+4. Reports grammar conflicts (shift/reduce, reduce/reduce) as compile errors
 
 At runtime, `parse()` executes the precomputed table. No grammar analysis happens during parsing.
 
@@ -307,10 +307,16 @@ extension (ast: BrainAST)
 val (_, lexemes) = BrainLexer.tokenize("++[>+<-]")
 val (finalCtx, ast) = BrainParser.parse(lexemes)
 // finalCtx: ParserCtx.Empty
-// ast: BrainAST | Null -- the parsed result, or null if the input was rejected
+// ast: BrainAST | Null -- the parsed result
 ```
 
-The return type is a named tuple `(ctx: Ctx, result: T | Null)`. The result is `null` for invalid input -- not an exception. Always check for null:
+The return type is a named tuple `(ctx: Ctx, result: T | Null)`. Input that does not match the grammar makes `parse()` throw an exception whose message names the unexpected token and the symbols that were expected at that point, e.g. for `1 + + 2`:
+
+```
+Unexpected symbol 'PLUS' in state 4. Expected one of: Expr, NUM
+```
+
+The exception class is internal to Alpaca, so catch it as `Exception`. The result is still typed `T | Null`; use `.nn` (or a null check) to get a plain `T`:
 
 ```scala sc-compile-with:brain-tokenize
 val (_, parsed) = BrainParser.parse(lexemes)

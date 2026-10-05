@@ -4,7 +4,7 @@ A grammar is ambiguous if a string can be parsed in more than one way. In LR par
 
 ## What is a Parse Table Conflict?
 
-The LR(1) parse table maps (state, lookahead terminal) pairs to actions — either Shift (push the next token) or Reduce (pop a production's right-hand side and produce a non-terminal). A conflict exists when a single (state, terminal) pair has more than one valid action: the parse table has a collision.
+The LALR(1) parse table maps (state, lookahead terminal) pairs to actions — either Shift (push the next token) or Reduce (pop a production's right-hand side and produce a non-terminal). A conflict exists when a single (state, terminal) pair has more than one valid action: the parse table has a collision.
 
 > **Definition — Parse Table Conflict:**
 > A conflict in parse state s exists when the parse table has more than one entry
@@ -16,7 +16,7 @@ The LR(1) parse table maps (state, lookahead terminal) pairs to actions — eith
 
 At some parse state, given lookahead token t, the parser could either shift t (push it and move to a new state) or reduce by some production A → α (pop the right-hand side and produce A). Both are valid actions for the same (state, t) pair — the parser cannot decide between them deterministically.
 
-Why it happens: two or more LR(1) items in the same state propose incompatible actions for the same lookahead. The grammar allows the same prefix to continue in two different ways, and the LR automaton sees both paths simultaneously.
+Why it happens: two or more LR items in the same state propose incompatible actions for the same lookahead. The grammar allows the same prefix to continue in two different ways, and the LR automaton sees both paths simultaneously.
 
 **Example: `1 + 2 + 3` in the calculator grammar.** After parsing `Expr PLUS Expr` with lookahead `PLUS`, the parser has two valid choices:
 
@@ -26,10 +26,10 @@ Why it happens: two or more LR(1) items in the same state propose incompatible a
 Both are valid parse trees for `1 + 2 + 3` — the grammar (from [Context-Free Grammars](cfg.md)) is ambiguous for binary operator chains. Alpaca detects this conflict at compile time and reports:
 
 ```
-Shift "PLUS ($plus)" vs Reduce Expr -> Expr PLUS ($plus) Expr
+Shift "PLUS" vs Reduce Expr -> Expr PLUS Expr (plus)
 In situation like:
-Expr PLUS ($plus) Expr PLUS ($plus) ...
-Consider marking production Expr -> Expr PLUS ($plus) Expr to be before or after "PLUS ($plus)"
+Expr PLUS Expr PLUS ...
+Consider marking production Expr -> Expr PLUS Expr (plus) to be before or after "PLUS"
 ```
 
 ## Reduce/Reduce Conflicts
@@ -39,19 +39,20 @@ A reduce/reduce conflict occurs when two different productions can reduce the sa
 **Example:** if a grammar has both `Integer → NUMBER` and `Float → NUMBER`, and the parser has `NUMBER` on the stack with lookahead `$`, it cannot determine which reduction to apply — both are valid. Alpaca reports:
 
 ```
-Reduce Integer -> Number vs Reduce Float -> Number
+Reduce Float -> NUMBER vs Reduce Integer -> NUMBER
 In situation like:
-Number ...
+NUMBER ...
+Conflicting production: Float -> NUMBER (line 11)
 Consider marking one of the productions to be before or after the other
 ```
 
 Reduce/reduce conflicts are less common than shift/reduce conflicts. They typically indicate a grammar design issue — two rules competing for the same token sequence. The usual fix is to restructure the grammar so the two competing productions have distinct right-hand sides, or to use a different non-terminal.
 
-## How LR(1) Lookahead Helps
+## How Lookahead Helps
 
-LR(1) lookahead often disambiguates conflicts that earlier LR variants (LR(0), SLR) cannot resolve. Each item in the LR(1) item set carries its specific lookahead terminal, so the parser only fires a reduce when the actual next token matches that item's lookahead. This eliminates many spurious conflicts.
+Lookahead (LALR(1) and LR(1)) often disambiguates conflicts that earlier LR variants (LR(0), SLR) cannot resolve. Each item carries its specific lookahead terminal, so the parser only fires a reduce when the actual next token matches that item's lookahead. This eliminates many spurious conflicts.
 
-But for inherently ambiguous grammars — like the calculator's binary operator productions — LR(1) lookahead alone is not enough. The grammar has the same prefix structure regardless of which associativity is intended, so both shift and reduce appear valid to the automaton. Explicit resolution is required.
+But for inherently ambiguous grammars — like the calculator's binary operator productions — lookahead alone is not enough. The grammar has the same prefix structure regardless of which associativity is intended, so both shift and reduce appear valid to the automaton. Explicit resolution is required.
 
 For a detailed explanation of items and lookahead, see [Shift-Reduce Parsing](shift-reduce.md).
 
@@ -95,11 +96,11 @@ The complete CalcParser resolution set — including `minus`, `times`, and `div`
 
 ## Compile-Time Detection
 
-Conflicts are detected at compile time when the LR(1) parse table is constructed by the `extends Parser` macro. A conflict causes a compile error (`ShiftReduceConflict` or `ReduceReduceConflict`) — no conflict checking happens at runtime.
+Conflicts are detected at compile time when the LALR(1) parse table is constructed by the `extends Parser` macro. A conflict causes a compile error (shift/reduce or reduce/reduce) — no conflict checking happens at runtime.
 
-When you add a `given Resolutions[MyParser.type] = resolutions(...)`, the macro incorporates your priority declarations into the table construction and re-checks for consistency. A cycle in your declarations (`InconsistentConflictResolution`) is also reported at compile time.
+When you add a `given Resolutions[MyParser.type] = resolutions(...)`, the macro incorporates your priority declarations into the table construction and re-checks for consistency. A cycle in your declarations ("Inconsistent conflict resolution detected") is also reported at compile time.
 
-> **Compile-time processing:** Alpaca builds the LR(1) parse table when you define `object MyParser extends Parser`. Any conflict — shift/reduce or reduce/reduce — is reported as a compile error immediately, before your code runs. When you add a `given Resolutions[MyParser.type] = resolutions(...)`, the macro incorporates your priority declarations into the table construction and re-checks for consistency.
+> **Compile-time processing:** Alpaca builds the LALR(1) parse table when you define `object MyParser extends Parser`. Any conflict — shift/reduce or reduce/reduce — is reported as a compile error immediately, before your code runs. When you add a `given Resolutions[MyParser.type] = resolutions(...)`, the macro incorporates your priority declarations into the table construction and re-checks for consistency.
 
 ## Cross-links
 

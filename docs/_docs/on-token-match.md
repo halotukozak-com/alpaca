@@ -3,7 +3,7 @@
 The Alpaca lexer and parser are two independent compilation stages connected by a single data contract: the `Lexeme`.
 When you call `tokenize()`, the lexer matches tokens against the input, runs its post-match update after each match, and collects the results into a `List[Lexeme]`.
 When you call `parse()`, the parser consumes that list.
-The post-match update is responsible for advancing the text cursor, applying tracking-field and rule-body context changes, and constructing each lexeme with its context snapshot.
+The post-match update is responsible for applying tracking-field and rule-body context changes and constructing each lexeme with its context snapshot (the text cursor has already advanced past the match by then).
 
 Most programs need nothing more than this:
 
@@ -106,11 +106,11 @@ val LoggingLexer = lexer[BrainLexContext]:
 
 Each call to `tokenize()` follows this sequence:
 
-1. The lexer attempts to match the remaining input against each rule pattern in order. The first match wins. If no pattern matches, the context's `ErrorHandling` strategy decides what happens (by default, a `RuntimeException` with the unexpected character).
-2. Each tracked field's `Tracking` update runs, producing a fresh context via one functional `copy`.
-3. The rule body's context changes (`ctx.field = ...`) are applied, again as a `copy`.
-4. The text cursor (`ctx.text`) advances past the matched string and the matched text is recorded in `ctx.lastRawMatched`.
-5. For a `DefinedToken`, a `Lexeme` is built from the token name, value, and a snapshot of the context's case fields, with `text` set to the matched string. `Token.Ignored` (and recovery tokens) still run steps 2–4 but emit no `Lexeme` — they are invisible to the parser.
+1. The lexer finds the longest prefix of the remaining input that any rule pattern matches; if several patterns match equally long text, the one declared first wins. If no pattern matches, the context's `ErrorHandling` strategy decides what happens (by default, a `RuntimeException` with the unexpected character).
+2. The text cursor (`ctx.text`) advances past the matched string and the matched text is recorded in `ctx.lastRawMatched`.
+3. Each tracked field's `Tracking` update runs, producing a fresh context via one functional `copy`.
+4. The rule body's context changes (`ctx.field = ...`) are applied, again as a `copy`.
+5. For a `DefinedToken`, a `Lexeme` is built from the token name, value, and a snapshot of the context's case fields, with `text` set to the matched string. `Token.Ignored` (and text skipped by the `IgnoreChar`/`IgnoreToken` error strategies) still run steps 2–4 but emit no `Lexeme` — they are invisible to the parser.
 6. This repeats until the entire input is consumed. `tokenize()` then returns the named tuple `(ctx, lexemes)` -- the final context state and the complete lexeme list.
 7. `parse(lexemes)` receives the list, appends `Lexeme.EOF` internally, and runs the parser grammar against the sequence.
 

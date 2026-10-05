@@ -11,9 +11,9 @@ import halotukozak.alpaca.*
 
 The `lexer` block is a Scala 3 macro. At compile time, it:
 
-1. Validates every regex pattern
-2. Checks for overlapping (shadowing) patterns using Alpaca's own [`regex`](https://github.com/halotukozak/regex) library (`SubsetChecker`, a Brzozowski-derivative DFA emptiness check)
-3. Merges all patterns into a single combined regex with named capture groups
+1. Parses and validates every regex pattern with Alpaca's own [`regex`](https://github.com/halotukozak/regex) library
+2. Checks for shadowed patterns (`SubsetChecker`, a Brzozowski-derivative DFA inclusion check)
+3. Builds a single DFA for all patterns at once (`TokenMatcher`)
 4. Generates the tokenization loop
 
 At runtime, `tokenize()` executes the generated code. If a pattern is invalid or shadows another, you get a compile error, not a runtime surprise.
@@ -22,7 +22,7 @@ At runtime, `tokenize()` executes the generated code. If a pattern is invalid or
 
 ## Defining a Lexer
 
-A lexer is defined with the `lexer` block. Each `case` branch maps a regex pattern to a token constructor. Patterns are tried in order; the first match wins.
+A lexer is defined with the `lexer` block. Each `case` branch maps a regex pattern to a token constructor. At each position the lexer takes the **longest** match; when several patterns match equally long text, the one declared first wins.
 
 ```scala sc-name:BrainLexer
 import halotukozak.alpaca.*
@@ -44,7 +44,7 @@ The result is a `Tokenization` object. It can tokenize input strings, provides t
 
 ## Regular Expressions
 
-Patterns are Java regex strings, validated at compile time. Backslashes must be doubled inside Scala string literals: `"\\+"` matches a literal `+`, and `"\\d+"` matches one or more digits.
+Patterns use Java-style regex syntax and are validated at compile time by Alpaca's own regex library (a few Java constructs -- lookbehind, lazy and possessive quantifiers, `\\p{...}` classes -- are not supported; see [Invalid Regex](lexer-error-recovery.md#invalid-regex)). Backslashes must be doubled inside Scala string literals: `"\\+"` matches a literal `+`, and `"\\d+"` matches one or more digits.
 
 ```scala
 import halotukozak.alpaca.*
@@ -63,11 +63,11 @@ val Lexer = lexer:
   // Character classes and quantifiers
   case "[0-9]+" => Token["NUM"]      // one or more digits
   case "[a-zA-Z_][a-zA-Z0-9_]*" => Token["ID"] // identifier
-  case "\\r?\\n" => Token.Ignored    // newline (Unix or Windows)
-  case "\\s+" => Token.Ignored       // whitespace
+  case "\\n" => Token.Ignored        // newline -- on its own so `line` tracking sees it
+  case "[ \\t\\r]+" => Token.Ignored   // other whitespace, including the \r of Windows line endings
 ```
 
-An invalid regex (unmatched parentheses, bad quantifiers) produces a compile-time error. Two patterns that match the same input produce a compile-time shadowing error -- reorder or merge them to fix it.
+An invalid regex (unmatched parentheses, bad quantifiers) produces a compile-time error. A pattern that can never win -- because an earlier one always matches the same text at least as long -- produces a compile-time shadowing error; see [Shadowed Patterns](lexer-error-recovery.md#shadowed-patterns).
 
 ## Tokens
 

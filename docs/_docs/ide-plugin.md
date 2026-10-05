@@ -10,13 +10,21 @@ An Alpaca-defined language is just Scala code: there's no separate grammar file,
 - **Code folding**: any rule whose text spans more than one line becomes a foldable region.
 - **Autocompletion**: suggests every keyword/operator/bracket (anything with a fixed spelling) that's syntactically valid at the caret, computed by replaying the file up to the caret through the parse table.
 - **Comment toggling** (`Ctrl+/`): if your grammar ignores a rule shaped like `prefix.*` (e.g. `#.*` or `//.*`), that prefix becomes the line-comment marker.
+- **Reformat Code**: spaces and indents around your grammar's brackets, commas, semicolons, and dots, however they're spelled.
+- **Brace matching**: the bracket pair at the caret is highlighted, with brackets recognized from the grammar.
+- **Highlight occurrences** of the identifier under the caret, everywhere it appears in the file.
+- **Pair-quote insertion** for grammars whose strings are delimited by `"` or `'`.
+- **TODO markers** in comments feed the TODO tool window and the commit check.
+- **Breadcrumbs** showing the caret's nesting path through the parsed tree.
+- **Quick Documentation** (hover / `Ctrl+Q`): a token's pattern, or a nonterminal's full set of production alternatives.
+- **Alpaca Grammar tool window**: browse the current file's whole grammar -- every token and every production alternative -- in one place.
 
 None of this is per-language code: the plugin discovers grammars dynamically from what's exported, so adding a new `lexer{...}`/`parser` to your project doesn't require touching the plugin at all. It just needs Settings pointed at the right export.
 
 <details>
 <summary>Under the hood</summary>
 
-Every feature above is generic because it only ever looks at two things: a token's regex *pattern* (for highlighting, completion, and comment detection) and the shape of the parsed tree itself (for the Structure View and folding, which only care that a node is composite and where it starts/ends). Nothing about a specific grammar's meaning is hardcoded.
+Every feature above is generic because it only ever looks at the exported grammar: a token's regex *pattern* (for highlighting, completion, comment detection, brackets, and quotes), the productions (for Quick Documentation and the tool window), and the shape of the parsed tree itself (for the Structure View, folding, breadcrumbs, and formatting, which only care that a node is composite and where it starts/ends). Nothing about a specific grammar's meaning is hardcoded.
 
 The parser is a hand-written shift-reduce driver that follows the exported table exactly like Alpaca's own `Parser.unsafeParse` does, except it builds `PsiBuilder` markers instead of your semantic AST. See [Conflict Resolution](conflict-resolution.md) for how that table gets its shift/reduce decisions in the first place.
 
@@ -46,6 +54,8 @@ For every `lexer{...}`/`object MyParser extends Parser`, Alpaca writes:
 | `<name>.tokens.json` | The lexer's token names, patterns, and `ignored` flags |
 | `<name>.productions.json` | The parser's raw productions (left-hand side, right-hand side, optional name) |
 | `<name>.table.json` | The parser's resolved LR table: what the IDE plugin actually drives |
+
+Each file is a JSON envelope `{"version": ..., "context": ...}`: `context` holds the data above, and `version` is the export *format* version (bumped only when the file shape changes, not on every Alpaca release). If the plugin finds a version it doesn't understand -- typically an export written by an older or newer Alpaca -- it shows an "Alpaca grammar export format mismatch" notification instead of misreading the file; rebuilding the project or updating the plugin fixes it.
 
 `<name>` identifies *where* the declaration lives, not just its own name: `<source-file>.<declaration-name>@L<line>`, e.g. a `val BrainLexer = lexer[...]` on line 12 of `Brainfuck.scala` exports as `Brainfuck.BrainLexer@L12`. This disambiguates two grammars that happen to share a name (a common `val Lexer = lexer[...]` reused across multiple test files, say) once they land in the same export directory.
 

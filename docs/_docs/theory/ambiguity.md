@@ -39,27 +39,28 @@ Alpaca reports this as a shift/reduce conflict. Resolution: `production.plus.bef
 
 ## Detecting Ambiguity
 
-Ambiguity in context-free grammars is **undecidable** in general — there is no algorithm that can determine for every CFG whether it is ambiguous. However, LR(1) parsing provides a practical approximation: if the grammar has no shift/reduce or reduce/reduce conflicts, the LR(1) parse table is deterministic and the grammar is unambiguous (for the LR(1) class).
+Ambiguity in context-free grammars is **undecidable** in general — there is no algorithm that can determine for every CFG whether it is ambiguous. However, LR parsing provides a practical approximation: if the grammar has no shift/reduce or reduce/reduce conflicts, the parse table is deterministic and the grammar is unambiguous.
 
-Alpaca catches ambiguity at compile time: when building the LR(1) parse table, any cell with two actions is a conflict and the compiler reports it.
+Alpaca catches ambiguity at compile time: when building the LALR(1) parse table, any cell with two actions is a conflict and the compiler reports it.
 
 ## How Alpaca Reports Ambiguity
 
-**ShiftReduceConflict:**
+**Shift/reduce conflict:**
 
 ```
-Shift "+" vs Reduce Expr -> Expr + Expr
+Shift "+ ($plus)" vs Reduce Expr -> Expr + ($plus) Expr
 In situation like:
-Expr + Expr + ...
-Consider marking production Expr -> Expr + Expr to be before or after "+"
+Expr + ($plus) Expr + ($plus) ...
+Consider marking production Expr -> Expr + ($plus) Expr to be before or after "+ ($plus)"
 ```
 
-**ReduceReduceConflict:**
+**Reduce/reduce conflict:**
 
 ```
-Reduce Integer -> Number vs Reduce Float -> Number
+Reduce Float -> NUMBER vs Reduce Integer -> NUMBER
 In situation like:
-Number ...
+NUMBER ...
+Conflicting production: Float -> NUMBER (line 11)
 Consider marking one of the productions to be before or after the other
 ```
 
@@ -82,10 +83,10 @@ The BrainFuck grammar has no ambiguity. Every token uniquely determines the appl
 - `name!` is a `FunctionCall`
 - All single-character commands map to exactly one `Operation` variant
 
-No two rules compete for the same token sequence, so the LR(1) table has no conflicts.
+No two rules compete for the same token sequence, so the parse table has no conflicts.
 
 ## Cross-links
 
-- See [Conflicts and Disambiguation](conflicts.md) for how LR(1) lookahead resolves conflicts.
+- See [Conflicts and Disambiguation](conflicts.md) for how lookahead resolves conflicts.
 - See [Conflict Resolution](../conflict-resolution.md) for the `before`/`after` DSL.
 - See [Operator Precedence Grammars](operator-precedence.md) for resolving operator ambiguity.

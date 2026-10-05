@@ -9,7 +9,7 @@ A type-safe lexer and parser library for Scala 3, featuring compile-time validat
 - **Compile-time validation** — regex patterns and grammar rules are checked during compilation
 - **Macro-based code generation** — Scala 3 macros generate efficient tokenizers and parse tables
 - **Context-aware** — lexical and parsing contexts with type-safe state management
-- **LR(1) parsing** — automatic parse table generation with conflict detection
+- **LALR(1) parsing** — automatic parse table generation with conflict detection
 - **Cross-platform** — runs on the JVM, Scala.js, and Scala Native
 
 ## Installation
@@ -44,7 +44,7 @@ Add Alpaca to your `build.sbt`:
 libraryDependencies += "com.halotukozak" %% "alpaca" % "0.3.2"
 ```
 
-Make sure you're using Scala 3.9.0 or later and enable the required compiler flags:
+Make sure you're using Scala 3.9.0 or later and enable the required compiler flag (Alpaca 0.3.2 and earlier also need `-experimental`):
 
 ```sbt
 scalaVersion := "3.9.0"

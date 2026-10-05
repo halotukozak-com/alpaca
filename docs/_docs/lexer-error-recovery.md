@@ -5,30 +5,44 @@ The Alpaca lexer provides two layers of error feedback: compile-time validation 
 <details>
 <summary>Under the hood: compile-time validation</summary>
 
-The `lexer` macro validates token definitions at compile time. Pattern shadowing (`ShadowException`), invalid regex syntax, and unsupported guards are caught during compilation. The macro performs pairwise regex inclusion checks using Alpaca's own `regex` library (`SubsetChecker`) to ensure every pattern is reachable.
+The `lexer` macro validates token definitions at compile time. Pattern shadowing, invalid or unsupported regex syntax, and guards are caught during compilation. The macro performs pairwise regex inclusion checks using Alpaca's own `regex` library (`SubsetChecker`) to ensure every pattern is reachable.
 
 </details>
 
 ## Compile-Time Errors
 
-### ShadowException
+### Shadowed Patterns
 
-A `ShadowException` occurs when one pattern can never match because an earlier pattern always matches first. If every string that pattern B can match is also matched by pattern A, and A appears before B, then B is unreachable:
+The lexer uses **longest match**: at each position it takes the longest text any pattern matches, and when several patterns match equally long text, the one declared first wins. A shadowing error occurs when a pattern can never win. The classic case is a keyword declared after a general identifier pattern -- `if` is matched equally long by both, so the identifier always takes it:
 
 ```scala sc:fail
 import halotukozak.alpaca.*
 
-// This does NOT compile -- ShadowException
 val Lexer = lexer:
-  case "[A-Za-z]+" => Token["ID"]            // general: any letters
-  case "[A-Za-z][A-Za-z0-9]*" => Token["WORD"]  // ERROR: shadowed by ID
+  case id @ "[a-z]+" => Token["ID"](id)
+  case "if" => Token["IF"]  // error: shadowed by ID
 ```
 
-The fix: move the more specific pattern before the more general one, or remove the duplicate.
+The compiler reports:
+
+```
+Token "IF" can never match: every input it matches is already matched by "ID",
+which is tried first because it's defined earlier.
+Consider reordering the cases so "IF" comes first, or merging them into one case with
+alternatives, e.g.: case x @ ("ID" | "IF") => Token[x]
+```
+
+The fix: declare the keyword first. Longest match still turns `iffy` into a single `ID`, so keywords never split identifiers.
+
+The check is conservative: it also rejects an earlier pattern that matches a *prefix* of everything a later one matches (for example `"[0-9]+"` before `"[0-9]+(\\.[0-9]+)?"`), and that particular pair is rejected in both orders, because every integer is also a decimal with the fraction omitted. In such cases give the later pattern inputs of its own -- e.g. `"[0-9]+\\.[0-9]+"` before `"[0-9]+"` -- or use a single pattern. See [Shadowing Detection](theory/lexer-fa.md#shadowing-detection) for the details.
 
 ### Invalid Regex
 
-Malformed Java regex patterns -- unmatched parentheses, invalid quantifiers, bad character class syntax -- produce a compile-time error. The message identifies the pattern and includes the underlying regex engine error.
+Patterns use Java-style regex syntax, but they are parsed by Alpaca's own [`regex`](https://github.com/halotukozak/regex) library, not by `java.util.regex`. Malformed patterns -- unmatched parentheses, invalid quantifiers, bad character class syntax -- and the few constructs the library does not support (for example lookbehind `(?<=...)`, lazy quantifiers like `*?`, possessive quantifiers like `++`, and `\\p{...}` classes) produce a compile-time error naming the token and the position in the pattern:
+
+```
+Invalid regex pattern for token "T": unsupported regex feature `lookbehind` (at position 3 in "(?<=a)b")
+```
 
 ### Guards Not Supported
 
@@ -56,7 +70,7 @@ val BrainLexer = lexer[BrainLexContext]:
 
 ## Pattern Ordering
 
-Patterns are tried in the order they appear. The first match wins. The general rule: **more specific patterns before more general ones.**
+The lexer takes the longest match, and on a tie the pattern declared first wins. The general rule: **more specific patterns before more general ones** -- the order only matters where two patterns can match the same text.
 
 In the BrainFuck lexer, this matters for the print command vs the catch-all:
 
@@ -69,20 +83,19 @@ val BrainLexer = lexer:
   case "." => Token.Ignored      // general: any character (catch-all)
 ```
 
-If you reverse the order, `"."` shadows `"\\."` and you get a `ShadowException`.
+If you reverse the order, `"."` shadows `"\\."` and you get a shadowing compile error.
 
-The same applies to keywords vs identifiers. Function names in the extended BrainFuck lexer must come after command tokens:
+Patterns that can never match the same text can go in any order. In the extended BrainFuck lexer, the function-name pattern `"[A-Za-z]+"` and the single-character commands never overlap, so their relative order does not matter -- only the `"."` catch-all has to stay last:
 
 ```scala
 import halotukozak.alpaca.*
 
-// RIGHT -- single-char commands before the general name pattern
 val BrainLexer = lexer:
   case "\\+" => Token["inc"]
   case "-" => Token["dec"]
   // ... other single-char commands ...
-  case name @ "[A-Za-z]+" => Token["functionName"](name)  // general: after commands
-  case "." => Token.Ignored
+  case name @ "[A-Za-z]+" => Token["functionName"](name)  // no overlap with the commands
+  case "." => Token.Ignored                                // catch-all: must come last
 ```
 
 ## Runtime Error Handling
@@ -97,7 +110,7 @@ The default strategy throws a `RuntimeException`:
 Unexpected character at line 1, position 5: '@'
 ```
 
-With `LexerCtx.Default`, the error message includes line and position. With `LexerCtx.Empty` or a custom context without `Column`/`Line` fields, it shows only the character.
+Only `LexerCtx.Default` comes with an `ErrorHandling` that reports line and position. Every other context -- `LexerCtx.Empty` and custom contexts alike, even ones that declare `Column`/`Line` fields -- falls back to a handler that shows only the character (`Unexpected character: '@'`), unless you provide your own `ErrorHandling` as shown below.
 
 ### Error Handling Strategies
 
@@ -141,4 +154,4 @@ Note that the BrainFuck lexer from [Getting Started](getting-started.md) already
 
 - **No skip-and-continue by default.** The default strategy aborts on the first unmatched character. Use a custom `ErrorHandling` or a catch-all pattern for resilience.
 - **Guards are not supported.** Pattern guards in lexer rules are a compile-time error. Move conditions into rule bodies.
-- **Error position is only available with tracking fields.** Without a `Column` or `Line` field (both present in `LexerCtx.Default`), the error message shows only the character, not its location.
+- **Error position is only reported by `LexerCtx.Default`'s handler.** For any other context, define an `ErrorHandling` that reads your `Column`/`Line` fields, as in the `BrainLexContext` example above.
