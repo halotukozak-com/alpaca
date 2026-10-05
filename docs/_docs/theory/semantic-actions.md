@@ -70,8 +70,6 @@ The action table entry is of type `(Ctx, Seq[Any]) => Any` — a function applie
 
 This is why `CalcParser.parse(lexemes)` returns a named tuple `(ctx: Ctx, result: Double | Null)` — not a tree. The semantic actions produce the final value during the parse itself.
 
-Decision confirmed: "Parse tree never exposed in Alpaca — semantic actions evaluated immediately during LR(1) reduce; parse() returns typed value directly." (STATE.md)
-
 The calculator's semantic actions therefore operate as a fold over the parse structure: each reduce step folds the children's values into the parent's value, bottom-up, until the root value is the final result.
 
 ## Typed Results
@@ -80,7 +78,7 @@ Each `Rule[R]` has a declared result type `R`. The semantic action for every pro
 
 For `Rule[Double]`: every `case` clause's `=>` expression must evaluate to `Double`. `a + b` where `a: Double` and `b: Double` returns `Double`. `n.value` for a NUMBER token is `Double` (CalcLexer defines `Token["NUMBER"](num.toDouble)`).
 
-The final result type is the type declared for `root`. For CalcParser: `val root: Rule[Double]`, so `parse()` returns `Double | Null`. The `| Null` handles parse failure (input does not match the grammar).
+The final result type is the type declared for `root`. For CalcParser: `val root: Rule[Double]`, so `parse()` returns `Double | Null`. Input that does not match the grammar makes `parse()` throw an exception rather than return a value.
 
 > **Compile-time processing:** Alpaca collects every `{ case pattern => expression }` block at compile time, extracts the action function, and stores it in the action table indexed by production. At runtime, `parse(lexemes)` looks up the action for each reduction and calls it directly — the Scala type checker has already verified that each action returns the declared `Rule[R]` type.
 

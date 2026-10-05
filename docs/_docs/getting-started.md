@@ -25,12 +25,12 @@ object brainfuck extends ScalaModule {
   def scalaVersion = "3.9.0"
   def scalacOptions = Seq("-Yretain-trees")
   def mvnDeps = Seq(
-    mvn"com.halotukozak::alpaca:0.1.4"
+    mvn"com.halotukozak::alpaca::0.3.2"
   )
 }
 ```
 
-The `-Yretain-trees` flag is required. Alpaca's macros inspect the AST of your lexer and parser definitions at compile time, and this flag tells the compiler to preserve that information.
+The `-Yretain-trees` flag is required. Alpaca's macros inspect the AST of your lexer and parser definitions at compile time, and this flag tells the compiler to preserve that information. Alpaca 0.3.2 and earlier also need the `-experimental` flag; later versions do not.
 
 ## Step 1: The Lexer
 
@@ -252,7 +252,7 @@ import halotukozak.alpaca.*
   // cell 'a' = 6 (two calls to foo, each adding 3), then prints char 6
 ```
 
-The pipeline is always the same: `tokenize` produces lexemes, `parse` produces an AST (or `null` on failure — `.nn` asserts non-null), and you evaluate the result however you want.
+The pipeline is always the same: `tokenize` produces lexemes, `parse` produces an AST (typed `BrainAST | Null`, so `.nn` turns it into a plain `BrainAST`; input that does not match the grammar makes `parse` throw), and you evaluate the result however you want.
 
 ## What's Next
 

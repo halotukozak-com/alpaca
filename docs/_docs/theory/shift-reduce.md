@@ -4,7 +4,7 @@ The shift-reduce loop is the heart of LR parsing. Every LR parser — regardless
 
 ## The Parse Stack
 
-From Alpaca's `Parser.scala` runtime: the stack is a list of `(stateIndex: Int, node: Node)` pairs. The `stateIndex` is a number indexing into the pre-built parse table. The `node` is either a `Lexeme` (for shifted terminals) or a computed value (for reduced non-terminals, after the semantic action has been applied).
+From Alpaca's `Parser.scala` runtime: the stack is kept as two parallel stacks, one of state indices (`stateStack`) and one of nodes (`nodeStack`) -- conceptually a stack of `(stateIndex, node)` pairs. The `stateIndex` is a number indexing into the pre-built parse table. The `node` is either a `Lexeme` (for shifted terminals) or a computed value (for reduced non-terminals, after the semantic action has been applied).
 
 The parser starts with state 0 on an empty stack: `[0]`. Two actions drive the loop:
 
@@ -62,7 +62,7 @@ State numbers 0, 2, 3, 4, 5 are illustrative labels for this simplified 3-produc
 
 ## LR(1) Items and Lookahead
 
-The lookahead in each item determines when a reduce fires. Three example items with dot notation from Alpaca's `Item.scala`:
+The lookahead in each item determines when a reduce fires. Three example items in the dot notation used by Alpaca's `Item.scala`:
 
 ```
 [Expr → • NUMBER, PLUS]        — start state: about to shift NUMBER
@@ -70,13 +70,13 @@ The lookahead in each item determines when a reduce fires. Three example items w
 [Expr → Expr • PLUS Expr, $]   — Expr on stack; shift PLUS if it follows
 ```
 
-In Step 2 of the trace, the item `[Expr → NUMBER •, PLUS]` is active. The lookahead `PLUS` matches the actual next token, so the reduce fires. If the next token were `$` instead (input `1` with no operator), the parser would use item `[Expr → NUMBER •, $]` to reduce — a different item with a different lookahead. This per-item lookahead precision is what gives LR(1) its name and power. See [Why LR?](why-lr.md) for how this compares to LALR(1).
+In Step 2 of the trace, the item `[Expr → NUMBER •, PLUS]` is active. The lookahead `PLUS` matches the actual next token, so the reduce fires. If the next token were `$` instead (input `1` with no operator), the parser would use item `[Expr → NUMBER •, $]` to reduce — a different item with a different lookahead. This per-item lookahead is what LR(1) and Alpaca's LALR(1) have in common; see [Why LR?](why-lr.md) for how the two differ.
 
 ## Connection to Alpaca's Runtime
 
 In Alpaca, this trace corresponds directly to the `loop()` function in `Parser.scala`. Each iteration either calls `ParseAction.Shift(gotoState)` — pushing the lexeme and new state — or `ParseAction.Reduction(production)` — popping `rhs.size` items, calling the action table entry, and pushing the computed value and goto state. The accept condition fires when `lhs == Symbol.Start` and the new state index is 0.
 
-No parse tree object is ever constructed. Each reduce immediately applies the semantic action and pushes the typed result. This is why `CalcParser.parse("1 + 2")` returns `3.0: Double` directly, not an intermediate tree.
+No parse tree object is ever constructed. Each reduce immediately applies the semantic action and pushes the typed result. This is why `CalcParser.parse(CalcLexer.tokenize("1 + 2").lexemes)` returns the `Double` `3.0` directly (as the `result` of the returned `(ctx, result)` tuple), not an intermediate tree.
 
 The shift-reduce loop terminates in O(n) time. Every token is shifted exactly once and participates in at most one reduce per grammar production it belongs to. Since the parse table maps each `(state, symbol)` pair to a single action (shift or reduce), each iteration is a constant-time table lookup. No backtracking occurs — if a conflict exists, Alpaca reports it at compile time rather than exploring alternatives at runtime.
 

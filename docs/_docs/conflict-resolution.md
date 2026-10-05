@@ -1,13 +1,13 @@
 # Conflict Resolution
 
-LR(1) parsing is deterministic: the parser always knows exactly what to do next -- or it reports a conflict at compile time. A conflict arises when the grammar is ambiguous in a way the LR algorithm cannot resolve on its own. Alpaca gives you the `before`/`after` DSL to resolve conflicts by declaring precedence relationships.
+LR parsing is deterministic: the parser always knows exactly what to do next -- or it reports a conflict at compile time. A conflict arises when the grammar is ambiguous in a way the LR algorithm cannot resolve on its own. Alpaca gives you the `before`/`after` DSL to resolve conflicts by declaring precedence relationships.
 
 The BrainFuck grammar from [Getting Started](getting-started.md) has no conflicts -- all tokens are unambiguous. This page uses an arithmetic grammar to illustrate conflicts and their resolution.
 
 <details>
 <summary>Under the hood: compile-time resolution</summary>
 
-When you define a `given Resolutions[MyParser.type] = resolutions(...)`, the Alpaca macro incorporates your precedence declarations into the LR(1) parse table at compile time. Conflicts (`ShiftReduceConflict`, `ReduceReduceConflict`) and cycles (`InconsistentConflictResolution`) are detected and reported as compile errors. At runtime, the resolved table executes deterministically.
+When you define a `given Resolutions[MyParser.type] = resolutions(...)`, the Alpaca macro incorporates your precedence declarations into the LALR(1) parse table at compile time. Conflicts (shift/reduce, reduce/reduce) and cycles in the resolution rules are detected and reported as compile errors. At runtime, the resolved table executes deterministically.
 
 </details>
 
@@ -52,19 +52,41 @@ given Resolutions[CalcParser.type] = resolutions(  // given AFTER
 
 ## Reading the Error Messages
 
-Shift/reduce conflict:
+Without a `given Resolutions`, the `CalcParser` from [Where resolutions Live](#where-resolutions-live) does not compile:
+
+```scala sc-compile-with:cr-plus-lexer sc:fail
+object CalcParser extends Parser: // error
+  val Expr: Rule[Int] = rule(
+    "plus" { case (Expr(a), Lexer.PLUS(_), Expr(b)) => a + b },
+    { case Lexer.NUMBER(n) => n.value },
+  )
+  val root = rule:
+    case Expr(e) => e
+```
+
+The compiler reports a shift/reduce conflict:
 
 ```
-Shift "+" vs Reduce Expr -> Expr + Expr
+Shift "PLUS" vs Reduce Expr -> Expr PLUS Expr (plus)
 In situation like:
-Expr + Expr + ...
-Consider marking production Expr -> Expr + Expr to be before or after "+"
+Expr PLUS Expr PLUS ...
+Consider marking production Expr -> Expr PLUS Expr (plus) to be before or after "PLUS"
 ```
 
-The fix:
+The fix is the rule the message suggests -- here, reducing `plus` before shifting another `PLUS` (left associativity):
 
-```
-production.plus.before(Lexer.PLUS)
+```scala sc-compile-with:cr-plus-lexer
+object CalcParser extends Parser:
+  val Expr: Rule[Int] = rule(
+    "plus" { case (Expr(a), Lexer.PLUS(_), Expr(b)) => a + b },
+    { case Lexer.NUMBER(n) => n.value },
+  )
+  val root = rule:
+    case Expr(e) => e
+
+given Resolutions[CalcParser.type] = resolutions(
+  production.plus.before(Lexer.PLUS),
+)
 ```
 
 ## Naming Productions
@@ -154,7 +176,7 @@ Reading `production.plus.before(Lexer.PLUS, Lexer.MINUS)`: when the parser has r
 
 ## The Production(symbols*) Selector
 
-For unnamed productions, use `Production(symbols*)` to identify them by their right-hand side. Because `resolutions` is now declared *outside* the parser object (see [Where resolutions Live](#where-resolutions-live) below), non-terminals must be qualified with the parser object's name:
+For unnamed productions, use `Production(symbols*)` to identify them by their right-hand side. Because `resolutions` is now declared *outside* the parser object (see [Where resolutions Live](#where-resolutions-live) above), non-terminals must be qualified with the parser object's name:
 
 ```scala sc-compile-with:cr-plusminus-lexer
 import halotukozak.alpaca.Production as P
@@ -250,12 +272,12 @@ given Resolutions[AssignParser.type] = resolutions(
 
 ## Conflict Cycle Detection
 
-The compiler detects cycles in the transitive closure of constraints. A cycle (A before B before C before A) is contradictory and produces an `InconsistentConflictResolution` error showing the full cycle path.
+The compiler detects cycles in the transitive closure of constraints. A cycle (A before B before C before A) is contradictory and produces an "Inconsistent conflict resolution detected" error showing the full cycle path, reported at the rule that closes the cycle.
 
 ## Best Practices
 
 - **Only resolve actual conflicts.** Add resolutions only for conflicts the compiler reports.
 - **Use named productions.** They make resolutions readable and survive refactoring better than `Production(symbols*)`.
-- **Think in terms of trees.** "Higher precedence" (`after`) means the operation appears lower in the parse tree -- it binds tighter.
+- **Think in terms of trees.** `production.plus.after(Lexer.TIMES)` gives `*` higher precedence than `plus`: the `*` operation ends up lower in the parse tree -- it binds tighter.
 
 See [Parser](parser.md) for grammar rules and EBNF operators.

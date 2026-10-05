@@ -64,47 +64,42 @@ To lex a language with multiple token classes, the standard approach builds one 
 theory: construct an NFA for each token pattern, connect them all to a new start state with
 epsilon transitions, then convert the combined NFA to a single DFA.
 
-Alpaca follows the same principle but implements it using Java's regex engine, which is itself
-backed by NFA/DFA machinery:
+Alpaca follows exactly this principle, using its own [`regex`](https://github.com/halotukozak/regex)
+library instead of `java.util.regex`:
 
-- All token patterns are combined into a single Java regex alternation at compile time:
-
-```
-// Conceptual: how Alpaca combines patterns internally
-(?<NUMBER>[0-9]+(\.[0-9]+)?)|(?<PLUS>\+)|(?<MINUS>-)|(?<TIMES>\*)|...
-```
-
-- `java.util.regex.Pattern.compile(...)` is called inside the `lexerImpl` macro at compile
-  time. An invalid regex pattern therefore causes a compile error, not a runtime crash.
-- At runtime, `Tokenization.tokenize()` uses `matcher.lookingAt()` on the combined pattern at
-  the current input position. It then checks which named group matched using
-  `matcher.start(i)` to determine the token class.
-
-In practice, this combined-pattern approach lets Alpaca's lexer scan the input from left to
-right in a single pass, much like a hand-built DFA-based lexer. However, it still relies on
-Java's backtracking regex engine internally, so Alpaca does not claim a strict worst-case O(n)
-time guarantee or the complete absence of backtracking for arbitrary token patterns.
+- At compile time, the `lexer` macro parses every token pattern and builds **one DFA for all of
+  them at once** (`TokenMatcher`), using Brzozowski derivatives rather than an explicit
+  NFA-to-DFA subset construction. Each accepting state is labelled with the token it accepts.
+  An invalid or unsupported pattern is therefore a compile error, not a runtime crash.
+- At runtime, `tokenize()` runs that DFA from the current input position. Every step is an array
+  lookup -- there is no regex backtracking.
+- The lexer uses **longest match** (maximal munch): it consumes the longest prefix of the input
+  that any pattern matches. When several patterns match that same longest prefix, the one
+  declared first wins. For example, with `"if"` declared before `"[a-z]+"`, the input `iffy` is a
+  single identifier, while `if` alone is the keyword.
 
 ## Shadowing Detection
 
-A practical issue with ordered alternation is *shadowing*: pattern A shadows pattern B if every
-string matched by B is also matched by A (that is, L(B) ⊆ L(A), meaning every string in B's
-language is also in A's language), and A appears before B in the lexer definition. If this
-occurs, B will never match — it is dead code.
+Because ties go to the earlier pattern, a later pattern can be dead code: pattern B can never
+produce a token if every string it matches is also matched by some earlier pattern -- on any such
+input the earlier pattern matches at least as much text and wins the tie. Formally, B is shadowed
+when L(B) ⊆ L(A₁) ∪ … ∪ L(Aₙ), where A₁ … Aₙ are the patterns declared before it. Alpaca checks
+this at compile time with its `SubsetChecker` (built on the same derivative-based `regex` library)
+and reports a compile error ("Token ... can never match") pointing at the shadowed pattern.
 
-Alpaca's `SubsetChecker` uses its own `regex` library (a Brzozowski-derivative DFA implementation
-for decidable regex operations) to check at compile time whether any pattern's language is a
-subset of an earlier pattern's language. If shadowing is detected, the macro throws a
-`ShadowException` with a compile error pointing to the offending patterns.
+Typical cases:
 
-**Example:** If you wrote the integer pattern `"[0-9]+"` before the decimal pattern
-`"[0-9]+(\\.[0-9]+)?"`, the integer pattern would shadow the decimal one — every decimal like
-`"3.14"` is also matched by `"[0-9]+"` up to the decimal point, but more critically the integer
-pattern can match the prefix `"3"` and would consume it first. The `SubsetChecker` check catches
-this ordering mistake at compile time rather than silently producing wrong output at runtime.
+- `"."` declared before `"\\."` -- every literal dot is also "any character", so `"\\."` is dead.
+  Declare the specific pattern first.
+- `"[a-z]+"` declared before the keyword `"if"` -- the keyword is dead. With `"if"` first, both
+  work: `if` is the keyword, `iffy` is still one identifier, because longest match wins.
+- `"[0-9]+(\\.[0-9]+)?"` declared before `"[0-9]+"` -- every integer is also a decimal with the
+  fraction omitted, so `"[0-9]+"` never wins. Here the fix is either a single pattern or giving the
+  integer pattern inputs of its own, e.g. `"[0-9]+\\.[0-9]+"` for decimals.
 
-In `CalcLexer`, the decimal pattern `"[0-9]+(\\.[0-9]+)?"` is listed first, before any simpler
-integer-only pattern, so no shadowing occurs.
+A pattern that an earlier one merely matches a *prefix* of is fine: with `"a"` before `"ab"`, the
+input `ab` is a single `ab` token. The check also catches a pattern covered only by several earlier
+patterns together (`"[a-m]"` and `"[n-z]"` before `"[a-z]"`) and names all of them.
 
 ## Cross-links
 

@@ -11,9 +11,9 @@ import halotukozak.alpaca.*
 
 The `lexer` block is a Scala 3 macro. At compile time, it:
 
-1. Validates every regex pattern
-2. Checks for overlapping (shadowing) patterns using Alpaca's own [`regex`](https://github.com/halotukozak/regex) library (`SubsetChecker`, a Brzozowski-derivative DFA emptiness check)
-3. Merges all patterns into a single combined regex with named capture groups
+1. Parses and validates every regex pattern with Alpaca's own [`regex`](https://github.com/halotukozak/regex) library
+2. Checks for shadowed patterns (`SubsetChecker`, a Brzozowski-derivative DFA inclusion check)
+3. Builds a single DFA for all patterns at once (`TokenMatcher`)
 4. Generates the tokenization loop
 
 At runtime, `tokenize()` executes the generated code. If a pattern is invalid or shadows another, you get a compile error, not a runtime surprise.
@@ -22,7 +22,7 @@ At runtime, `tokenize()` executes the generated code. If a pattern is invalid or
 
 ## Defining a Lexer
 
-A lexer is defined with the `lexer` block. Each `case` branch maps a regex pattern to a token constructor. Patterns are tried in order; the first match wins.
+A lexer is defined with the `lexer` block. Each `case` branch maps a regex pattern to a token constructor. At each position the lexer takes the **longest** match; when several patterns match equally long text, the one declared first wins (see [How a Token Is Chosen](#how-a-token-is-chosen)).
 
 ```scala sc-name:BrainLexer
 import halotukozak.alpaca.*
@@ -42,9 +42,57 @@ val BrainLexer = lexer:
 
 The result is a `Tokenization` object. It can tokenize input strings, provides typed accessors for each defined token (e.g., `BrainLexer.inc`), and exposes a `.tokens` list for introspection (`BrainLexer.tokens` returns all defined tokens including ignored ones).
 
+## How a Token Is Chosen
+
+A `lexer` block looks like a Scala `match`, but it does **not** pick the first `case` that fits. At each position in the input:
+
+1. every pattern is tried against the remaining input,
+2. the pattern that matches the **longest** text wins (*longest match*, also called *maximal munch*),
+3. only when several patterns match text of the same length does declaration order decide: the `case` declared first wins.
+
+This is the rule used by flex, JFlex and ocamllex (which, like Alpaca, writes its rules in `match`-like syntax).
+
+```scala sc-name:longest-match
+import halotukozak.alpaca.*
+
+val Lexer = lexer:
+  case "=" => Token["ASSIGN"]
+  case "==" => Token["EQ"]
+  case "if" => Token["IF"]
+  case id @ "[a-z]+" => Token["ID"](id)
+  case "\\s+" => Token.Ignored
+
+println(Lexer.tokenize("== = if iffy").lexemes.map(_.name)) // List(EQ, ASSIGN, IF, ID)
+```
+
+`"=="` beats the earlier `"="` because it is longer. `if` is matched equally long by `IF` and `ID`, so the earlier `IF` wins the tie. `iffy` is longer only for `ID`, so it stays a single identifier instead of splitting into `if` + `fy`.
+
+In practice this means:
+
+- **Patterns that extend each other can go in any order.** `"="` and `"=="`, or `"[0-9]+"` and `"[0-9]+\\.[0-9]+"`, work either way round.
+- **Keywords go before the identifier pattern.** That order only decides the exact tie. The other order is a compile-time error, because the keyword could never win (see [Shadowed Patterns](lexer-error-recovery.md#shadowed-patterns)).
+- **Ignored patterns compete too.** A comment pattern `"//[^\n]*"` beats a `"/"` operator wherever both match, because it is longer.
+
+Longest match decides one token at a time, so it has some consequences that surprise people coming from `match`:
+
+- **It does not look at what comes next.** With `"-?[0-9]+"` for numbers and `"-"` for minus, `1-2` lexes as `1` followed by `-2`, because `-2` is longer than `-`. Handle the sign in the parser instead of in the number pattern.
+- **It never backtracks.** With `"a"`, `"ab"` and `"bc"`, the input `abc` fails at `c`. The lexer commits to the longest `ab` and does not go back to try `a` + `bc`.
+- **A single pattern takes as much as it can.** `"/\\*.*\\*/"` reads `/* a */ x /* b */` as one comment. Exclude the closing delimiter from the body instead, since lazy quantifiers are not supported:
+
+```scala sc-name:longest-match-comment
+import halotukozak.alpaca.*
+
+val Lexer = lexer:
+  case "/\\*([^*]|\\*+[^*/])*\\*+/" => Token.Ignored
+  case id @ "[a-z]+" => Token["ID"](id)
+  case "\\s+" => Token.Ignored
+
+println(Lexer.tokenize("/* a */ x /* b */").lexemes.map(_.name)) // List(ID)
+```
+
 ## Regular Expressions
 
-Patterns are Java regex strings, validated at compile time. Backslashes must be doubled inside Scala string literals: `"\\+"` matches a literal `+`, and `"\\d+"` matches one or more digits.
+Patterns use Java-style regex syntax and are validated at compile time by Alpaca's own regex library (a few Java constructs -- lookbehind, lazy and possessive quantifiers, `\\p{...}` classes -- are not supported; see [Invalid Regex](lexer-error-recovery.md#invalid-regex)). Backslashes must be doubled inside Scala string literals: `"\\+"` matches a literal `+`, and `"\\d+"` matches one or more digits.
 
 ```scala
 import halotukozak.alpaca.*
@@ -63,11 +111,11 @@ val Lexer = lexer:
   // Character classes and quantifiers
   case "[0-9]+" => Token["NUM"]      // one or more digits
   case "[a-zA-Z_][a-zA-Z0-9_]*" => Token["ID"] // identifier
-  case "\\r?\\n" => Token.Ignored    // newline (Unix or Windows)
-  case "\\s+" => Token.Ignored       // whitespace
+  case "\\n" => Token.Ignored        // newline -- on its own so `line` tracking sees it
+  case "[ \\t\\r]+" => Token.Ignored   // other whitespace, including the \r of Windows line endings
 ```
 
-An invalid regex (unmatched parentheses, bad quantifiers) produces a compile-time error. Two patterns that match the same input produce a compile-time shadowing error -- reorder or merge them to fix it.
+An invalid regex (unmatched parentheses, bad quantifiers) produces a compile-time error. A pattern that can never win -- because an earlier one always matches the same text at least as long -- produces a compile-time shadowing error; see [Shadowed Patterns](lexer-error-recovery.md#shadowed-patterns).
 
 ## Tokens
 

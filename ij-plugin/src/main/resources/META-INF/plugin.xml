@@ -33,7 +33,7 @@
     </ul>
     <p>
       Point <b>Settings | Tools | Alpaca</b> at your grammar export directory and map file extensions
-      to grammars. See the <a href="https://halotukozak-com.github.io/alpaca/docs/ide-plugin.html">documentation</a>
+      to grammars. See the <a href="https://alpaca.halotukozak.com/docs/tooling/ide-plugin.html">documentation</a>
       for details.
     </p>
   ]]></description>

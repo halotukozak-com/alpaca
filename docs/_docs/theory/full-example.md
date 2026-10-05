@@ -44,7 +44,7 @@ The bare CalcParser definition — grammar productions with semantic actions but
 ```scala sc-compile-with:calc-lexer sc:fail
 import halotukozak.alpaca.*
 
-object CalcParser extends Parser:
+object CalcParser extends Parser: // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error
   val Expr: Rule[Double] = rule(
     "plus"  { case (Expr(a), CalcLexer.PLUS(_),   Expr(b)) => a + b },
     "minus" { case (Expr(a), CalcLexer.MINUS(_),  Expr(b)) => a - b },
@@ -55,16 +55,16 @@ object CalcParser extends Parser:
   )
   val root: Rule[Double] = rule:
     case Expr(v) => v
-// ↑ Compile error: ShiftReduceConflict
+// ↑ Compile error: shift/reduce conflicts
 ```
 
-The compile error message:
+The compiler reports one shift/reduce conflict per (operator, production) pair -- 16 in total, one per `// error` marker above. The first of them:
 
 ```
-Shift "PLUS ($plus)" vs Reduce Expr -> Expr PLUS ($plus) Expr
+Shift "PLUS" vs Reduce Expr -> Expr PLUS Expr (plus)
 In situation like:
-Expr PLUS ($plus) Expr PLUS ($plus) ...
-Consider marking production Expr -> Expr PLUS ($plus) Expr to be before or after "PLUS ($plus)"
+Expr PLUS Expr PLUS ...
+Consider marking production Expr -> Expr PLUS Expr (plus) to be before or after "PLUS"
 ```
 
 The parser does not know whether `1 + 2 + 3` should reduce `1 + 2` first (left-associative) or shift the second `+` first. This is a shift/reduce conflict — both actions are valid for the same parse state and lookahead. See [Conflicts & Disambiguation](conflicts.md) for the formal theory.
@@ -110,7 +110,7 @@ For the full conflict resolution DSL — including `Production(symbols*)` select
 
 ## Step 5: Running the Calculator
 
-With conflict resolution in place, the compiler builds the LR(1) parse table without errors. The parser is ready:
+With conflict resolution in place, the compiler builds the LALR(1) parse table without errors. The parser is ready:
 
 ```scala sc-compile-with:full-example-parser
 val (_, lexemes) = CalcLexer.tokenize("1 + 2 * 3")
@@ -121,11 +121,11 @@ val (_, l2) = CalcLexer.tokenize("(1 + 2) * 3")
 val (_, r2) = CalcParser.parse(l2)
 // r2: Double | Null = 9.0       (parentheses override precedence)
 
-// Always check for null before using result:
+// result is typed Double | Null:
 if result != null then println(result)
 ```
 
-`1 + 2 * 3 = 7.0` (not 9.0) confirms that the `times`/`div` resolutions give `*` higher precedence than `+`. Parentheses `(1 + 2) * 3 = 9.0` override precedence as expected. Always check `result != null` before using the value — `null` indicates a parse failure (input not matched by the grammar); see [Parser](../parser.md).
+`1 + 2 * 3 = 7.0` (not 9.0) confirms that the `times`/`div` resolutions give `*` higher precedence than `+`. Parentheses `(1 + 2) * 3 = 9.0` override precedence as expected. The result is typed `Double | Null`, so check it (or use `.nn`) before using it as a `Double`. Input that the grammar does not match, such as `1 + * 2`, makes `parse()` throw an exception instead; see [Parser](../parser.md#parsing-input).
 
 ## Step 6: Semantic Action Trace
 
@@ -155,7 +155,7 @@ The `times` conflict resolution caused the parser to reduce `2 * 3` before compl
 
 ## What Compile Time Does
 
-> **Compile-time processing:** Every part of CalcParser shown above is processed at compile time. The `lexer` macro compiles the token patterns and generates the tokenizer. The `extends Parser` macro reads the `rule` declarations, builds the complete LR(1) parse table, incorporates the `resolutions` priority rules, and reports any conflicts immediately. At runtime, `tokenize()` and `parse()` execute the pre-built tables — no grammar analysis happens at runtime.
+> **Compile-time processing:** Every part of CalcParser shown above is processed at compile time. The `lexer` macro compiles the token patterns and generates the tokenizer. The `extends Parser` macro reads the `rule` declarations, builds the complete LALR(1) parse table, incorporates the `resolutions` priority rules, and reports any conflicts immediately. At runtime, `tokenize()` and `parse()` execute the pre-built tables — no grammar analysis happens at runtime.
 
 ## Theory to Code
 
@@ -163,11 +163,11 @@ Each piece of the CalcParser traces back to a theory concept:
 
 | What you wrote | Theory behind it |
 |---|---|
-| `val CalcLexer = lexer:` | Lexical analysis, regex → NFA → DFA — see [The Lexer: Regex to Finite Automata](lexer-fa.md) |
+| `val CalcLexer = lexer:` | Lexical analysis, regex → DFA — see [The Lexer: Regex to Finite Automata](lexer-fa.md) |
 | BNF grammar in `rule(...)` | Context-free grammars — see [Context-Free Grammars](cfg.md) |
-| `extends Parser` generates LR(1) table | LR parse table construction — see [Why LR?](why-lr.md) |
+| `extends Parser` generates LALR(1) table | LR parse table construction — see [Why LR?](why-lr.md) |
 | Shift/reduce loop | LR parse mechanics — see [Shift-Reduce Parsing](shift-reduce.md) |
-| `ShiftReduceConflict` compile error | Grammar ambiguity — see [Conflicts & Disambiguation](conflicts.md) |
+| Shift/reduce conflict compile error | Grammar ambiguity — see [Conflicts & Disambiguation](conflicts.md) |
 | `given Resolutions[CalcParser.type] = resolutions(...)` | Conflict resolution — see [Conflict Resolution](../conflict-resolution.md) |
 | `case (Expr(a), ...) => a + b` | Semantic actions — see [Semantic Actions](semantic-actions.md) |
 | `parse()` returns `7.0: Double` | Typed results via S-attributed translation |
@@ -176,7 +176,7 @@ Each piece of the CalcParser traces back to a theory concept:
 
 - [Tokens and Lexemes](tokens.md) — CalcLexer's token definitions
 - [Context-Free Grammars](cfg.md) — the calculator grammar and parse trees
-- [Why LR?](why-lr.md) — why LR(1) was chosen over LL alternatives
+- [Why LR?](why-lr.md) — why LR parsing was chosen over LL alternatives
 - [Shift-Reduce Parsing](shift-reduce.md) — the shift/reduce loop step by step
 - [Conflicts & Disambiguation](conflicts.md) — why conflicts arise and the priority model
 - [Semantic Actions](semantic-actions.md) — how typed values are computed during reduce

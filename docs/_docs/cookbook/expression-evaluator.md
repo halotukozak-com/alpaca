@@ -30,7 +30,7 @@ Named productions (`"plus"`, `"times"`, etc.) let us reference specific alternat
 ```scala sc-compile-with:calc-lexer sc:fail
 import halotukozak.alpaca.*
 
-object CalcParser extends Parser:
+object CalcParser extends Parser: // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error
   val root: Rule[Double] = rule:
     case Expr(v) => v
 
@@ -53,7 +53,7 @@ object CalcParser extends Parser:
   )
 ```
 
-Without conflict resolution, this grammar is ambiguous -- the compiler reports shift/reduce conflicts for every binary operator.
+Without conflict resolution, this grammar is ambiguous -- the compiler reports shift/reduce conflicts for every operator production (30 in total, one per `// error` marker above).
 
 ## Conflict Resolution
 

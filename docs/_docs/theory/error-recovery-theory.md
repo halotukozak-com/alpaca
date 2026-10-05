@@ -97,9 +97,9 @@ Alpaca provides four `ErrorHandling` strategies (see [Error Recovery](../lexer-e
 
 Alpaca's parser currently has minimal error recovery:
 
-- On a parse table miss (no action for the current state and token), `parse()` returns `null` for the result
+- On a parse table miss (no action for the current state and token), `parse()` throws an exception whose message names the unexpected token and the expected symbols, e.g. `Unexpected symbol 'PLUS' in state 4. Expected one of: Expr, NUM`
 - No panic mode, phrase-level recovery, or error productions
-- No structured error information (error position, expected tokens, etc.)
+- No structured error information: the exception class is internal, and the source position of the offending token is not part of the message (the token's `Lexeme` carries `position`/`line` if the lexer tracks them)
 
 ### Semantic
 
@@ -138,5 +138,5 @@ This throws a `RuntimeException` on semantic errors. For better error reporting,
 ## Cross-links
 
 - See [Error Recovery](../lexer-error-recovery.md) for the lexer error handling API.
-- See [Parser](../parser.md) for the `parse()` return type and null-result semantics.
+- See [Parser](../parser.md) for the `parse()` return type and what happens on invalid input.
 - See [Parser Context](../parser-context.md) for accumulating semantic errors in a custom context.

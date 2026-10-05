@@ -139,7 +139,7 @@ object Token:
  * `count` is an immutable `val` — the real getter always wins over the
  * structural one, but the structural setter is used since there is no real
  * one. The `lexer` macro then rewrites every such structural assignment back
- * into a `copy` (see [[RewriteCtxMutations]]) before the rule is compiled, so
+ * into a `copy` (see `rewriteCtxMutations`) before the rule is compiled, so
  * the structural setter is never actually invoked at runtime for a `case
  * class` context: this type exists purely to make the mutation-looking
  * syntax type-check. Contexts that still declare `var` fields are
@@ -269,7 +269,7 @@ object LexerCtx:
    * for error reporting. The `text` field is inherited from [[LexerCtx]].
    *
    * `position` and `line` are immutable `val`s of a subtype of `Int`:
-   * [[Tracking.materialize]] finds each fragment's `given Tracking` and threads a
+   * `Tracking.materialize` finds each fragment's `given Tracking` and threads a
    * fresh `copy` of this case class through the lexer rather than mutating a
    * field in place. Read them as plain `Int`s (`ctx.line`, `ctx.position`).
    *

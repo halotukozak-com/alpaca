@@ -204,14 +204,16 @@ given Resolutions[ExtendedParser.type] = resolutions(
 )
 ```
 
-Without the resolutions, the compiler reports:
+Without the resolutions, the compiler reports one conflict per (operator, production) pair, for example:
 
 ```
-Shift "*" vs Reduce Expr -> Expr + Expr
+Shift "* ($times)" vs Reduce Expr -> Expr + ($plus) Expr (add)
 In situation like:
-Expr + Expr * ...
-Consider marking production Expr -> Expr + Expr to be before or after "*"
+<synthetic from Operation_> + ($plus) ( ($u0028) Expr + ($plus) Expr * ($times) ...
+Consider marking production Expr -> Expr + ($plus) Expr (add) to be before or after "* ($times)"
 ```
+
+Token names that are not valid Scala identifiers are shown together with their encoded form (`+ ($plus)`), and named productions with their name (`(add)`).
 
 The resolutions establish: `*`/`/` bind tighter than `+`/`-`, and all operators are left-associative. Now `+(3+2*4)` correctly evaluates to `+(11)` — adding 11 to the current cell.
 
@@ -221,7 +223,7 @@ Alpaca treats `before` and `after` constraints as a partial order over productio
 
 This matters for grammars with many precedence levels. For C-like operators (`*`, `+`, `<`, `&&`, `||`), declaring `mul.before(add).before(cmp).before(and).before(or)` is enough; pairwise constraints between non-adjacent levels are derived.
 
-Cycles in the constraint graph are contradictions. If the closure ever produces both `A.before(B)` and `A.after(B)` (directly or indirectly through other productions), the compiler rejects the resolution set with an `InconsistentConflictResolution` error showing the full cycle path. This catches mistakes like declaring `mul.before(add)` together with `add.before(mul)` — even when the contradiction is not direct.
+Cycles in the constraint graph are contradictions. If the closure ever produces both `A.before(B)` and `A.after(B)` (directly or indirectly through other productions), the compiler rejects the resolution set with an "Inconsistent conflict resolution detected" error showing the full cycle path. This catches mistakes like declaring `mul.before(add)` together with `add.before(mul)` — even when the contradiction is not direct.
 
 The detection runs at compile time, so a grammar that compiles is guaranteed to have a consistent precedence ordering.
 
