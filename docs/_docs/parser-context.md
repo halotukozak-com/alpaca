@@ -120,18 +120,6 @@ The initial context is created once per `parse()` call. There is no per-rule cop
 
 ## Positional Info from Lexemes, Not ctx
 
-`ParserCtx` and `LexerCtx` are independent. The parser context has no `text`, `position`, or `line` fields. To access positional information, use the `Lexeme` binding:
+`ParserCtx` and `LexerCtx` are independent: the parser context has no `text`, `position`, or `line`. Positions come from the lexemes a rule binds -- `name.position` and `name.line` after `BrainLexer.functionName(name)`, when the lexer context tracks them (see [Lexeme Bindings](extractors.md#lexeme-bindings)).
 
-```scala sc-compile-with:brain-defs
-object BrainParser extends Parser:
-  val root: Rule[(String, Int, Int)] = rule:
-    case BrainLexer.functionName(name) =>
-      val funcName = name.value      // String -- the function name
-      val pos = name.position        // Int -- 1-based column within the line
-      val ln = name.line             // Int -- line number from lexer
-      (funcName, pos, ln)
-```
-
-The `position` and `line` fields come from the lexer context snapshot. They are available when the lexer uses `LexerCtx.Default` or a custom context with `Column`/`Line` fields. See [Lexer Context](lexer-context.md) for details.
-
-See [Extractors](extractors.md) for the full `Lexeme` field reference. See [Parser](parser.md) for grammar rules and EBNF operators.
+See [Parser](parser.md) for grammar rules and EBNF operators.
