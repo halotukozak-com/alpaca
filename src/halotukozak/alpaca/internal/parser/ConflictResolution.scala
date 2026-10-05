@@ -21,7 +21,7 @@ private[parser] object ConflictKey:
   /** In the same form conflict messages use: productions as `lhs -> rhs (name)`, tokens quoted. */
   given Showable[ConflictKey] =
     case p: Production => p.show
-    case s: String => show"\"$s\""
+    case s: String => show"\"${Symbol.printable(s)}\""
 
 /**
  * Opaque type representing a table of conflict resolution rules.

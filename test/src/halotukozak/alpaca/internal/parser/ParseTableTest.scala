@@ -18,6 +18,10 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
 
   case class CalcContext() extends ParserCtx
 
+  val TabLexer = lexer:
+    case "\t" => Token["\t"]
+    case value @ "[1-9][0-9]*" => Token["Num"](value.toInt)
+
   test("parse table Shift-Reduce conflict") {
     typeCheckErrors("""
     object ShiftReduceCalcParser extends Parser[CalcContext]:
@@ -47,6 +51,31 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
                                               |Expr + Expr + ...
                                               |Consider marking production Expr -> Expr + Expr to be before or after "+"
                                               |""".stripMargin)
+  }
+
+  test("conflict messages escape non-printable token names") {
+    // a token named by a real tab, referenced through a backquoted identifier holding that tab
+    typeCheckErrors(
+      "object TabParser extends Parser[CalcContext]:\n" + "  val Expr: Rule[Int] = rule(\n" +
+        "    { case (Expr(a), TabLexer.`\t`(_), Expr(b)) => a + b },\n" +
+        "    { case TabLexer.Num(lexem) => lexem.value },\n" + "  )\n" + "  val root = rule:\n" +
+        "    case Expr(e) => e\n",
+    ).loneElement.message should include("""
+                                           |Shift "\t" vs Reduce Expr -> Expr \t Expr
+                                           |In situation like:
+                                           |Expr \t Expr \t ...
+                                           |Consider marking production Expr -> Expr \t Expr to be before or after "\t"
+                                           |""".stripMargin)
+  }
+
+  test("conflict resolution cycle messages escape non-printable token names") {
+    typeCheckErrors(
+      "object TabCycleParser extends Parser[CalcContext]:\n" +
+        "  val A = rule(\"A\" { case TabLexer.Num(lexem) => lexem.value })\n" + "  val B = rule:\n" +
+        "    case TabLexer.`\t`(_) => 0\n" + "  val root = rule:\n" + "    case A(a) => a\n" + "\n" +
+        "given Resolutions[TabCycleParser.type] = resolutions(\n" + "  production.A.before(TabLexer.`\t`),\n" +
+        "  TabLexer.`\t`.before(P(TabLexer.`\t`)),\n" + "  P(TabLexer.`\t`).before(production.A),\n" + ")\n",
+    ).loneElement.message should include("""A -> Num (A) before "\t" before B -> \t before A -> Num (A)""")
   }
 
   test("conflict messages show EBNF non-terminals as the extractor that created them") {

@@ -81,6 +81,18 @@ object Terminal:
 
   type NonEmpty = Symbol { type IsEmpty = false }
 
+  /**
+   * `name` with the characters that would not show up in a message (line breaks, tabs, other control and format
+   * characters) written as Scala escapes, so a token named `"\t"` reads as `\t` instead of a blank.
+   */
+  private[parser] def printable(name: String): String =
+    name.flatMap:
+      case '\n' => "\\n"
+      case '\r' => "\\r"
+      case '\t' => "\\t"
+      case c if c.isControl || Character.getType(c) == Character.FORMAT => "\\u%04x".format(c.toInt)
+      case c => c.toString
+
   /** The augmented start symbol used internally by the parser. */
   val Start: NonTerminal { type IsEmpty = false } = NonTerminal("S'")
 
@@ -103,11 +115,13 @@ object Terminal:
   /**
    * Symbols are shown as the user wrote them: token names unencoded (`+`, not `$plus`), and the non-terminals the
    * EBNF extractors synthesize by the extractor they stand for (`Operation.List`), without the uniqueness suffix.
+   * Characters that would not show up in a message are escaped (see `Symbol.printable`).
    */
   given Showable[Symbol] = symbol =>
-    symbol.name.indexOf(s"_${SyntheticInfix}_") match
+    val name = symbol.name.indexOf(s"_${SyntheticInfix}_") match
       case -1 => symbol.name
       case end => symbol.name.substring(0, end)
+    Symbol.printable(name)
 
   // $COVERAGE-OFF$
   given [S <: Symbol] => ToExpr[S]:
