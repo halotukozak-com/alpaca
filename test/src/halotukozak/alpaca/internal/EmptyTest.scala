@@ -22,12 +22,18 @@ final class EmptyTest extends AnyFunSuite with Matchers:
 
   case class Mixed(a: Int, b: String = "b") // has a param without default -> should fail
 
+  case object Singleton
+
   test("derived produces an instance using all default arguments for a simple case class") {
     empty[WithDefaults]() shouldEqual WithDefaults()
   }
 
   test("derived works for zero-arity case class") {
     empty[Zero]() shouldEqual Zero()
+  }
+
+  test("derived returns the object itself for a case object") {
+    (empty[Singleton.type]() should be).theSameInstanceAs(Singleton)
   }
 
   test("derived supports nested case classes and common containers when defaults are provided") {

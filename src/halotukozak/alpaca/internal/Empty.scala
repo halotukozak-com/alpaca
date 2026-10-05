@@ -12,7 +12,8 @@ import halotukozak.made.label
  * A type class for creating empty instances of types.
  *
  * This trait provides a way to create default instances of Product types (case classes)
- * by using their default parameter values. It extends Function0 to act as a factory.
+ * by using their default parameter values, or the instance itself for objects. It extends
+ * Function0 to act as a factory.
  *
  * @tparam T the type to create empty instances of
  */
@@ -35,12 +36,14 @@ object Empty:
    * Automatically derives an Empty instance for any Product type with default parameters.
    *
    * This macro-based derivation uses the default values of constructor parameters
-   * to create a factory for the type.
+   * to create a factory for the type; for an object, the factory returns the object.
    *
    * @tparam T the Product type to derive Empty for
    * @return an Empty instance that creates default instances
    */
   inline given derived[T <: Product: Made.Of as m]: Empty[T] = inline m match
+    case m: Made.SingletonOf[T] =>
+      () => m.value
     case m: Made.ProductOf[T] =>
       () => m.fromTuple(collectDefaults(m.elems).asInstanceOf[m.ElemTypes])
     case _ =>

@@ -172,6 +172,14 @@ final class ParserApiTest extends AnyFunSuite with Matchers:
       case ParseResult.Success(_, (1, None, List(3))) =>
   }
 
+  test("a parser without a context type uses the shared ParserCtx.Empty") {
+    object StatelessParser extends Parser:
+      val root = rule:
+        case CalcLexer.NUMBER(n) => n.value
+
+    (StatelessParser.parse(CalcLexer.tokenize("42").lexemes).ctx should be).theSameInstanceAs(ParserCtx.Empty)
+  }
+
   test("a rule can return a lexeme") {
     // a parser local to a method used to crash the compiler's -Wsafe-init checker on the lexeme's type (#605)
     object LexemeParser extends Parser[CalcContext]:
