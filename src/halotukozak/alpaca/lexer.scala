@@ -99,8 +99,8 @@ object Token:
    * @return a token definition
    */
   @compileTimeOnly("Should never be called outside the lexer definition")
-  def apply[Name <: ValidName](using ctx: LexerCtx): Token[Name, ctx.type, String] =
-    new Token[Name, ctx.type, String]
+  def apply[Name <: ValidName](using ctx: LexerCtx): Token[Name, ctx.type, Unit] =
+    new Token[Name, ctx.type, Unit]
 
   /**
    * Creates a token whose lexemes carry `value`, typically computed from the bound match.
