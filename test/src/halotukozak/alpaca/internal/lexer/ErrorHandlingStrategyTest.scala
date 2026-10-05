@@ -1,8 +1,7 @@
 package halotukozak
 package alpaca.internal.lexer
 
-import halotukozak.alpaca.{lexer, LexError, LexerCtx, Result, Token}
-import halotukozak.alpaca.internal.lexer.ErrorHandling
+import halotukozak.alpaca.{lexer, ErrorHandling, LexError, LexerCtx, Result, Token}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -14,7 +13,7 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
       case Result.Success(_, _) => fail("expected a failure")
 
   test("Strategy.Stop stops tokenization, reports the error and recovers nothing") {
-    given ErrorHandling[LexerCtx.Default] = _ => ErrorHandling.Strategy.Stop
+    given ErrorHandling[LexerCtx.Default, LexError] = (_, _) => ErrorHandling.Strategy.Stop
 
     val L = lexer:
       case "a" => Token["A"]
@@ -25,11 +24,11 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
     result.ctx.text.toString shouldBe "" // Stop currently sets text to empty string
   }
 
-  test("Strategy.IgnoreChar skips one character, reports it and recovers the lexemes") {
+  test("Strategy.SkipOne skips one character, reports it and recovers the lexemes") {
     var ignoredChars = 0
-    given ErrorHandling[LexerCtx.Default] = _ =>
+    given ErrorHandling[LexerCtx.Default, LexError] = (_, _) =>
       ignoredChars += 1
-      ErrorHandling.Strategy.IgnoreChar
+      ErrorHandling.Strategy.SkipOne
 
     val L = lexer:
       case "a" => Token["A"]
@@ -40,11 +39,11 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
     ignoredChars shouldBe 1
   }
 
-  test("Strategy.IgnoreToken skips until the next match and reports each skipped run") {
+  test("Strategy.SkipToNextMatch skips until the next match and reports each skipped run") {
     var ignoredTokens = 0
-    given ErrorHandling[LexerCtx.Default] = _ =>
+    given ErrorHandling[LexerCtx.Default, LexError] = (_, _) =>
       ignoredTokens += 1
-      ErrorHandling.Strategy.IgnoreToken
+      ErrorHandling.Strategy.SkipToNextMatch
 
     val L = lexer:
       case "a" => Token["A"]
@@ -57,11 +56,11 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
     ignoredTokens shouldBe 2
   }
 
-  test("Strategy.IgnoreToken skips only the character if no token matches after it") {
+  test("Strategy.SkipToNextMatch skips only the character if no token matches after it") {
     var ignoredTokens = 0
-    given ErrorHandling[LexerCtx.Default] = _ =>
+    given ErrorHandling[LexerCtx.Default, LexError] = (_, _) =>
       ignoredTokens += 1
-      ErrorHandling.Strategy.IgnoreToken
+      ErrorHandling.Strategy.SkipToNextMatch
 
     val L = lexer:
       case "a" => Token["A"]
@@ -73,8 +72,8 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
   }
 
   test("a stop after a skip recovers nothing but reports both errors") {
-    given ErrorHandling[LexerCtx.Default] = ctx =>
-      if ctx.remainingText.charAt(0) == '!' then ErrorHandling.Strategy.IgnoreChar else ErrorHandling.Strategy.Stop
+    given ErrorHandling[LexerCtx.Default, LexError] = (ctx, _) =>
+      if ctx.remainingText.charAt(0) == '!' then ErrorHandling.Strategy.SkipOne else ErrorHandling.Strategy.Stop
 
     val L = lexer:
       case "a" => Token["A"]
@@ -103,11 +102,25 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
     L.tokenize("a\naab").failure.errors shouldBe List(LexError("b", Some(2), Some(3)))
   }
 
+  test("the strategy is given the error for the unmatched character") {
+    var seen = List.empty[LexError]
+    given ErrorHandling[LexerCtx.Default, LexError] = (_, error) =>
+      seen = seen :+ error
+      ErrorHandling.Strategy.SkipToNextMatch
+
+    val L = lexer:
+      case "a" => Token["A"]
+
+    // the strategy sees the first unmatched character; the reported error covers the whole skipped run
+    L.tokenize("a!?a#").failure.errors shouldBe List(LexError("!?", Some(1), Some(2)), LexError("#", Some(1), Some(5)))
+    seen shouldBe List(LexError("!", Some(1), Some(2)), LexError("#", Some(1), Some(5)))
+  }
+
   test("remainingText should expose the unmatched input to a custom ErrorHandling instance") {
     var seenFirstChar: Char = ' '
-    given ErrorHandling[LexerCtx.Default] = ctx =>
+    given ErrorHandling[LexerCtx.Default, LexError] = (ctx, _) =>
       seenFirstChar = ctx.remainingText.charAt(0)
-      ErrorHandling.Strategy.IgnoreChar
+      ErrorHandling.Strategy.SkipOne
 
     val L = lexer:
       case "a" => Token["A"]
@@ -116,8 +129,8 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
     seenFirstChar shouldBe '!'
   }
 
-  test("Strategy.IgnoreChar should update position correctly") {
-    given ErrorHandling[LexerCtx.Default] = _ => ErrorHandling.Strategy.IgnoreChar
+  test("Strategy.SkipOne should update position correctly") {
+    given ErrorHandling[LexerCtx.Default, LexError] = (_, _) => ErrorHandling.Strategy.SkipOne
 
     val L = lexer:
       case "a" => Token["A"]

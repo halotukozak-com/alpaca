@@ -238,6 +238,6 @@ assert(mem2.cells(0) == 0)  // cell cleared by loop
 
 Ideas for extending the interpreter further:
 
-- **Error recovery** -- use `ErrorHandling.Strategy.IgnoreChar` instead of a catch-all pattern
+- **Error recovery** -- use `ErrorHandling.Strategy.SkipOne` instead of a catch-all pattern
 - **Source positions** -- add `Column` and `Line` fields to the lexer context, plus an `ErrorHandling` that reports them (see [Error Handling Strategies](../lexer-error-recovery.md#error-handling-strategies)), for better error messages
 - **String literals** -- add a `"..."` token for inline string output

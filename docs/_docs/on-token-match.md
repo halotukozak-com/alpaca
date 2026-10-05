@@ -116,7 +116,7 @@ Each call to `tokenize()` follows this sequence:
 2. The text cursor (`ctx.text`) advances past the matched string and the matched text is recorded in `ctx.lastRawMatched`.
 3. Each tracked field's `Tracking` update runs, producing a fresh context via one functional `copy`.
 4. The rule body's context changes (`ctx.field = ...`) are applied, again as a `copy`.
-5. For a `DefinedToken`, a `Lexeme` is built from the token name, value, and a snapshot of the context's case fields, with `text` set to the matched string. `Token.Ignored` (and text skipped by the `IgnoreChar`/`IgnoreToken` error strategies) still run steps 2–4 but emit no `Lexeme` — they are invisible to the parser.
+5. For a `DefinedToken`, a `Lexeme` is built from the token name, value, and a snapshot of the context's case fields, with `text` set to the matched string. `Token.Ignored` (and text skipped by the `SkipOne`/`SkipToNextMatch` error strategies) still run steps 2–4 but emit no `Lexeme` — they are invisible to the parser.
 6. This repeats until the entire input is consumed. `tokenize()` then returns a `Result` with the final context state and the complete lexeme list (or, if some input matched no token, the `LexError`s).
 7. `parse(lexemes)` receives the list, appends `Lexeme.EOF` internally, and runs the parser grammar against the sequence.
 

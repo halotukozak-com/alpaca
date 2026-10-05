@@ -3,7 +3,7 @@ package alpaca
 package internal
 package lexer
 
-import halotukozak.alpaca.internal.lexer.ErrorHandling.Strategy
+import halotukozak.alpaca.ErrorHandling.Strategy
 import halotukozak.regex.TokenMatcher
 
 import scala.NamedTuple.AnyNamedTuple
@@ -19,8 +19,11 @@ import scala.collection.mutable
  *
  * @tparam Ctx the global context type
  */
-transparent abstract class Tokenization[Ctx <: LexerCtx: {ErrorHandling as errorHandling, Empty as empty}](
+transparent abstract class Tokenization[Ctx <: LexerCtx](
   onTokenMatch: (Token[?, Ctx, ?], String, Ctx) => Ctx,
+)(using
+  errorHandling: ErrorHandling[Ctx, LexError],
+  empty: Empty[Ctx],
 ) extends Selectable:
   type Fields <: AnyNamedTuple
   type LexemeFields <: AnyNamedTuple
@@ -71,8 +74,9 @@ transparent abstract class Tokenization[Ctx <: LexerCtx: {ErrorHandling as error
 
         case _ =>
           val cpLen = Character.charCount(Character.codePointAt(globalCtx.text, 0))
-          errorHandling(globalCtx) match {
-            case Strategy.IgnoreToken =>
+          val unexpected = LexError.at(globalCtx.text.subSequence(0, cpLen).toString, globalCtx)
+          errorHandling(globalCtx, unexpected) match {
+            case Strategy.SkipToNextMatch =>
               val skipped = matcher.findFirst(globalCtx.text, cpLen).fold(cpLen)((firstMatching, _, _) => firstMatching)
               val matchedStr = globalCtx.text.subSequence(0, skipped).toString
               errors += LexError.at(matchedStr, globalCtx)
@@ -80,15 +84,15 @@ transparent abstract class Tokenization[Ctx <: LexerCtx: {ErrorHandling as error
               globalCtx.text = globalCtx.text.from(skipped)
               Step.Matched(RecoveredToken(matchedStr), matchedStr)
 
-            case Strategy.IgnoreChar =>
-              val matchedStr = globalCtx.text.subSequence(0, cpLen).toString
-              errors += LexError.at(matchedStr, globalCtx)
+            case Strategy.SkipOne =>
+              val matchedStr = unexpected.unexpected
+              errors += unexpected
               globalCtx.lastRawMatched = matchedStr
               globalCtx.text = globalCtx.text.from(cpLen)
               Step.Matched(RecoveredToken(matchedStr), matchedStr)
 
             case Strategy.Stop =>
-              errors += LexError.at(globalCtx.text.subSequence(0, cpLen).toString, globalCtx)
+              errors += unexpected
               stopped = true
               globalCtx.text = ""
               Step.Stopped

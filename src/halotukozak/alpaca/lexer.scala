@@ -12,7 +12,7 @@ import scala.annotation.{compileTimeOnly, publicInBinary, unused}
  *  (custom `given` instances, tracking traits, large-file tokenization) even
  *  though they are implemented under `internal.lexer`.
  */
-export alpaca.internal.lexer.{Column, ErrorHandling, LazyReader, Line, Tracking}
+export alpaca.internal.lexer.{Column, LazyReader, Line, Tracking}
 
 /**
  * Creates a lexer from a DSL-based definition.
@@ -41,7 +41,7 @@ transparent inline def lexer[Ctx <: LexerCtx](
   inline rules: Ctx ?=> LexerDefinition[Ctx],
 )(using
   m: Mirror.ProductOf[Ctx],
-  errorHandling: ErrorHandling[Ctx],
+  errorHandling: ErrorHandling[Ctx, LexError],
   empty: Empty[Ctx],
 ): Tokenization[Ctx] { type LexemeFields = NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes] } =
   ${
@@ -210,7 +210,7 @@ trait LexerCtx extends Product, Selectable:
   /**
    * A read-only view of the text still remaining to be tokenized.
    *
-   * Exposed so a custom [[alpaca.internal.lexer.ErrorHandling]] instance can inspect the character(s)
+   * Exposed so a custom [[ErrorHandling]] instance can inspect the character(s)
    * that failed to match any token rule, e.g. to pick a recovery strategy based on what comes next.
    */
   final def remainingText: CharSequence = text
@@ -249,7 +249,7 @@ trait LexerCtx extends Product, Selectable:
 object LexerCtx:
 
   /** Default error handler for any [[LexerCtx]]: stop at the first unrecognised character and report it. */
-  given ErrorHandling[LexerCtx] = _ => ErrorHandling.Strategy.Stop
+  given ErrorHandling[LexerCtx, LexError] = (_, _) => ErrorHandling.Strategy.Stop
 
   /**
    * An empty lexer context with no extra state tracking.
@@ -282,7 +282,7 @@ object LexerCtx:
 /**
  * Input that did not match any token, as reported by `tokenize` in a [[Result.Failure]].
  *
- * @param unexpected the input that was not matched: one character, or with `ErrorHandling.Strategy.IgnoreToken`
+ * @param unexpected the input that was not matched: one character, or with `ErrorHandling.Strategy.SkipToNextMatch`
  *                   everything skipped up to the next match
  * @param line       the line it starts on, when the lexer context tracks a `line` field
  * @param column     the column it starts at, when the lexer context tracks a `position` field

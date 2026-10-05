@@ -132,12 +132,12 @@ By default, the lexer throws on unmatched input. You can customize this with an 
 
 ```scala sc-compile-with:BrainLexer
 // Option A: skip unrecognized characters silently
-given ErrorHandling[BrainLexContext] = _ => ErrorHandling.Strategy.IgnoreChar
+given ErrorHandling[BrainLexContext, LexError] = (_, _) => ErrorHandling.Strategy.SkipOne
 ```
 
 ```scala sc-compile-with:BrainLexer
 // Option B: stop gracefully, returning what was tokenized so far
-given ErrorHandling[BrainLexContext] = _ => ErrorHandling.Strategy.Stop
+given ErrorHandling[BrainLexContext, LexError] = (_, _) => ErrorHandling.Strategy.Stop
 ```
 
 Four strategies are available:
@@ -145,8 +145,8 @@ Four strategies are available:
 | Strategy | Behavior |
 |----------|----------|
 | `Throw(ex)` | Abort with the given exception |
-| `IgnoreChar` | Skip one character and continue |
-| `IgnoreToken` | Skip to the next match and continue |
+| `SkipOne` | Skip one character and continue |
+| `SkipToNextMatch` | Skip to the next match and continue |
 | `Stop` | Return lexemes collected so far |
 
 An alternative to custom `ErrorHandling` is a catch-all pattern at the end of your lexer:

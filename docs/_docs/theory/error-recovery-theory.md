@@ -26,7 +26,7 @@ Unexpected character '@' at line 1, column 5
 
 ### Strategy: Skip and Continue
 
-Skip the unmatched character and resume tokenization from the next position. Alpaca supports this via `ErrorHandling.Strategy.IgnoreChar` (or `IgnoreToken`, which skips the whole unmatched run). The skipped character never reaches the parser, but it is not lost silently: it is reported as a `LexError`, and the lexemes collected around it are the failure's `recovered` value.
+Skip the unmatched character and resume tokenization from the next position. Alpaca supports this via `ErrorHandling.Strategy.SkipOne` (or `SkipToNextMatch`, which skips the whole unmatched run). The skipped character never reaches the parser, but it is not lost silently: it is reported as a `LexError`, and the lexemes collected around it are the failure's `recovered` value.
 
 ### Strategy: Catch-All Token
 
@@ -85,8 +85,8 @@ Alpaca provides three `ErrorHandling` strategies (see [Error Recovery](../lexer-
 | Strategy | Behavior |
 |----------|----------|
 | `Stop` | Stop at the first error (default) |
-| `IgnoreChar` | Skip one character and continue |
-| `IgnoreToken` | Skip to next match and continue |
+| `SkipOne` | Skip one character and continue |
+| `SkipToNextMatch` | Skip to next match and continue |
 
 ### Parser
 
