@@ -3,7 +3,7 @@ package alpaca
 package internal
 package parser
 
-import halotukozak.alpaca.{rule, ParserCtx, ProductionDefinition, Rule}
+import halotukozak.alpaca.{rule, ParseError, ParserCtx, ProductionDefinition, Rule}
 import halotukozak.alpaca.internal.{fieldsTpeFrom, refinementTpeFrom, withDefault, Empty, RevertedArray, RuleOnly, ValidName, *}
 import halotukozak.alpaca.internal.lexer.Lexeme
 import halotukozak.alpaca.internal.parser.{Tables, *}
@@ -82,7 +82,9 @@ abstract class Parser[Ctx <: ParserCtx](
     @tailrec def loop(remaining: List[Lexeme[?, ?]]): Node = {
       val current = if remaining.isEmpty then Lexeme.EOF else remaining.head
       val nextSymbol = Terminal(current.name)
-      tables.parseTable(stateStack.last, nextSymbol) match {
+      val action = tables.parseTable.get(stateStack.last, nextSymbol)
+      if action == null then throw ParseError(current, tables.parseTable.expectedTerminals(stateStack.last))
+      action match {
         case ParseAction.Shift(gotoState) =>
           stateStack += gotoState
           nodeStack += Node.Token(current)

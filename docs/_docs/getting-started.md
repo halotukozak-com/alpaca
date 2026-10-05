@@ -252,7 +252,7 @@ import halotukozak.alpaca.*
   // cell 'a' = 6 (two calls to foo, each adding 3), then prints char 6
 ```
 
-The pipeline is always the same: `tokenize` produces lexemes, `parse` produces an AST (typed `BrainAST | Null`, so `.nn` turns it into a plain `BrainAST`; input that does not match the grammar makes `parse` throw), and you evaluate the result however you want.
+The pipeline is always the same: `tokenize` produces lexemes, `parse` produces an AST (typed `BrainAST | Null`, so `.nn` turns it into a plain `BrainAST`; input that does not match the grammar makes `parse` throw a `ParseError`), and you evaluate the result however you want.
 
 ## What's Next
 

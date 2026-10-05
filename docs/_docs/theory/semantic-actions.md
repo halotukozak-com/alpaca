@@ -78,7 +78,7 @@ Each `Rule[R]` has a declared result type `R`. The semantic action for every pro
 
 For `Rule[Double]`: every `case` clause's `=>` expression must evaluate to `Double`. `a + b` where `a: Double` and `b: Double` returns `Double`. `n.value` for a NUMBER token is `Double` (CalcLexer defines `Token["NUMBER"](num.toDouble)`).
 
-The final result type is the type declared for `root`. For CalcParser: `val root: Rule[Double]`, so `parse()` returns `Double | Null`. Input that does not match the grammar makes `parse()` throw an exception rather than return a value.
+The final result type is the type declared for `root`. For CalcParser: `val root: Rule[Double]`, so `parse()` returns `Double | Null`. Input that does not match the grammar makes `parse()` throw a `ParseError` rather than return a value.
 
 > **Compile-time processing:** Alpaca collects every `{ case pattern => expression }` block at compile time, extracts the action function, and stores it in the action table indexed by production. At runtime, `parse(lexemes)` looks up the action for each reduction and calls it directly — the Scala type checker has already verified that each action returns the declared `Rule[R]` type.
 

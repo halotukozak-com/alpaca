@@ -310,17 +310,27 @@ val (finalCtx, ast) = BrainParser.parse(lexemes)
 // ast: BrainAST | Null -- the parsed result
 ```
 
-The return type is a named tuple `(ctx: Ctx, result: T | Null)`. Input that does not match the grammar makes `parse()` throw an exception whose message names the unexpected token and the symbols that were expected at that point, e.g. for `1 + + 2`:
-
-```
-Unexpected symbol 'PLUS' in state 4. Expected one of: Expr, NUM
-```
-
-The exception class is internal to Alpaca, so catch it as `Exception`. The result is still typed `T | Null`; use `.nn` (or a null check) to get a plain `T`:
+The return type is a named tuple `(ctx: Ctx, result: T | Null)`. The result is typed `T | Null`; use `.nn` (or a null check) to get a plain `T`:
 
 ```scala sc-compile-with:brain-tokenize
 val (_, parsed) = BrainParser.parse(lexemes)
 parsed.nn.eval(Memory())  // .nn asserts non-null
+```
+
+Input that does not match the grammar makes `parse()` throw a `ParseError`. It carries the lexeme the parser could not accept (`unexpected`) and the token names the grammar would have accepted there (`expected`, with `"$"` standing for the end of the input); its message also gives the token's line and column when the lexer tracks them, e.g. for `1 + + 2` in a grammar of numbers and `+`:
+
+```
+Unexpected PLUS "+" at line 1, column 5. Expected one of: NUMBER
+```
+
+```scala sc-compile-with:brain-tokenize
+import scala.util.{Failure, Try}
+
+Try(BrainParser.parse(BrainLexer.tokenize("[+").lexemes)) match
+  case Failure(e: ParseError) =>
+    println(e.getMessage)  // Unexpected end of input. Expected one of: ...
+    println(e.expected)    // the token names the grammar would have accepted
+  case _ => ()
 ```
 
 ## Conflict Resolution

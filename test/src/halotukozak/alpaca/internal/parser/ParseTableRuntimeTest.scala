@@ -3,8 +3,7 @@ package alpaca
 package internal
 package parser
 
-import halotukozak.alpaca.internal.AlgorithmError
-import halotukozak.alpaca.{lexer, rule, ParserCtx, Rule, Token}
+import halotukozak.alpaca.{lexer, rule, ParseError, ParserCtx, Rule, Token}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -37,9 +36,31 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers:
     result shouldBe 6
   }
 
-  test("unexpected token raises AlgorithmError naming the offending symbol") {
-    val (_, lexemes) = CalcLexer.tokenize("+")
+  test("unexpected token raises a ParseError naming the token, its position and the expected terminals") {
+    val (_, lexemes) = CalcLexer.tokenize("1++2")
 
-    val ex = intercept[AlgorithmError](CalcParser.parse(lexemes))
-    ex.getMessage should (include("Unexpected symbol").and(include("Expected one of:")))
+    val ex = intercept[ParseError](CalcParser.parse(lexemes))
+    (ex.unexpected.name: String) shouldBe "+"
+    ex.unexpected.text shouldBe "+"
+    ex.expected shouldBe List("Num")
+    ex.getMessage shouldBe """Unexpected + "+" at line 1, column 3. Expected one of: Num"""
+  }
+
+  test("input that ends too early raises a ParseError for the end of input") {
+    val (_, lexemes) = CalcLexer.tokenize("1+")
+
+    val ex = intercept[ParseError](CalcParser.parse(lexemes))
+    (ex.unexpected.name: String) shouldBe "$"
+    ex.expected shouldBe List("Num")
+    ex.getMessage shouldBe "Unexpected end of input. Expected one of: Num"
+  }
+
+  test("ParseError lists only terminals, with the end of input among them when it is accepted") {
+    val (_, leading) = CalcLexer.tokenize("+")
+    intercept[ParseError](CalcParser.parse(leading)).expected shouldBe List("Num")
+
+    val (_, one) = CalcLexer.tokenize("1")
+    val ex = intercept[ParseError](CalcParser.parse(one :+ one.head))
+    ex.expected shouldBe List("$", "+")
+    ex.getMessage should endWith("Expected one of: end of input, +")
   }

@@ -166,6 +166,40 @@ trait Rule[R]:
     null.asInstanceOf[PartialFunction[Any, List[R | SepValue[Separator]]]]
 
 /**
+ * Thrown by `parse` when the input does not match the grammar.
+ *
+ * @param unexpected the lexeme the parser could not accept; its `name` is `"$"` when the input ended too early
+ * @param expected   the token names the grammar would have accepted at that point (`"$"` stands for the end of
+ *                   the input), sorted
+ */
+final class ParseError(val unexpected: Lexeme[?, ?], val expected: List[String])
+  extends Exception(ParseError.message(unexpected, expected))
+
+object ParseError:
+  private def message(unexpected: Lexeme[?, ?], expected: List[String]): String = {
+    def field(name: String): Option[Int] =
+      unexpected.fieldNames.indexOf(name) match
+        case -1 => None
+        case i =>
+          unexpected.fieldValues(i) match
+            case n: Int => Some(n)
+            case _ => None
+
+    val name: String = unexpected.name
+    val what =
+      if name == "$" then "end of input"
+      else s"""$name "${unexpected.text}""""
+    // `position` is recorded after the match, so the token itself starts `text.length` earlier.
+    val where = (field("line"), field("position")) match
+      case (Some(line), Some(position)) => s" at line $line, column ${position - unexpected.text.length}"
+      case (Some(line), None) => s" at line $line"
+      case (None, Some(position)) => s" at column ${position - unexpected.text.length}"
+      case (None, None) => ""
+    val accepted = expected.map(name => if name == "$" then "end of input" else name).mkString(", ")
+    s"Unexpected $what$where. Expected one of: $accepted"
+  }
+
+/**
  * Base trait for parser global context.
  *
  * Unlike the lexer, the parser's global context is typically empty by default,

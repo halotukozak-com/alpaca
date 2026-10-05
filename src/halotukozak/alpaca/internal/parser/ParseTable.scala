@@ -40,6 +40,18 @@ private[parser] object ParseTable:
         val expected = table(state).keysIterator.map(_.name).to(SortedSet).mkString(", ")
         throw AlgorithmError(s"Unexpected symbol '${symbol.name}' in state $state. Expected one of: $expected")
 
+    /** The parse action for a given state and symbol, or `null` if the grammar accepts no such symbol there. */
+    def get(state: Int, symbol: Symbol): ParseAction | Null = table(state).get(symbol) match
+      case Some(action) => action
+      case None => null
+
+    /** Names of the terminals that have an action in `state` -- what the input may continue with there. */
+    def expectedTerminals(state: Int): List[String] =
+      table(state).keysIterator
+        .collect { case Terminal(name) if name != Symbol.Dummy.name && name != Symbol.Empty.name => name }
+        .to(SortedSet)
+        .toList
+
     private def allSymbols: List[Symbol] =
       table.iterator.flatMap(_.keysIterator).distinct.toList
 
