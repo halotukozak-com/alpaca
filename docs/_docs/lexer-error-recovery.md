@@ -28,8 +28,7 @@ The compiler reports:
 ```
 Token "IF" can never match: every input it matches is also matched by "ID",
 which is defined earlier, so it always wins.
-Consider reordering the cases so "IF" comes first, or merging them into one case with
-alternatives, e.g.: case x @ ("ID" | "IF") => Token[x]
+Declare "IF" ("if") before "ID" ("[a-z]+").
 ```
 
 The fix: declare the keyword first. Longest match still turns `iffy` into a single `ID`, so keywords never split identifiers.
