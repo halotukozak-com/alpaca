@@ -215,6 +215,42 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       """).loneElement.message should endWith("""case "\\+" | "-" => ...""")
   }
 
+  test("unexpected non-printable character is shown escaped") {
+    val Lexer = lexer:
+      case number @ "[0-9]+" => Token["NUMBER"](number.toInt)
+
+    val exception = intercept[RuntimeException]:
+      Lexer.tokenize("1\t")
+
+    exception.getMessage should include("""Unexpected character at line 1, position 2: '\t'""")
+  }
+
+  test("shadowing error escapes non-printable token names and patterns") {
+    // the token name and the patterns hold a real tab, not the regex escape `\t`
+    typeCheckErrors(
+      "val Lexer = lexer:\n" + "  case \" |\t\" => Token[\"\t\"]\n" + "  case \"\t\" => Token[\"TAB\"]\n",
+    ).loneElement.message shouldBe """Token "TAB" can never match: every input it matches is also matched by "\t",
+                                     |which is defined earlier, so it always wins.
+                                     |Declare "TAB" ("\t") before "\t" (" |\t").""".stripMargin
+  }
+
+  test("duplicate token name error escapes non-printable token names and patterns") {
+    typeCheckErrors(
+      "val Lexer = lexer:\n" + "  case \"\t\" => Token[\"\t\"]\n" + "  case \" \" => Token[\"\t\"]\n",
+    ).loneElement.message shouldBe
+      """Token name "\t" is defined 2 times. Combine the patterns into a single case using alternatives: """ +
+      """case "\t" | " " => ..."""
+  }
+
+  test("invalid regex error escapes non-printable token names") {
+    typeCheckErrors(
+      "val Lexer = lexer:\n" + "  case \"(\" => Token[\"\t\"]\n",
+    ).loneElement.message should startWith("""Invalid regex pattern for token "\t": """)
+    typeCheckErrors(
+      "val Lexer = lexer:\n" + "  case x @ (\"a\" | \"(\t\") => Token[x.type]\n",
+    ).loneElement.message should startWith("""Invalid regex pattern for token "(\t": """)
+  }
+
   test("track line and position across newlines") {
     val Lexer = lexer:
       case id @ "[a-zA-Z]+" => Token["IDENTIFIER"](id)

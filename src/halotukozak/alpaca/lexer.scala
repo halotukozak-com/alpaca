@@ -251,7 +251,9 @@ object LexerCtx:
 
   /** Default error handler for any [[LexerCtx]] that throws on the first unrecognised character. */
   given ErrorHandling[LexerCtx] = ctx =>
-    ErrorHandling.Strategy.Throw(new RuntimeException(s"Unexpected character: '${ctx.text.charAt(0)}'"))
+    ErrorHandling.Strategy.Throw(
+      new RuntimeException(s"Unexpected character: '${printable(ctx.text.charAt(0).toString)}'"),
+    )
 
   /**
    * An empty lexer context with no extra state tracking.
@@ -286,7 +288,7 @@ object LexerCtx:
     given ErrorHandling[Default] = ctx =>
       ErrorHandling.Strategy.Throw:
         new RuntimeException(
-          s"Unexpected character at line ${ctx.line}, position ${ctx.position}: '${ctx.text.charAt(0)}'",
+          s"Unexpected character at line ${ctx.line}, position ${ctx.position}: '${printable(ctx.text.charAt(0).toString)}'",
         )
 
 /**

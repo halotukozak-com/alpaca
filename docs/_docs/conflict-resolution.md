@@ -274,6 +274,15 @@ given Resolutions[AssignParser.type] = resolutions(
 
 The compiler detects cycles in the transitive closure of constraints. A cycle (A before B before C before A) is contradictory and produces an "Inconsistent conflict resolution detected" error showing the full cycle path, reported at the rule that closes the cycle.
 
+For example, declaring both `production.mul.before(production.add)` and `production.add.before(production.mul)` reports:
+
+```
+Inconsistent conflict resolution detected:
+Expr -> Expr TIMES Expr (mul) before Expr -> Expr PLUS Expr (add) before Expr -> Expr TIMES Expr (mul)
+There are elements being both before and after Expr -> Expr TIMES Expr (mul) at the same time.
+Consider revising the before/after rules to eliminate cycles
+```
+
 ## Best Practices
 
 - **Only resolve actual conflicts.** Add resolutions only for conflicts the compiler reports.

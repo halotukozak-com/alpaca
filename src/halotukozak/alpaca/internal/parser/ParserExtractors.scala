@@ -107,8 +107,8 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using quotes: Q
           Unapply(Select(Extractor.SeparatedBy(element, separator), Names.Unapply), Nil, List(Extractor.Bind(bind))),
         ) =>
       val source = Source(pattern.pos)
-      val fresh = NonTerminal.fresh(element.name)
-      val nonEmpty = NonTerminal.fresh(show"${element.name}_nonEmpty")
+      val fresh = NonTerminal.fresh(show"${element.name}.SeparatedBy")
+      val nonEmpty = NonTerminal.fresh(show"${element.name}.SeparatedBy")
       (
         symbol = fresh,
         bind = bind,
@@ -140,7 +140,7 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using quotes: Q
 
     case pattern @ Extractor.Symbol(symbol, bind, Names.Option) =>
       val source = Source(pattern.pos)
-      val fresh = NonTerminal.fresh(symbol.name)
+      val fresh = NonTerminal.fresh(show"${symbol.name}.Option")
       (
         symbol = fresh,
         bind = bind,
@@ -155,7 +155,7 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using quotes: Q
 
     case pattern @ Extractor.Symbol(symbol, bind, Names.List) =>
       val source = Source(pattern.pos)
-      val fresh = NonTerminal.fresh(symbol.name)
+      val fresh = NonTerminal.fresh(show"${symbol.name}.List")
       (
         symbol = fresh,
         bind = bind,

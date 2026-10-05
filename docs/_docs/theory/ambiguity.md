@@ -48,10 +48,10 @@ Alpaca catches ambiguity at compile time: when building the LALR(1) parse table,
 **Shift/reduce conflict:**
 
 ```
-Shift "+ ($plus)" vs Reduce Expr -> Expr + ($plus) Expr
+Shift "+" vs Reduce Expr -> Expr + Expr
 In situation like:
-Expr + ($plus) Expr + ($plus) ...
-Consider marking production Expr -> Expr + ($plus) Expr to be before or after "+ ($plus)"
+Expr + Expr + ...
+Consider marking production Expr -> Expr + Expr to be before or after "+"
 ```
 
 **Reduce/reduce conflict:**

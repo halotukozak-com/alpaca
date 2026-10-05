@@ -207,13 +207,13 @@ given Resolutions[ExtendedParser.type] = resolutions(
 Without the resolutions, the compiler reports one conflict per (operator, production) pair, for example:
 
 ```
-Shift "* ($times)" vs Reduce Expr -> Expr + ($plus) Expr (add)
+Shift "*" vs Reduce Expr -> Expr + Expr (add)
 In situation like:
-<synthetic from Operation_> + ($plus) ( ($u0028) Expr + ($plus) Expr * ($times) ...
-Consider marking production Expr -> Expr + ($plus) Expr (add) to be before or after "* ($times)"
+Operation.List + ( Expr + Expr * ...
+Consider marking production Expr -> Expr + Expr (add) to be before or after "*"
 ```
 
-Token names that are not valid Scala identifiers are shown together with their encoded form (`+ ($plus)`), and named productions with their name (`(add)`).
+Named productions are shown with their name (`(add)`), and the non-terminals that EBNF extractors generate as the extractor you wrote (`Operation.List`).
 
 The resolutions establish: `*`/`/` bind tighter than `+`/`-`, and all operators are left-associative. Now `+(3+2*4)` correctly evaluates to `+(11)` — adding 11 to the current cell.
 
