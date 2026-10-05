@@ -90,10 +90,11 @@ Alpaca provides three `ErrorHandling` strategies (see [Error Recovery](../lexer-
 
 ### Parser
 
-Alpaca's parser currently has minimal error recovery:
+Alpaca's parser has basic error recovery:
 
-- On a parse table miss (no action for the current state and token), `parse()` returns a `Result.Failure` with a `ParserError` carrying the unexpected lexeme and the token names that were expected, with a message like `Unexpected PLUS "+" at line 1, column 5. Expected one of: NUMBER`
-- No panic mode, phrase-level recovery, or error productions: parsing stops at the first error
+- On a parse table miss (no action for the current state and token), the parser records a `ParserError` carrying the unexpected lexeme and the token names that were expected, with a message like `Unexpected PLUS "+" at line 1, column 5. Expected one of: NUMBER`, and `parse()` returns a `Result.Failure` listing the errors
+- The context's `ErrorHandling` (the same type the lexer uses) decides what happens next: `Stop` (the default) ends parsing there, `SkipOne` skips the unexpected lexeme, and `SkipToNextMatch` skips ahead to the next lexeme the parser can accept -- a simple form of panic mode that fixes extra tokens but not missing ones (see [Parser](../parser.md#error-recovery))
+- No phrase-level recovery or error productions
 
 ### Semantic
 
