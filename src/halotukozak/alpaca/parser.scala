@@ -172,7 +172,7 @@ trait Rule[R]:
  * @param expected   the token names the grammar would have accepted at that point (`"$"` stands for the end of
  *                   the input), sorted
  */
-final case class ParseError(unexpected: Lexeme[?, ?], expected: List[String]):
+final case class ParserError(unexpected: Lexeme[?, ?], expected: List[String]):
   /** A readable description, e.g. `Unexpected + "+" at line 1, column 3. Expected one of: Num`. */
   def message: String = {
     def field(name: String): Option[Int] =
@@ -197,8 +197,8 @@ final case class ParseError(unexpected: Lexeme[?, ?], expected: List[String]):
     s"Unexpected $what$where. Expected one of: $accepted"
   }
 
-object ParseError:
-  extension [Ctx, A](result: Result[Ctx, A, ParseError])
+object ParserError:
+  extension [Ctx, A](result: Result[Ctx, A, ParserError])
     /** The value; throws the errors as a [[ParserException]] if parsing failed. */
     def getOrThrow: A = result match
       case Result.Success(_, value) => value
@@ -209,7 +209,7 @@ object ParseError:
  *
  * @param errors the errors the parser reported, in input order
  */
-final class ParserException(val errors: ::[ParseError]) extends RuntimeException(errors.map(_.message).mkString("\n"))
+final class ParserException(val errors: ::[ParserError]) extends RuntimeException(errors.map(_.message).mkString("\n"))
 
 /**
  * Base trait for parser global context.
@@ -296,7 +296,7 @@ extension [Ctx <: ParserCtx](parser: Parser[Ctx]) {
    * Parses a list of lexemes using the defined grammar.
    *
    * The result type is inferred from the root rule. Input that does not match the grammar is not thrown as an
-   * exception: it comes back as a [[Result.Failure]] listing the [[ParseError]]s.
+   * exception: it comes back as a [[Result.Failure]] listing the [[ParserError]]s.
    *
    * @param lexems the list of lexemes to parse
    * @return the value the root rule produced, or the errors that stopped the parser, with the context either way
@@ -305,6 +305,6 @@ extension [Ctx <: ParserCtx](parser: Parser[Ctx]) {
     Ctx,
     parser.root.type match
       case Rule[t] => t,
-    ParseError,
+    ParserError,
   ] = parser.parseResult(lexems)
 }

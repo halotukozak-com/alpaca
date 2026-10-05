@@ -2,7 +2,7 @@ package halotukozak
 package alpaca.internal.lexer
 
 import halotukozak.alpaca.internal.lexer.Lexeme
-import halotukozak.alpaca.{lexer, withLazyReader, LexError, LexerException, Result, Token}
+import halotukozak.alpaca.{lexer, withLazyReader, LexerError, LexerException, Result, Token}
 import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -73,14 +73,14 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
     assert(lexemes == Nil)
   }
 
-  test("unexpected character fails with a LexError and the lexemes before it are not recovered") {
+  test("unexpected character fails with a LexerError and the lexemes before it are not recovered") {
     val Lexer = lexer:
       case number @ "[0-9]+" => Token["NUMBER"](number.toInt)
 
     Lexer.tokenize("123abc") match
       case Result.Failure(_, recovered, errors) =>
         recovered shouldBe None
-        errors.loneElement shouldBe LexError("a", Some(1), Some(4))
+        errors.loneElement shouldBe LexerError("a", Some(1), Some(4))
         errors.loneElement.message shouldBe "Unexpected character 'a' at line 1, column 4"
       case Result.Success(_, lexemes) => fail(s"expected a failure, got ${lexemes.size.toString} lexemes")
   }
@@ -90,7 +90,7 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       case number @ "[0-9]+" => Token["NUMBER"](number.toInt)
 
     val exception = intercept[LexerException](Lexer.tokenize("123abc").getOrThrow)
-    exception.errors shouldBe List(LexError("a", Some(1), Some(4)))
+    exception.errors shouldBe List(LexerError("a", Some(1), Some(4)))
     exception.getMessage shouldBe "Unexpected character 'a' at line 1, column 4"
   }
 

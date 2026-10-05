@@ -1,6 +1,6 @@
 package bench.alpaca
 
-import halotukozak.alpaca.{lexer, ErrorHandling, LexError, LexerCtx, Token}
+import halotukozak.alpaca.{lexer, ErrorHandling, LexerCtx, LexerError, Token}
 import org.openjdk.jmh.annotations.*
 import org.openjdk.jmh.infra.Blackhole
 
@@ -13,7 +13,7 @@ import scala.util.Random
 // all three ErrorHandling.Strategy variants.
 private var currentStrategy: ErrorHandling.Strategy = ErrorHandling.Strategy.Stop
 
-private given ErrorHandling[LexerCtx.Default, LexError] = (_, _) => currentStrategy
+private given ErrorHandling[LexerCtx.Default, LexerError] = (_, _) => currentStrategy
 
 private val ErrorRecoveryLexer = lexer[LexerCtx.Default] {
   case "\\s+" => Token.Ignored

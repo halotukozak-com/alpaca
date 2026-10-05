@@ -3,7 +3,7 @@ package alpaca
 package internal
 package parser
 
-import halotukozak.alpaca.{lexer, rule, ParseError, ParserCtx, ParserException, Result, Rule, Token}
+import halotukozak.alpaca.{lexer, rule, ParserCtx, ParserError, ParserException, Result, Rule, Token}
 import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -37,11 +37,11 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers with LoneEle
     result shouldBe 6
   }
 
-  private def errorsOf(result: Result[?, ?, ParseError]): List[ParseError] = result match
+  private def errorsOf(result: Result[?, ?, ParserError]): List[ParserError] = result match
     case Result.Failure(_, _, errors) => errors
     case Result.Success(_, _) => fail("expected a parse failure")
 
-  test("unexpected token fails with a ParseError naming the token, its position and the expected terminals") {
+  test("unexpected token fails with a ParserError naming the token, its position and the expected terminals") {
     val lexemes = CalcLexer.tokenize("1++2").getOrThrow
 
     val error = errorsOf(CalcParser.parse(lexemes)).loneElement
@@ -51,7 +51,7 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers with LoneEle
     error.message shouldBe """Unexpected + "+" at line 1, column 3. Expected one of: Num"""
   }
 
-  test("input that ends too early fails with a ParseError for the end of input") {
+  test("input that ends too early fails with a ParserError for the end of input") {
     val lexemes = CalcLexer.tokenize("1+").getOrThrow
 
     val error = errorsOf(CalcParser.parse(lexemes)).loneElement
@@ -60,7 +60,7 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers with LoneEle
     error.message shouldBe "Unexpected end of input. Expected one of: Num"
   }
 
-  test("ParseError lists only terminals, with the end of input among them when it is accepted") {
+  test("ParserError lists only terminals, with the end of input among them when it is accepted") {
     val leading = CalcLexer.tokenize("+").getOrThrow
     errorsOf(CalcParser.parse(leading)).loneElement.expected shouldBe List("Num")
 

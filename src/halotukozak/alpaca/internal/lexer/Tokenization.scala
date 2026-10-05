@@ -22,7 +22,7 @@ import scala.collection.mutable
 transparent abstract class Tokenization[Ctx <: LexerCtx](
   onTokenMatch: (Token[?, Ctx, ?], String, Ctx) => Ctx,
 )(using
-  errorHandling: ErrorHandling[Ctx, LexError],
+  errorHandling: ErrorHandling[Ctx, LexerError],
   empty: Empty[Ctx],
 ) extends Selectable:
   type Fields <: AnyNamedTuple
@@ -48,19 +48,19 @@ transparent abstract class Tokenization[Ctx <: LexerCtx](
    *
    * Processes the input from start to finish, matching tokens and building
    * a list of lexemes. Input that matches no token does not throw: it is
-   * reported as a [[LexError]], and the context's [[ErrorHandling]] decides
+   * reported as a [[LexerError]], and the context's [[ErrorHandling]] decides
    * whether tokenizing stops there or skips it and goes on.
    *
    * @param input the input to tokenize
    * @return the lexemes and the final lexer context, or the errors if any input did not match; with a recovering
    *         strategy the lexemes collected despite the errors are the failure's `recovered` value
    */
-  final def tokenize(input: CharSequence): Result[Ctx, List[Lexeme], LexError] = {
+  final def tokenize(input: CharSequence): Result[Ctx, List[Lexeme], LexerError] = {
     var globalCtx = empty()
     globalCtx.text = OffsetCharSequence(input)
 
     val acc = mutable.ListBuffer.empty[Lexeme]
-    val errors = mutable.ListBuffer.empty[LexError]
+    val errors = mutable.ListBuffer.empty[LexerError]
     var stopped = false
 
     while !globalCtx.text.isEmpty do {
@@ -74,12 +74,12 @@ transparent abstract class Tokenization[Ctx <: LexerCtx](
 
         case _ =>
           val cpLen = Character.charCount(Character.codePointAt(globalCtx.text, 0))
-          val unexpected = LexError.at(globalCtx.text.subSequence(0, cpLen).toString, globalCtx)
+          val unexpected = LexerError.at(globalCtx.text.subSequence(0, cpLen).toString, globalCtx)
           errorHandling(globalCtx, unexpected) match {
             case Strategy.SkipToNextMatch =>
               val skipped = matcher.findFirst(globalCtx.text, cpLen).fold(cpLen)((firstMatching, _, _) => firstMatching)
               val matchedStr = globalCtx.text.subSequence(0, skipped).toString
-              errors += LexError.at(matchedStr, globalCtx)
+              errors += LexerError.at(matchedStr, globalCtx)
               globalCtx.lastRawMatched = matchedStr
               globalCtx.text = globalCtx.text.from(skipped)
               Step.Matched(RecoveredToken(matchedStr), matchedStr)

@@ -99,11 +99,11 @@ val BrainLexer = lexer:
 
 ## Runtime Error Handling
 
-When `tokenize()` hits input that matches no pattern, it records a `LexError` and consults the `ErrorHandling` strategy for the context type to decide how to go on. Either way, `tokenize()` does not throw: it returns a `Result.Failure` listing the errors.
+When `tokenize()` hits input that matches no pattern, it records a `LexerError` and consults the `ErrorHandling` strategy for the context type to decide how to go on. Either way, `tokenize()` does not throw: it returns a `Result.Failure` listing the errors.
 
 ### Default Behavior
 
-By default the lexer stops at the first unmatched character. The `LexError` names it, and its `message` gives the line and column when the context has `line` and `position` fields (as `LexerCtx.Default` does):
+By default the lexer stops at the first unmatched character. The `LexerError` names it, and its `message` gives the line and column when the context has `line` and `position` fields (as `LexerCtx.Default` does):
 
 ```
 Unexpected character '@' at line 1, column 5
@@ -126,13 +126,13 @@ Lexer.tokenize("abc @def") match
 
 ### Error Handling Strategies
 
-You can provide a custom `ErrorHandling` instance for your context type. Every strategy records the unmatched input as a `LexError`; they differ in how tokenizing goes on:
+You can provide a custom `ErrorHandling` instance for your context type. Every strategy records the unmatched input as a `LexerError`; they differ in how tokenizing goes on:
 
 | Strategy | Behavior |
 |----------|----------|
 | `Stop` (default) | Stop at the unmatched character; the failure has no `recovered` lexemes |
 | `SkipOne` | Skip the single unmatched character and continue |
-| `SkipToNextMatch` | Skip to the next successful match and continue; one `LexError` covers the whole skipped run |
+| `SkipToNextMatch` | Skip to the next successful match and continue; one `LexerError` covers the whole skipped run |
 
 With `SkipOne` or `SkipToNextMatch` the lexer reaches the end of the input, so the `Result.Failure` also carries the lexemes it collected in `recovered`:
 
@@ -140,7 +140,7 @@ With `SkipOne` or `SkipToNextMatch` the lexer reaches the end of the input, so t
 import halotukozak.alpaca.*
 
 // Skip unrecognized characters, but keep a record of them
-given ErrorHandling[LexerCtx.Default, LexError] = (_, _) => ErrorHandling.Strategy.SkipOne
+given ErrorHandling[LexerCtx.Default, LexerError] = (_, _) => ErrorHandling.Strategy.SkipOne
 
 val Lexer = lexer:
   case "[a-z]+" => Token["WORD"]
@@ -153,12 +153,12 @@ Lexer.tokenize("abc @def") match
   case Result.Success(_, _) => ()
 ```
 
-The strategy receives the context and the `LexError` for the unmatched character, so it can choose per character. It is the same `ErrorHandling` type the parser uses, with `LexError` as its error type.
+The strategy receives the context and the `LexerError` for the unmatched character, so it can choose per character. It is the same `ErrorHandling` type the parser uses, with `LexerError` as its error type.
 
-Note that the BrainFuck lexer from [Getting Started](getting-started.md) handles unknown characters with a `"." => Token.Ignored` catch-all pattern instead. That is the recommended approach when unknown input is not an error at all, as BrainFuck comments are: a catch-all produces no `LexError`.
+Note that the BrainFuck lexer from [Getting Started](getting-started.md) handles unknown characters with a `"." => Token.Ignored` catch-all pattern instead. That is the recommended approach when unknown input is not an error at all, as BrainFuck comments are: a catch-all produces no `LexerError`.
 
 ## Limitations
 
 - **No skip-and-continue by default.** The default strategy stops at the first unmatched character. Use a custom `ErrorHandling` or a catch-all pattern for resilience.
 - **Guards are not supported.** Pattern guards in lexer rules are a compile-time error. Move conditions into rule bodies.
-- **Error positions come from fields named `line` and `position`.** A context that tracks them under other names gets `LexError`s without a line or column.
+- **Error positions come from fields named `line` and `position`.** A context that tracks them under other names gets `LexerError`s without a line or column.

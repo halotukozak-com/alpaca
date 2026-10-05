@@ -16,10 +16,10 @@ package alpaca
  *
  * @tparam Ctx the lexer or parser context type
  * @tparam A   the value: the lexemes for `tokenize`, the root rule's result for `parse`
- * @tparam E   the error type: [[LexError]] for `tokenize`, [[ParseError]] for `parse`
+ * @tparam E   the error type: [[LexerError]] for `tokenize`, [[ParserError]] for `parse`
  *
  * For Alpaca's own error types, `getOrThrow` returns the value or throws the errors as an exception
- * ([[LexerException]] for [[LexError]]s, [[ParserException]] for [[ParseError]]s).
+ * ([[LexerException]] for [[LexerError]]s, [[ParserException]] for [[ParserError]]s).
  */
 enum Result[+Ctx, +A, +E]:
   /** The context as it was when the run ended. */

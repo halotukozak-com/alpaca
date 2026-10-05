@@ -128,19 +128,19 @@ object BrainParser extends Parser[BrainParserCtx]:
 
 ## Error Handling Strategies
 
-By default, the lexer stops at unmatched input and `tokenize()` returns a `Result.Failure` listing it as a `LexError`. You can customize this with an `ErrorHandling` instance:
+By default, the lexer stops at unmatched input and `tokenize()` returns a `Result.Failure` listing it as a `LexerError`. You can customize this with an `ErrorHandling` instance:
 
 ```scala sc-compile-with:BrainLexer
-// Option A: skip unrecognized characters (each is still reported as a LexError)
-given ErrorHandling[BrainLexContext, LexError] = (_, _) => ErrorHandling.Strategy.SkipOne
+// Option A: skip unrecognized characters (each is still reported as a LexerError)
+given ErrorHandling[BrainLexContext, LexerError] = (_, _) => ErrorHandling.Strategy.SkipOne
 ```
 
 ```scala sc-compile-with:BrainLexer
 // Option B: stop at the first unrecognized character (the default)
-given ErrorHandling[BrainLexContext, LexError] = (_, _) => ErrorHandling.Strategy.Stop
+given ErrorHandling[BrainLexContext, LexerError] = (_, _) => ErrorHandling.Strategy.Stop
 ```
 
-Three strategies are available; each reports the unmatched input as a `LexError`:
+Three strategies are available; each reports the unmatched input as a `LexerError`:
 
 | Strategy | Behavior |
 |----------|----------|

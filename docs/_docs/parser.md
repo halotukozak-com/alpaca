@@ -306,13 +306,13 @@ extension (ast: BrainAST)
 ```scala sc-name:brain-tokenize sc-compile-with:brain-eval-defs
 val lexemes = BrainLexer.tokenize("++[>+<-]").getOrThrow
 val parsed = BrainParser.parse(lexemes)
-// parsed: Result[ParserCtx.Empty, BrainAST, ParseError]
+// parsed: Result[ParserCtx.Empty, BrainAST, ParserError]
 ```
 
 `parse()` does not throw when the input does not match the grammar. It returns a `Result` -- the same type `tokenize` returns -- which is one of two cases, both carrying the parser context (`ctx`) as it was when parsing ended:
 
 - `Result.Success(ctx, value)` -- the input matched, and `value` is what the root rule produced (a `BrainAST` here);
-- `Result.Failure(ctx, recovered, errors)` -- the input did not match; `errors` is a non-empty list of `ParseError`s. `recovered` is a value produced anyway by an error-handling strategy that skips past errors; the parser does not have one yet, so here it is always `None`.
+- `Result.Failure(ctx, recovered, errors)` -- the input did not match; `errors` is a non-empty list of `ParserError`s. `recovered` is a value produced anyway by an error-handling strategy that skips past errors; the parser does not have one yet, so here it is always `None`.
 
 Match on it to handle both outcomes:
 
@@ -330,7 +330,7 @@ parsed.toOption                   // Some(ast), or None
 parsed.toEither                   // Right(ast), or Left(errors)
 ```
 
-A `ParseError` is plain data: it carries the lexeme the parser could not accept (`unexpected`) and the token names the grammar would have accepted there (`expected`, with `"$"` standing for the end of the input). Its `message` also gives the token's line and column when the lexer tracks them, e.g. for `1 + + 2` in a grammar of numbers and `+`:
+A `ParserError` is plain data: it carries the lexeme the parser could not accept (`unexpected`) and the token names the grammar would have accepted there (`expected`, with `"$"` standing for the end of the input). Its `message` also gives the token's line and column when the lexer tracks them, e.g. for `1 + + 2` in a grammar of numbers and `+`:
 
 ```
 Unexpected PLUS "+" at line 1, column 5. Expected one of: NUMBER

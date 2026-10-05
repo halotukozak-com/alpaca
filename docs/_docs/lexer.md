@@ -233,7 +233,7 @@ The method returns a `Result` -- the same type `parse` returns (see [Parsing Inp
 - **`ctx`** -- the final lexer context after processing all input. With `LexerCtx.Default`, this includes `position` and `line`.
 - **`getOrThrow`** -- the lexemes: matched tokens with `Token.Ignored` entries removed. Each `Lexeme` carries the token `name`, extracted `value`, and a snapshot of context fields at match time.
 
-If the input contains a character that matches no pattern, `tokenize` does not throw: it returns a `Result.Failure` listing `LexError`s, and `getOrThrow` throws them as a `LexerException`. Match on the result to handle them yourself:
+If the input contains a character that matches no pattern, `tokenize` does not throw: it returns a `Result.Failure` listing `LexerError`s, and `getOrThrow` throws them as a `LexerException`. Match on the result to handle them yourself:
 
 ```scala
 import halotukozak.alpaca.*

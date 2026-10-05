@@ -10,16 +10,16 @@ import scala.annotation.implicitNotFound
  * strategy only decides whether the run stops there or skips past the input and goes on. It is given the context and
  * the error, so it can decide per error.
  *
- * The lexer looks for an `ErrorHandling[Ctx, LexError]` for its context, the parser for an
- * `ErrorHandling[Ctx, ParseError]` for its context. Both default to [[ErrorHandling.Strategy.Stop]]; define a
+ * The lexer looks for an `ErrorHandling[Ctx, LexerError]` for its context, the parser for an
+ * `ErrorHandling[Ctx, ParserError]` for its context. Both default to [[ErrorHandling.Strategy.Stop]]; define a
  * `given` for your context type to change that:
  * {{{
- * given ErrorHandling[MyLexerCtx, LexError] = (ctx, error) => ErrorHandling.Strategy.SkipOne
- * given ErrorHandling[MyParserCtx, ParseError] = (ctx, error) => ErrorHandling.Strategy.SkipToNextMatch
+ * given ErrorHandling[MyLexerCtx, LexerError] = (ctx, error) => ErrorHandling.Strategy.SkipOne
+ * given ErrorHandling[MyParserCtx, ParserError] = (ctx, error) => ErrorHandling.Strategy.SkipToNextMatch
  * }}}
  *
  * @tparam Ctx the lexer or parser context this applies to
- * @tparam E   the error it is given: [[LexError]] for the lexer, [[ParseError]] for the parser
+ * @tparam E   the error it is given: [[LexerError]] for the lexer, [[ParserError]] for the parser
  */
 @implicitNotFound("Define ErrorHandling[${Ctx}, ${E}].")
 trait ErrorHandling[-Ctx, -E] extends ((Ctx, E) => ErrorHandling.Strategy)
