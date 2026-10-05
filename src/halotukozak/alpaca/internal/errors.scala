@@ -62,6 +62,6 @@ private def locate(using quotes: Quotes)(message: Shown, source: Source): (Shown
   source.toPosition match
     case Some(pos) => (message, pos)
     case None =>
-      (show"$message\n(declared at ${source.file}:${source.line + 1})", quotes.reflect.Position.ofMacroExpansion)
+      (show"$message\n(declared at ${source.file.showRaw}:${source.line + 1})", quotes.reflect.Position.ofMacroExpansion)
 
 // $COVERAGE-ON$

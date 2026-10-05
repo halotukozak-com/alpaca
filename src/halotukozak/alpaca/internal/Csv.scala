@@ -51,7 +51,8 @@ private[internal] final case class Csv(
 
     inline def toCsv: Csv =
       Csv(
-        compiletime.constValueTuple[N].toShowableList,
+        // the field names of a named tuple in this library's code, not user text
+        compiletime.constValueTuple[N].productIterator.map(_.toString.showRaw).toList,
         rows.map(_.toTuple.toShowableList),
       )
   }

@@ -4,7 +4,7 @@ package internal
 package parser
 
 import Symbol.SyntheticInfix
-import halotukozak.alpaca.internal.Showable
+import halotukozak.alpaca.internal.{Printable, Showable}
 import halotukozak.mcodec.MCodec
 
 import scala.annotation.publicInBinary
@@ -19,7 +19,7 @@ import scala.util.Random
  */
 private[parser] trait Symbol extends Any:
   type IsEmpty <: Boolean
-  def name: String
+  def name: Printable
 
 /**
  * Represents a non-terminal symbol in the grammar.
@@ -30,7 +30,7 @@ private[parser] trait Symbol extends Any:
  *
  * @param name the name of the non-terminal
  */
-sealed case class NonTerminal(name: String) extends AnyVal, Symbol
+sealed case class NonTerminal(name: Printable) extends AnyVal, Symbol
 
 object NonTerminal:
 
@@ -40,11 +40,12 @@ object NonTerminal:
    * This is used internally to create temporary non-terminals for
    * EBNF operators like optional and repeated patterns.
    *
-   * @param name the base name for the non-terminal
-   * @return a non-terminal with a unique name based on the input
+   * @param base      the symbol the extractor is applied to
+   * @param extractor the extractor the non-terminal stands for, e.g. `List`
+   * @return a non-terminal shown as `base.extractor`, with a unique name
    */
-  def fresh(name: String): NonTerminal & Symbol.NonEmpty =
-    NonTerminal(s"${name}_${SyntheticInfix}_${Random.alphanumeric.take(8).mkString}")
+  def fresh(base: Symbol, extractor: String): NonTerminal & Symbol.NonEmpty =
+    NonTerminal(Printable(s"${base.name.raw}.${extractor}_${SyntheticInfix}_${Random.alphanumeric.take(8).mkString}"))
 
   /**
    * Creates a non-terminal symbol from a name.
@@ -52,7 +53,7 @@ object NonTerminal:
    * @param name the name of the non-terminal
    * @return a non-empty non-terminal symbol
    */
-  inline def apply(inline name: String): NonTerminal & Symbol.NonEmpty =
+  inline def apply(inline name: Printable): NonTerminal & Symbol.NonEmpty =
     new NonTerminal(name).asInstanceOf[NonTerminal & Symbol.NonEmpty]
 
 /**
@@ -64,7 +65,7 @@ object NonTerminal:
  *
  * @param name the name of the terminal (token name)
  */
-sealed case class Terminal(name: String) extends AnyVal, Symbol
+sealed case class Terminal(name: Printable) extends AnyVal, Symbol
 
 object Terminal:
   /**
@@ -73,7 +74,7 @@ object Terminal:
    * @param name the name of the terminal (token name)
    * @return a non-empty terminal symbol
    */
-  inline def apply(inline name: String): Terminal & Symbol.NonEmpty =
+  inline def apply(inline name: Printable): Terminal & Symbol.NonEmpty =
     new Terminal(name).asInstanceOf[Terminal & Symbol.NonEmpty]
 
 @publicInBinary private[parser] object Symbol:
@@ -82,13 +83,13 @@ object Terminal:
   type NonEmpty = Symbol { type IsEmpty = false }
 
   /** The augmented start symbol used internally by the parser. */
-  val Start: NonTerminal { type IsEmpty = false } = NonTerminal("S'")
+  val Start: NonTerminal { type IsEmpty = false } = NonTerminal(Printable("S'"))
 
   /** The end-of-file terminal symbol. */
-  val EOF: Terminal { type IsEmpty = false } = Terminal("$")
+  val EOF: Terminal { type IsEmpty = false } = Terminal(Printable("$"))
 
   /** The empty terminal symbol (epsilon). */
-  val Empty: Terminal { type IsEmpty = true } = Terminal("ε").asInstanceOf[Terminal { type IsEmpty = true }]
+  val Empty: Terminal { type IsEmpty = true } = Terminal(Printable("ε")).asInstanceOf[Terminal { type IsEmpty = true }]
 
   /**
    * Placeholder lookahead used only while propagating LALR(1) lookaheads (#504, see
@@ -98,18 +99,18 @@ object Terminal:
    * terminal it closure-generates is a lookahead the target state gets regardless of the seed
    * (spontaneous generation).
    */
-  val Dummy: Terminal { type IsEmpty = false } = Terminal("#")
+  val Dummy: Terminal { type IsEmpty = false } = Terminal(Printable("#"))
 
   /**
    * Symbols are shown as the user wrote them: token names unencoded (`+`, not `$plus`), and the non-terminals the
    * EBNF extractors synthesize by the extractor they stand for (`Operation.List`), without the uniqueness suffix.
-   * Characters that would not show up in a message are escaped (see `printable`).
+   * Characters that would not show up in a message are escaped (see [[Printable]]).
    */
   given Showable[Symbol] = symbol =>
-    val name = symbol.name.indexOf(s"_${SyntheticInfix}_") match
-      case -1 => symbol.name
-      case end => symbol.name.substring(0, end)
-    printable(name)
+    val name = symbol.name.raw
+    Printable(name.indexOf(s"_${SyntheticInfix}_") match
+      case -1 => name
+      case end => name.substring(0, end)).show
 
   // $COVERAGE-OFF$
   given [S <: Symbol] => ToExpr[S]:
@@ -124,8 +125,8 @@ object Terminal:
       .derived[(kind: String, name: String)]
       .transform(
         onWrite = {
-          case s: NonTerminal => (kind = "nonterminal", name = s.name)
-          case s: Terminal => (kind = "terminal", name = s.name)
+          case s: NonTerminal => (kind = "nonterminal", name = s.name.raw)
+          case s: Terminal => (kind = "terminal", name = s.name.raw)
         },
         onRead = _ => throw UnsupportedOperationException("Symbol's export codec is write-only"),
       )

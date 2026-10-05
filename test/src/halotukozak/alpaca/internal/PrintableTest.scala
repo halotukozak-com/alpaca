@@ -8,20 +8,20 @@ import org.scalatest.matchers.should.Matchers
 final class PrintableTest extends AnyFunSuite with Matchers:
 
   test("escapes line breaks and tabs as Scala escapes") {
-    printable("\n") shouldBe "\\n"
-    printable("\r\n") shouldBe "\\r\\n"
-    printable("\t") shouldBe "\\t"
+    Printable("\n").show shouldBe "\\n"
+    Printable("\r\n").show shouldBe "\\r\\n"
+    Printable("\t").show shouldBe "\\t"
   }
 
   test("escapes other control and format characters as unicode escapes") {
-    printable("\u0000") shouldBe "\\u0000"
-    printable("a\u001bb") shouldBe "a\\u001bb"
-    printable("​") shouldBe "\\u200b"
+    Printable("\u0000").show shouldBe "\\u0000"
+    Printable("a\u001bb").show shouldBe "a\\u001bb"
+    Printable("​").show shouldBe "\\u200b"
   }
 
   test("leaves visible characters alone") {
-    printable("+") shouldBe "+"
-    printable("\\+") shouldBe "\\+"
-    printable("zażółć") shouldBe "zażółć"
-    printable("a b") shouldBe "a b"
+    Printable("+").show shouldBe "+"
+    Printable("\\+").show shouldBe "\\+"
+    Printable("zażółć").show shouldBe "zażółć"
+    Printable("a b").show shouldBe "a b"
   }

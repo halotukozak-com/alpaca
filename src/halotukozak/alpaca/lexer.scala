@@ -241,8 +241,8 @@ trait LexerCtx extends Product, Selectable:
   // $COVERAGE-OFF$
   def applyDynamic(name: String)(@unused args: Any*): Any =
     throw new UnsupportedOperationException(
-      s"Cannot mutate lexer context field '$name' on $productPrefix: either this assignment is outside a " +
-        "lexer rule, or the lexer macro failed to rewrite it into a functional update.",
+      show"Cannot mutate lexer context field '${Printable(name)}' on ${Printable(productPrefix)}: either this " +
+        "assignment is outside a lexer rule, or the lexer macro failed to rewrite it into a functional update.",
     )
   // $COVERAGE-ON$
 
@@ -290,15 +290,16 @@ object LexerCtx:
 final case class LexerError(unexpected: String, line: Option[Int], column: Option[Int]):
   /** A readable description, e.g. `Unexpected character '@' at line 1, column 5`. */
   def message: String = {
+    val text = Printable(unexpected)
     val what =
-      if unexpected.codePointCount(0, unexpected.length) == 1 then s"character '${printable(unexpected)}'"
-      else s"""input "${printable(unexpected)}""""
+      if unexpected.codePointCount(0, unexpected.length) == 1 then show"character '$text'"
+      else show"""input "$text""""
     val where = (line, column) match
-      case (Some(line), Some(column)) => s" at line $line, column $column"
-      case (Some(line), None) => s" at line $line"
-      case (None, Some(column)) => s" at column $column"
-      case (None, None) => ""
-    s"Unexpected $what$where"
+      case (Some(line), Some(column)) => show" at line $line, column $column"
+      case (Some(line), None) => show" at line $line"
+      case (None, Some(column)) => show" at column $column"
+      case (None, None) => show""
+    show"Unexpected $what$where"
   }
 
 object LexerError:

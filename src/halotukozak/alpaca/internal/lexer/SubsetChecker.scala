@@ -26,7 +26,8 @@ private[lexer] object SubsetChecker:
    *         `second` holds a single name when one earlier pattern covers it on its own, otherwise
    *         every earlier pattern that overlaps it.
    */
-  def checkRegexes(items: List[(name: String, subset: Subset)]): Option[(first: String, second: List[String])] =
+  def checkRegexes(items: List[(name: Printable, subset: Subset)])
+    : Option[(first: Printable, second: List[Printable])] =
     items.indices.iterator
       .flatMap: i =>
         val (laterName, laterSub) = items(i)

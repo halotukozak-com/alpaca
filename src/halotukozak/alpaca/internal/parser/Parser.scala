@@ -84,7 +84,7 @@ abstract class Parser[Ctx <: ParserCtx](
     // The accepted root node, or `None` when an error stopped the parser.
     @tailrec def loop(remaining: List[Lexeme[?, ?]]): Option[Node] = {
       val current = if remaining.isEmpty then Lexeme.EOF else remaining.head
-      val nextSymbol = Terminal(current.name)
+      val nextSymbol = Terminal(Printable(current.name))
       val action = tables.parseTable.get(stateStack.last, nextSymbol)
       if action == null then {
         val error = ParserError(current, tables.parseTable.expectedTerminals(stateStack.last))
@@ -94,7 +94,9 @@ abstract class Parser[Ctx <: ParserCtx](
           case ErrorHandling.Strategy.SkipOne if remaining.nonEmpty => loop(remaining.tail)
           case ErrorHandling.Strategy.SkipToNextMatch if remaining.nonEmpty =>
             val state = stateStack.last
-            loop(remaining.tail.dropWhile(lexeme => tables.parseTable.get(state, Terminal(lexeme.name)) == null))
+            loop(
+              remaining.tail.dropWhile(lexeme => tables.parseTable.get(state, Terminal(Printable(lexeme.name))) == null),
+            )
           case _ => None
       } else {
         action match {
@@ -171,7 +173,7 @@ def productionImpl[P <: Parser[?]: Type](using quotes: Quotes): Expr[ProductionS
             // todo: def rules, or error? https://github.com/halotukozak/alpaca/issues/230
             case DefinitionRhs(_, rhs) => extractName(rhs.asExprOf[Rule[?]])
             case _ =>
-              error("Define resolutions as the last field of the parser.", Position.ofMacroExpansion)
+              error(show"Define resolutions as the last field of the parser.", Position.ofMacroExpansion)
               Nil
           .map(name => (name, TypeRepr.of[Production]))
           .toList

@@ -22,7 +22,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
 
   val Lambda(oldCtx :: Nil, Lambda(_, Match(_, cases: List[CaseDef]))) = rules.asTerm.underlying.runtimeChecked
 
-  if cases.isEmpty then errorAndAbort("Lexer definition must contain at least one case", rules.asTerm.pos)
+  if cases.isEmpty then errorAndAbort(show"Lexer definition must contain at least one case", rules.asTerm.pos)
 
   val tokens = cases.foldLeft(
     List.empty[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], pos: Position, regex: Regex)],
@@ -128,23 +128,23 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
 
       acc ::: pairs.map((info, expr, regex) => (info = info, expr = expr, pos = tree.pos, regex = regex))
 
-    case (_, CaseDef(_, Some(guard), _)) => errorAndAbort("Guards are not supported yet", guard.pos)
+    case (_, CaseDef(_, Some(guard), _)) => errorAndAbort(show"Guards are not supported yet", guard.pos)
 
   // A token name in quotes, readable even when it holds a tab or another non-printable character.
-  def quote(name: String): String = "\"" + printable(name) + "\""
+  def quote(name: Printable): Shown = show"\"$name\""
 
   // A token's regex as the Scala string literal the user would write in a `case`.
-  def literal(token: (info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], pos: Position, regex: Regex)): String =
-    quote(token.info.pattern.replace("\\", "\\\\").replace("\"", "\\\""))
+  def literal(token: (info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], pos: Position, regex: Regex)): Shown =
+    quote(Printable(token.info.pattern.raw.replace("\\", "\\\\").replace("\"", "\\\"")))
 
   tokens
     .groupBy(_.info.name)
     .iterator
     .filter(_._2.sizeIs > 1)
     .foreach: (name, duplicates) =>
-      val alternatives = duplicates.map(literal).mkString(" | ")
+      val alternatives = duplicates.map(literal).mkShow(" | ")
       errorAndAbort(
-        show"Token name ${quote(name)} is defined ${duplicates.size.toString} times. Combine the patterns into a single case using alternatives: case $alternatives => ...",
+        show"Token name ${quote(name)} is defined ${duplicates.size} times. Combine the patterns into a single case using alternatives: case $alternatives => ...",
         duplicates(1).pos,
       )
 
@@ -154,22 +154,21 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
       val byName = tokens.map(token => token.info.name -> token).toMap
       val shadowed = byName(first)
       val quoted = second.map(quote)
-      val covering = quoted.mkString(" or ")
+      val covering = quoted.mkShow(" or ")
       val (which, wins) =
-        if second.sizeIs == 1 then ("which is", "it always wins") else ("which are", "one of them always wins")
+        if second.sizeIs == 1 then (show"which is", show"it always wins")
+        else (show"which are", show"one of them always wins")
       val advice = second match
         case List(only) if Subset.of(byName(only).regex).subset(Subset.of(shadowed.regex)) =>
-          s"""${quote(only)} and ${quote(first)} match exactly the same inputs; remove one of them."""
+          show"""${quote(only)} and ${quote(first)} match exactly the same inputs; remove one of them."""
         case List(only) =>
-          s"""Declare ${quote(first)} (${literal(shadowed)}) before ${quote(only)} (${literal(byName(only))})."""
+          show"""Declare ${quote(first)} (${literal(shadowed)}) before ${quote(only)} (${literal(byName(only))})."""
         case _ =>
-          s"""${quote(first)} is redundant: remove it, or narrow ${quoted.mkString(
-              " and ",
-            )} so they no longer cover it."""
+          show"""${quote(first)} is redundant: remove it, or narrow ${quoted.mkShow(" and ")} so they no longer cover it."""
       errorAndAbort(
-        s"""Token ${quote(first)} can never match: every input it matches is also matched by $covering,
+        show"""Token ${quote(first)} can never match: every input it matches is also matched by $covering,
            |$which defined earlier, so $wins.
-           |$advice""".stripMargin,
+           |$advice""".trimMargin,
         shadowed.pos,
       )
 
@@ -178,7 +177,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
   // further up.
   JsonExport.maybeWrite(exportId(declaredName(Symbol.spliceOwner.owner)), "tokens", tokens.map(_.info))
 
-  val fields = tokens.map(t => (t.info.name, t.expr.asTerm.tpe))
+  val fields = tokens.map(t => (t.info.name.raw, t.expr.asTerm.tpe))
   val types = fields.foldLeft(TypeRepr.of[Any]):
     case (acc, (name, tpe)) =>
       val alias = tpe.asType match
@@ -190,7 +189,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
   def selectDynamicImpl(fieldName: Expr[String])(using Quotes) = Match(
     '{ $fieldName: @switch }.asTerm,
     tokens.map: t =>
-      CaseDef(Literal(StringConstant(NameTransformer.encode(t.info.name))), None, t.expr.asTerm),
+      CaseDef(Literal(StringConstant(NameTransformer.encode(t.info.name.raw))), None, t.expr.asTerm),
   ).asExprOf[lexer.Token[?, Ctx, ?]]
 
   (refinementTpeFrom(fields).asType, fieldsTpeFrom(fields).asType, types.asType).runtimeChecked match {

@@ -37,8 +37,8 @@ private[parser] object ParseTable:
     def apply(state: Int, symbol: Symbol): ParseAction = table(state).get(symbol) match
       case Some(action) => action
       case None =>
-        val expected = table(state).keysIterator.map(_.name).to(SortedSet).mkString(", ")
-        throw AlgorithmError(s"Unexpected symbol '${symbol.name}' in state $state. Expected one of: $expected")
+        val expected = table(state).keysIterator.map(_.name).to(SortedSet).mkShow(", ")
+        throw AlgorithmError(show"Unexpected symbol '${symbol.name}' in state $state. Expected one of: $expected")
 
     /** The parse action for a given state and symbol, or `null` if the grammar accepts no such symbol there. */
     def get(state: Int, symbol: Symbol): ParseAction | Null = table(state).get(symbol) match
@@ -48,7 +48,7 @@ private[parser] object ParseTable:
     /** Names of the terminals that have an action in `state` -- what the input may continue with there. */
     def expectedTerminals(state: Int): List[String] =
       table(state).keysIterator
-        .collect { case Terminal(name) if name != Symbol.Dummy.name && name != Symbol.Empty.name => name }
+        .collect { case Terminal(name) if name != Symbol.Dummy.name && name != Symbol.Empty.name => name.raw }
         .to(SortedSet)
         .toList
 
@@ -76,7 +76,7 @@ private[parser] object ParseTable:
       val rows = table.indices
         .map: i =>
           val row = table(i)
-          show"$i" :: symbols.map(s => row.get(s).fold[Shown]("")(_.show))
+          show"$i" :: symbols.map(s => row.get(s).fold(show"")(_.show))
         .toList
 
       Csv(headers, rows)
@@ -113,7 +113,7 @@ private[parser] object ParseTable:
                 |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
                 |Conflicting production: ${red1.production} (line ${red1.production.source.line + 1})
                 |Consider marking one of the productions to be before or after the other
-                |""".stripMargin,
+                |""".trimMargin,
           red2.production.source,
         )
 
@@ -125,7 +125,7 @@ private[parser] object ParseTable:
                 |In situation like:
                 |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
                 |Consider marking production $red to be before or after "$symbol"
-                |""".stripMargin,
+                |""".trimMargin,
           red.production.source,
         )
     // $COVERAGE-ON$
@@ -216,7 +216,7 @@ private[parser] object ParseTable:
         result.append(centerText(row.get(s).fold("")(_.show)))
         result.append("|")
     result.append('\n')
-    result.result()
+    result.result().showRaw
   }
 
   // $COVERAGE-OFF$

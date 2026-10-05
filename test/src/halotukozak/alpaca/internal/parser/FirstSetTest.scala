@@ -12,17 +12,29 @@ final class FirstSetTest extends AnyFunSuite:
   test("FirstSet should correctly identify first sets for simple grammar") {
 
     val productions: List[Production] = List(
-      NEP(NonTerminal("S"), NEL[Symbol.NonEmpty](NonTerminal("L"), Terminal("="), NonTerminal("R")), source = TestSource),
-      NEP(NonTerminal("S"), NEL(NonTerminal("R")), source = TestSource),
-      NEP(NonTerminal("L"), NEL[Symbol.NonEmpty](Terminal("1"), NonTerminal("R")), source = TestSource),
-      NEP(NonTerminal("L"), NEL(Terminal("2")), source = TestSource),
-      NEP(NonTerminal("R"), NEL[Symbol.NonEmpty](Terminal("3"), NonTerminal("L")), source = TestSource),
+      NEP(
+        NonTerminal(Printable("S")),
+        NEL[Symbol.NonEmpty](NonTerminal(Printable("L")), Terminal(Printable("=")), NonTerminal(Printable("R"))),
+        source = TestSource,
+      ),
+      NEP(NonTerminal(Printable("S")), NEL(NonTerminal(Printable("R"))), source = TestSource),
+      NEP(
+        NonTerminal(Printable("L")),
+        NEL[Symbol.NonEmpty](Terminal(Printable("1")), NonTerminal(Printable("R"))),
+        source = TestSource,
+      ),
+      NEP(NonTerminal(Printable("L")), NEL(Terminal(Printable("2"))), source = TestSource),
+      NEP(
+        NonTerminal(Printable("R")),
+        NEL[Symbol.NonEmpty](Terminal(Printable("3")), NonTerminal(Printable("L"))),
+        source = TestSource,
+      ),
     )
 
     val expected = Map(
-      NonTerminal("S") -> Set(Terminal("1"), Terminal("2"), Terminal("3")),
-      NonTerminal("L") -> Set(Terminal("1"), Terminal("2")),
-      NonTerminal("R") -> Set(Terminal("3")),
+      NonTerminal(Printable("S")) -> Set(Terminal(Printable("1")), Terminal(Printable("2")), Terminal(Printable("3"))),
+      NonTerminal(Printable("L")) -> Set(Terminal(Printable("1")), Terminal(Printable("2"))),
+      NonTerminal(Printable("R")) -> Set(Terminal(Printable("3"))),
     )
 
     assert(FirstSet(productions) == expected)
@@ -31,30 +43,42 @@ final class FirstSetTest extends AnyFunSuite:
   test("FirstSet should handle epsilon productions") {
 
     val productions: List[Production] = List(
-      NEP(NonTerminal("E"), NEL(NonTerminal("T"), NonTerminal("E'")), source = TestSource),
       NEP(
-        NonTerminal("E'"),
-        NEL[Symbol.NonEmpty](Terminal("+"), NonTerminal("T"), NonTerminal("E'")),
+        NonTerminal(Printable("E")),
+        NEL(NonTerminal(Printable("T")), NonTerminal(Printable("E'"))),
         source = TestSource,
       ),
-      Production.Empty(NonTerminal("E'"), source = TestSource),
-      NEP(NonTerminal("T"), NEL(NonTerminal("F"), NonTerminal("T'")), source = TestSource),
       NEP(
-        NonTerminal("T'"),
-        NEL[Symbol.NonEmpty](Terminal("*"), NonTerminal("F"), NonTerminal("T'")),
+        NonTerminal(Printable("E'")),
+        NEL[Symbol.NonEmpty](Terminal(Printable("+")), NonTerminal(Printable("T")), NonTerminal(Printable("E'"))),
         source = TestSource,
       ),
-      Production.Empty(NonTerminal("T'"), source = TestSource),
-      NEP(NonTerminal("F"), NEL[Symbol.NonEmpty](Terminal("("), NonTerminal("E"), Terminal(")")), source = TestSource),
-      NEP(NonTerminal("F"), NEL(Terminal("id")), source = TestSource),
+      Production.Empty(NonTerminal(Printable("E'")), source = TestSource),
+      NEP(
+        NonTerminal(Printable("T")),
+        NEL(NonTerminal(Printable("F")), NonTerminal(Printable("T'"))),
+        source = TestSource,
+      ),
+      NEP(
+        NonTerminal(Printable("T'")),
+        NEL[Symbol.NonEmpty](Terminal(Printable("*")), NonTerminal(Printable("F")), NonTerminal(Printable("T'"))),
+        source = TestSource,
+      ),
+      Production.Empty(NonTerminal(Printable("T'")), source = TestSource),
+      NEP(
+        NonTerminal(Printable("F")),
+        NEL[Symbol.NonEmpty](Terminal(Printable("(")), NonTerminal(Printable("E")), Terminal(Printable(")"))),
+        source = TestSource,
+      ),
+      NEP(NonTerminal(Printable("F")), NEL(Terminal(Printable("id"))), source = TestSource),
     )
 
     val expected = Map(
-      NonTerminal("E") -> Set(Terminal("("), Terminal("id")),
-      NonTerminal("E'") -> Set(Terminal("+"), internal.parser.Symbol.Empty),
-      NonTerminal("T") -> Set(Terminal("("), Terminal("id")),
-      NonTerminal("T'") -> Set(Terminal("*"), internal.parser.Symbol.Empty),
-      NonTerminal("F") -> Set(Terminal("("), Terminal("id")),
+      NonTerminal(Printable("E")) -> Set(Terminal(Printable("(")), Terminal(Printable("id"))),
+      NonTerminal(Printable("E'")) -> Set(Terminal(Printable("+")), internal.parser.Symbol.Empty),
+      NonTerminal(Printable("T")) -> Set(Terminal(Printable("(")), Terminal(Printable("id"))),
+      NonTerminal(Printable("T'")) -> Set(Terminal(Printable("*")), internal.parser.Symbol.Empty),
+      NonTerminal(Printable("F")) -> Set(Terminal(Printable("(")), Terminal(Printable("id"))),
     )
 
     assert(FirstSet(productions) == expected)

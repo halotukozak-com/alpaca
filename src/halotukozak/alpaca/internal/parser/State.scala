@@ -21,10 +21,10 @@ private[parser] object State:
 
   val empty: State = SortedSet.empty[Item](
     using Ordering
-      .by[Item, String](_.production.lhs.name)
+      .by[Item, String](_.production.lhs.name.raw)
       .orElseBy(_.production)
       .orElseBy(_.dotPosition)
-      .orElseBy(_.lookAhead.name),
+      .orElseBy(_.lookAhead.name.raw),
   )
 
   /**

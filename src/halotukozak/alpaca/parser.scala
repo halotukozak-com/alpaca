@@ -183,18 +183,18 @@ final case class ParserError(unexpected: Lexeme[?, ?], expected: List[String]):
             case n: Int => Some(n)
             case _ => None
 
-    val name: String = unexpected.name
+    def describe(name: String): Shown = if name == "$" then show"end of input" else Printable(name).show
+
     val what =
-      if name == "$" then "end of input"
-      else s"""$name "${unexpected.text}""""
+      if unexpected.name == "$" then describe(unexpected.name)
+      else show"""${describe(unexpected.name)} "${Printable(unexpected.text)}""""
     // `position` is recorded after the match, so the token itself starts `text.length` earlier.
     val where = (field("line"), field("position")) match
-      case (Some(line), Some(position)) => s" at line $line, column ${position - unexpected.text.length}"
-      case (Some(line), None) => s" at line $line"
-      case (None, Some(position)) => s" at column ${position - unexpected.text.length}"
-      case (None, None) => ""
-    val accepted = expected.map(name => if name == "$" then "end of input" else name).mkString(", ")
-    s"Unexpected $what$where. Expected one of: $accepted"
+      case (Some(line), Some(position)) => show" at line $line, column ${position - unexpected.text.length}"
+      case (Some(line), None) => show" at line $line"
+      case (None, Some(position)) => show" at column ${position - unexpected.text.length}"
+      case (None, None) => show""
+    show"Unexpected $what$where. Expected one of: ${expected.map(describe).mkShow(", ")}"
   }
 
 object ParserError:

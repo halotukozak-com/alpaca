@@ -67,8 +67,8 @@ private[lexer] def compileNameAndPattern[T: Type](
         Subset.parse(alt) match
           case Right(_) => ()
           case Left(err) =>
-            errorAndAbort(show"""Invalid regex pattern for token "${printable(str)}": $err""", pattern.pos)
-      TokenInfo(str, patterns.mkShow("|"), ignored, pattern.pos) :: Nil
+            errorAndAbort(show"""Invalid regex pattern for token "${Printable(str)}": $err""", pattern.pos)
+      TokenInfo(str, patterns.mkString("|"), ignored, pattern.pos) :: Nil
     case x => raiseShouldNeverBeCalled[List[(Type[? <: ValidName], TokenInfo, Regex)]](x.toString)
   }
 

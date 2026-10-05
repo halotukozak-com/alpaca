@@ -9,6 +9,6 @@ import org.scalatest.matchers.should.Matchers
 final class SymbolShowTest extends AnyFunSuite with Matchers:
 
   test("symbols with non-printable names are shown escaped") {
-    show"${Terminal("\t"): Symbol}" shouldBe "\\t"
-    show"${NonTerminal("\n"): Symbol}" shouldBe "\\n"
+    show"${Terminal(Printable("\t")): Symbol}" shouldBe "\\t"
+    show"${NonTerminal(Printable("\n")): Symbol}" shouldBe "\\n"
   }
