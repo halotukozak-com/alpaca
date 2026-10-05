@@ -80,6 +80,9 @@ object `package` extends Module:
         // "-Yshow-suppressed-errors",
         // "-Yshow-var-bounds",
         "-Wall",
+        // -Wall's -Wshadow:type-parameter-shadow (E226) can't be switched off afterwards; it mostly flags
+        // refinement members shadowing an imported name, so its reports are dropped
+        "-Wconf:id=E226:s",
       )
       if isCI() then common ++ ciOnly else common
     }
