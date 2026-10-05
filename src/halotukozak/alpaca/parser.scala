@@ -319,13 +319,13 @@ extension [Ctx <: ParserCtx](parser: Parser[Ctx]) {
    * The result type is inferred from the root rule. Input that does not match the grammar is not thrown as an
    * exception: it comes back as a [[Result.Failure]] listing the [[ParserError]]s.
    *
-   * @param lexems the list of lexemes to parse
+   * @param lexemes the list of lexemes to parse
    * @return the value the root rule produced, or the errors that stopped the parser, with the context either way
    */
-  inline def parse(lexems: List[Lexeme[?, ?]]): Result[
+  inline def parse(lexemes: List[Lexeme[?, ?]]): Result[
     Ctx,
     parser.root.type match
       case Rule[t] => t,
     ParserError,
-  ] = parser.parseResult(lexems)
+  ] = parser.parseResult(lexemes)
 }
