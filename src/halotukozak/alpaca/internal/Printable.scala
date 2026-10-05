@@ -21,10 +21,9 @@ opaque private[alpaca] type Printable = String
 private val stringCodec: MCodec[String] = MCodec[String]
 
 @publicInBinary private[alpaca] object Printable:
-  inline def apply(text: String): Printable = text
+  def apply(text: String): Printable = text
 
-  /** `text` as [[Printable]], or `null` if it is `null`. */
-  inline def nullable(text: String | Null): Printable | Null = text
+  def nullable(text: String | Null): Printable | Null = text
 
   extension (text: Printable) inline def raw: String = text
 
