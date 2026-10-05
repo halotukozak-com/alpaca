@@ -117,10 +117,42 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
         case "[a-zA-Z_][a-zA-Z0-9_]*" => Token["IDENTIFIER"]
         case "[a-zA-Z]+" => Token["ALPHABETIC"]
       """).loneElement.message shouldBe
-      """Token "ALPHABETIC" can never match: every input it matches is already matched by "IDENTIFIER",
-        |which is tried first because it's defined earlier.
+      """Token "ALPHABETIC" can never match: every input it matches is also matched by "IDENTIFIER",
+        |which is defined earlier, so it always wins.
         |Consider reordering the cases so "ALPHABETIC" comes first, or merging them into one case with
         |alternatives, e.g.: case x @ ("IDENTIFIER" | "ALPHABETIC") => Token[x]""".stripMargin
+  }
+
+  test("cross-case pattern whose prefix an earlier pattern matches stays reachable (longest match)") {
+    val Lexer = lexer:
+      case "a" => Token["A"]
+      case "ab" => Token["AB"]
+      case "\\s+" => Token.Ignored
+
+    val (_, lexemes) = Lexer.tokenize("ab a")
+    assert(lexemes.map(_.name) == List("AB", "A"))
+  }
+
+  test("keyword declared before identifier: longest match keeps identifiers whole") {
+    val Lexer = lexer:
+      case "if" => Token["IF"]
+      case id @ "[a-z]+" => Token["ID"](id)
+      case "\\s+" => Token.Ignored
+
+    val (_, lexemes) = Lexer.tokenize("if iffy")
+    assert(lexemes.map(_.name) == List("IF", "ID"))
+  }
+
+  test("pattern covered by the union of earlier patterns names all of them") {
+    typeCheckErrors("""
+      val Lexer = lexer:
+        case "[a-m]" => Token["LOW"]
+        case "[n-z]" => Token["HIGH"]
+        case "[a-z]" => Token["ANY"]
+      """).loneElement.message should startWith(
+      """Token "ANY" can never match: every input it matches is also matched by "LOW" or "HIGH",
+        |which are defined earlier, so one of them always wins.""".stripMargin,
+    )
   }
 
   test("within-case alternatives where one is a prefix of another both stay reachable - longer first") {

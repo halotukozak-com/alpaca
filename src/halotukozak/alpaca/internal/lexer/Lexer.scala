@@ -141,16 +141,18 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
       )
 
   SubsetChecker
-    .checkRegexes(
-      tokens.map(token => (name = token.info.name, subset = Subset.of(token.regex).withAnySuffix)),
-    )
+    .checkRegexes(tokens.map(token => (name = token.info.name, subset = Subset.of(token.regex))))
     .foreach: (first, second) =>
       val shadowedPos = tokens.find(_.info.name == first).map(_.pos).getOrElse(Position.ofMacroExpansion)
+      val covering = second.map(name => s"\"$name\"").mkString(" or ")
+      val (which, wins) =
+        if second.sizeIs == 1 then ("which is", "it always wins") else ("which are", "one of them always wins")
+      val alternatives = (second :+ first).map(name => s"\"$name\"").mkString(" | ")
       errorAndAbort(
-        s"""Token "$first" can never match: every input it matches is already matched by "$second",
-           |which is tried first because it's defined earlier.
+        s"""Token "$first" can never match: every input it matches is also matched by $covering,
+           |$which defined earlier, so $wins.
            |Consider reordering the cases so "$first" comes first, or merging them into one case with
-           |alternatives, e.g.: case x @ ("$second" | "$first") => Token[x]""".stripMargin,
+           |alternatives, e.g.: case x @ ($alternatives) => Token[x]""".stripMargin,
         shadowedPos,
       )
 
