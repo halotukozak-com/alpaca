@@ -70,6 +70,22 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers with LoneEle
     error.message should endWith("Expected one of: end of input, +")
   }
 
+  test("ParserError escapes non-printable token names and text in its message") {
+    val TabLexer = lexer:
+      case "\t" => Token["\t"]
+      case value @ "[1-9][0-9]*" => Token["Num"](value.toInt)
+
+    object NumParser extends Parser[CalcContext]:
+      val root: Rule[Int] = rule:
+        case TabLexer.Num(lexeme) => lexeme.value
+
+    val lexemes = TabLexer.tokenize("\t1").getOrThrow
+    errorsOf(NumParser.parse(lexemes)).loneElement.message shouldBe
+      """Unexpected \t "\t" at line 1, column 1. Expected one of: Num"""
+    ParserError(lexemes.last, List("\t")).message shouldBe
+      """Unexpected Num "1" at line 1, column 2. Expected one of: \t"""
+  }
+
   test("a successful Result gives the value through every accessor") {
     val lexemes = CalcLexer.tokenize("1+2").getOrThrow
     val result = CalcParser.parse(lexemes)

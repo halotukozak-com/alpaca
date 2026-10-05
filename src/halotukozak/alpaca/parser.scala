@@ -186,14 +186,14 @@ final case class ParserError(unexpected: Lexeme[?, ?], expected: List[String]):
     val name: String = unexpected.name
     val what =
       if name == "$" then "end of input"
-      else s"""$name "${unexpected.text}""""
+      else s"""${printable(name)} "${printable(unexpected.text)}""""
     // `position` is recorded after the match, so the token itself starts `text.length` earlier.
     val where = (field("line"), field("position")) match
       case (Some(line), Some(position)) => s" at line $line, column ${position - unexpected.text.length}"
       case (Some(line), None) => s" at line $line"
       case (None, Some(position)) => s" at column ${position - unexpected.text.length}"
       case (None, None) => ""
-    val accepted = expected.map(name => if name == "$" then "end of input" else name).mkString(", ")
+    val accepted = expected.map(name => if name == "$" then "end of input" else printable(name)).mkString(", ")
     s"Unexpected $what$where. Expected one of: $accepted"
   }
 
