@@ -276,6 +276,32 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
       "if true then CalcLexer.`+`.before(CalcLexer.Num) else CalcLexer.Num.before(CalcLexer.`+`),"
   }
 
+  test("a rule that is not a rule(...) call is reported at that rule instead of crashing the macro") {
+    val errors = typeCheckErrors("""
+    object UnfinishedParser extends Parser[CalcContext]:
+      val Expr: Rule[Int] = ???
+      val root: Rule[Int] = rule:
+        case Expr(e) => e
+    """)
+    val error = errors.loneElement
+    error.message shouldBe "Cannot read the productions of rule Expr: define it with a `rule(...)` call."
+    error.lineContent.trim shouldBe "val Expr: Rule[Int] = ???"
+  }
+
+  test("production does not crash on a rule that is not a rule(...) call") {
+    val messages = typeCheckErrors("""
+    object UnfinishedParser extends Parser[CalcContext]:
+      val Expr: Rule[Int] = ???
+      val root: Rule[Int] = ???
+
+    given Resolutions[UnfinishedParser.type] = resolutions(
+      production.plus.before(CalcLexer.`+`),
+    )
+    """).map(_.message)
+    messages.loneElement should startWith("value plus is not a member of")
+    messages.foreach(message => (message should not).include("Exception occurred while executing macro expansion"))
+  }
+
   test("invalid SeparatedBy separator is reported at the separator") {
     val separator: scala.compiletime.testing.Error = typeCheckErrors("""
     object SeparatorParser extends Parser[CalcContext]:

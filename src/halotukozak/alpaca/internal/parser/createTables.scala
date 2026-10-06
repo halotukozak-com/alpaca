@@ -140,10 +140,21 @@ private[alpaca] object Tables:
       val rules = parserTpe.typeSymbol.declarations.iterator.collect:
         case decl if decl.typeRef <:< TypeRepr.of[Rule[?]] => decl.tree // todo: can we avoid .tree?
 
+      var unreadable = false
       val table = rules
         .flatMap:
           // todo: def rules, or error? https://github.com/halotukozak/alpaca/issues/230
-          case DefinitionRhs(ruleName, rhs) => extractEBNF(ruleName)(rhs.asExprOf[Rule[?]])
+          case DefinitionRhs(ruleName, rhs) =>
+            extractEBNF(ruleName).applyOrElse(
+              rhs.asExprOf[Rule[?]],
+              _ =>
+                error(
+                  show"Cannot read the productions of rule ${Printable(ruleName)}: define it with a `rule(...)` call.",
+                  rhs.pos,
+                )
+                unreadable = true
+                Nil,
+            )
           case other: ValOrDefDef =>
             errorAndAbort(
               show"Cannot read the definition of rule ${Printable(other.name)}. Enable -Yretain-trees compiler flag",
@@ -151,6 +162,8 @@ private[alpaca] object Tables:
             )
           case other => raiseShouldNeverBeCalled(other)
         .toList
+        .tap: _ =>
+          if unreadable then throw new scala.quoted.runtime.StopMacroExpansion
         .tap: table =>
           // csv may be not the best format for this due to the commas
           logger.toFile(s"${parserName.raw}/actionTable.dbg.csv", true)(table.toCsv)
