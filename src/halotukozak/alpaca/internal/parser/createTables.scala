@@ -177,6 +177,16 @@ object Tables:
           logger.toFile(s"${parserName.raw}/productions.dbg", true)(table.mkShow("\n"))
         .tap(JsonExport.maybeWrite(exportName, "productions", _))
 
+      // a name has to pick out a single production whether or not the resolutions refer to it
+      val duplicateNames = for
+        case first :: others <- productions.filter(_.name != null).groupBy(_.name).values.toList
+        duplicate <- others
+      yield error(
+        show"Production name '${duplicate.name.nn}' is already used by $first; give each production its own name",
+        duplicate.source.toPosition.getOrElse(Position.ofMacroExpansion),
+      )
+      if duplicateNames.nonEmpty then throw new scala.quoted.runtime.StopMacroExpansion
+
       // Built once and reused by every findProduction call below, instead of once per call --
       // findProduction runs once per `.after`/`.before` reference in the grammar's conflict
       // resolutions, and rebuilding both maps from the full production list on every one of
