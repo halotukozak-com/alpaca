@@ -15,20 +15,11 @@ final class FirstSetTest extends AnyFunSuite:
       NEP(
         NonTerminal(Printable("S")),
         NEL[Symbol.NonEmpty](NonTerminal(Printable("L")), Terminal(Printable("=")), NonTerminal(Printable("R"))),
-        source = TestSource,
       ),
-      NEP(NonTerminal(Printable("S")), NEL(NonTerminal(Printable("R"))), source = TestSource),
-      NEP(
-        NonTerminal(Printable("L")),
-        NEL[Symbol.NonEmpty](Terminal(Printable("1")), NonTerminal(Printable("R"))),
-        source = TestSource,
-      ),
-      NEP(NonTerminal(Printable("L")), NEL(Terminal(Printable("2"))), source = TestSource),
-      NEP(
-        NonTerminal(Printable("R")),
-        NEL[Symbol.NonEmpty](Terminal(Printable("3")), NonTerminal(Printable("L"))),
-        source = TestSource,
-      ),
+      NEP(NonTerminal(Printable("S")), NEL(NonTerminal(Printable("R")))),
+      NEP(NonTerminal(Printable("L")), NEL[Symbol.NonEmpty](Terminal(Printable("1")), NonTerminal(Printable("R")))),
+      NEP(NonTerminal(Printable("L")), NEL(Terminal(Printable("2")))),
+      NEP(NonTerminal(Printable("R")), NEL[Symbol.NonEmpty](Terminal(Printable("3")), NonTerminal(Printable("L")))),
     )
 
     val expected = Map(
@@ -43,34 +34,23 @@ final class FirstSetTest extends AnyFunSuite:
   test("FirstSet should handle epsilon productions") {
 
     val productions: List[Production] = List(
-      NEP(
-        NonTerminal(Printable("E")),
-        NEL(NonTerminal(Printable("T")), NonTerminal(Printable("E'"))),
-        source = TestSource,
-      ),
+      NEP(NonTerminal(Printable("E")), NEL(NonTerminal(Printable("T")), NonTerminal(Printable("E'")))),
       NEP(
         NonTerminal(Printable("E'")),
         NEL[Symbol.NonEmpty](Terminal(Printable("+")), NonTerminal(Printable("T")), NonTerminal(Printable("E'"))),
-        source = TestSource,
       ),
-      Production.Empty(NonTerminal(Printable("E'")), source = TestSource),
-      NEP(
-        NonTerminal(Printable("T")),
-        NEL(NonTerminal(Printable("F")), NonTerminal(Printable("T'"))),
-        source = TestSource,
-      ),
+      Production.Empty(NonTerminal(Printable("E'"))),
+      NEP(NonTerminal(Printable("T")), NEL(NonTerminal(Printable("F")), NonTerminal(Printable("T'")))),
       NEP(
         NonTerminal(Printable("T'")),
         NEL[Symbol.NonEmpty](Terminal(Printable("*")), NonTerminal(Printable("F")), NonTerminal(Printable("T'"))),
-        source = TestSource,
       ),
-      Production.Empty(NonTerminal(Printable("T'")), source = TestSource),
+      Production.Empty(NonTerminal(Printable("T'"))),
       NEP(
         NonTerminal(Printable("F")),
         NEL[Symbol.NonEmpty](Terminal(Printable("(")), NonTerminal(Printable("E")), Terminal(Printable(")"))),
-        source = TestSource,
       ),
-      NEP(NonTerminal(Printable("F")), NEL(Terminal(Printable("id"))), source = TestSource),
+      NEP(NonTerminal(Printable("F")), NEL(Terminal(Printable("id")))),
     )
 
     val expected = Map(

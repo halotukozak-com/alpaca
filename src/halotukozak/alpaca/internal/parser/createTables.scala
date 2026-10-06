@@ -5,6 +5,7 @@ package parser
 
 import halotukozak.alpaca.internal.Csv.toCsv
 import halotukozak.alpaca.internal.lexer.Token
+import halotukozak.mcodec.MCodec
 
 import scala.annotation.publicInBinary
 import scala.collection.immutable.VectorMap
@@ -85,7 +86,7 @@ object Tables:
           None
 
       def extractEBNF(ruleName: String)
-        : PartialFunction[Expr[Rule[?]], Seq[(production: Production, action: Expr[Action[Ctx]])]] = {
+        : PartialFunction[Expr[Rule[?]], Seq[(production: Production, source: Source, action: Expr[Action[Ctx]])]] = {
         case '{ rule(${ Varargs(cases) }*) } =>
           def createAction(binds: Seq[Option[Bind]], rhs: Term) = createLambda[Action[Ctx]]:
             case (methSym, (ctx: Term) :: (param: Term) :: Nil) =>
@@ -133,10 +134,9 @@ object Tables:
               // Tuple1
               case (c @ CaseDef(skipTypedOrTest(pattern @ Unapply(_, _, List(_))), None, rhs), name) =>
                 symbolOf(pattern).toList.flatMap: (symbol, bind, others) =>
-                  val source = Source(c.pos)
                   val production =
-                    Production.NonEmpty(NonTerminal(Printable(ruleName)), NEL(symbol), Printable.nullable(name), source)
-                  (production = production, action = createAction(List(bind), rhs)) :: others
+                    Production.NonEmpty(NonTerminal(Printable(ruleName)), NEL(symbol), Printable.nullable(name))
+                  (production = production, source = Source(c.pos), action = createAction(List(bind), rhs)) :: others
 
               // TupleN, N > 1
               case (c @ CaseDef(skipTypedOrTest(Unapply(_, _, patterns)), None, rhs), name) =>
@@ -144,15 +144,13 @@ object Tables:
                 if elements.contains(None) then Nil
                 else
                   val (symbols, binds, others) = elements.flatten.unzip3(using _.toTuple)
-                  val source = Source(c.pos)
                   val production =
                     Production.NonEmpty(
                       NonTerminal(Printable(ruleName)),
                       NEL(symbols.head, symbols.tail*),
                       Printable.nullable(name),
-                      source,
                     )
-                  (production = production, action = createAction(binds, rhs)) :: others.flatten
+                  (production = production, source = Source(c.pos), action = createAction(binds, rhs)) :: others.flatten
               case (c, _) =>
                 error(
                   show"A production must match a token or rule extractor, or a tuple of them, as in `case (Expr(a), MyLexer.PLUS(_), Expr(b))`",
@@ -191,21 +189,27 @@ object Tables:
           abortOnErrors()
         .tap: table =>
           // csv may be not the best format for this due to the commas
-          logger.toFile(s"${parserName.raw}/actionTable.dbg.csv", true)(table.toCsv)
+          logger.toFile(s"${parserName.raw}/actionTable.dbg.csv", true)(
+            table.map(t => (production = t.production, action = t.action)).toCsv,
+          )
+
+      val sources = table.iterator.map(p => p.production -> p.source).toMap
 
       val productions = table
         .map(_.production)
         .tap: table =>
           logger.toFile(s"${parserName.raw}/productions.dbg", true)(table.mkShow("\n"))
-        .tap(JsonExport.maybeWrite(exportName, "productions", _))
+        .tap: productions =>
+          given MCodec[Production] = Production.exportCodec(sources)
+          JsonExport.maybeWrite(exportName, "productions", productions)
 
       // a name has to pick out a single production whether or not the resolutions refer to it
       for
-        case first :: others <- productions.filter(_.name != null).groupBy(_.name).values.toList
+        case first :: others <- table.filter(_.production.name != null).groupBy(_.production.name).values.toList
         duplicate <- others
       do
         error(
-          show"Production name '${duplicate.name.nn}' is already used by $first; give each production its own name",
+          show"Production name '${duplicate.production.name.nn}' is already used by ${first.production}; give each production its own name",
           duplicate.source.toPosition.getOrElse(Position.ofMacroExpansion),
         )
       abortOnErrors()
@@ -325,7 +329,7 @@ object Tables:
 
       val root = table
         .collectFirst:
-          case (p @ Production.NonEmpty(lhs, _, _, _), _) if lhs == NonTerminal(Printable("root")) => p
+          case (production = p @ Production.NonEmpty(lhs, _, _)) if lhs == NonTerminal(Printable("root")) => p
         .getOrElse:
           errorAndAbort(
             show"No root rule defined in $parserName. Define a root rule: val root: Rule[Any] = rule { ... }",
@@ -334,19 +338,20 @@ object Tables:
           )
 
       // the synthetic start production stands for the root rule
-      val start = Production.NonEmpty(parser.Symbol.Start, NEL(root.lhs), source = root.source)
+      val start = Production.NonEmpty(parser.Symbol.Start, NEL(root.lhs))
+      val allSources = sources.updated(start, sources(root))
 
       val parseTable = Expr:
-        ParseTable(
-          start :: table.map(_.production),
-          conflictResolutionTable,
-        ).tap: parseTable =>
-          logger.toFile(s"${parserName.raw}/parseTable.dbg.csv", true)(parseTable.toCsv)
-        .tap(JsonExport.maybeWrite(exportName, "table", _))
+        ParseTable(start :: table.map(_.production), allSources, conflictResolutionTable)
+          .tap: parseTable =>
+            logger.toFile(s"${parserName.raw}/parseTable.dbg.csv", true)(parseTable.toCsv)
+          .tap: parseTable =>
+            given MCodec[Production] = Production.exportCodec(allSources)
+            JsonExport.maybeWrite(exportName, "table", parseTable)
 
       val actionTable = Expr.ofList:
         table.map:
-          case (production, action) => Expr.ofTuple(Expr(production) -> action)
+          case (production, _, action) => Expr.ofTuple(Expr(production) -> action)
 
       // referenced only to avoid an unused-implicit warning; kept lazy and never forced,
       // since eagerly forcing it here (during Tables[Ctx] construction, i.e. during the

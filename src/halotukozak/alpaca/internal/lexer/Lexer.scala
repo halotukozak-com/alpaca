@@ -26,7 +26,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
   if cases.isEmpty then errorAndAbort(show"Lexer definition must contain at least one case", rules.asTerm.pos)
 
   val tokens = cases.foldLeft(
-    List.empty[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], pos: Position, regex: Option[Regex])],
+    List.empty[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], pos: Position, regex: Option[Regex], source: Source)],
   ):
     case (acc, CaseDef(tree, None, body)) =>
       def replaceWithNewCtx(newCtx: Term) = replaceRefs(
@@ -44,22 +44,23 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
 
       def extractSimple(ctxManipulation: Expr[CtxManipulation[Ctx]]): PartialFunction[
         Expr[TokenDef[ValidName, Ctx, Any]],
-        List[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Option[Regex])],
+        List[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Option[Regex], source: Source)],
       ] = {
         case '{ Token.Ignored(using $_) } =>
           compileNameAndPattern[Nothing](tree).map:
-            case ('[type name <: ValidName; name], tokenInfo, regex) =>
+            case ('[type name <: ValidName; name], tokenInfo, regex, source) =>
               (
                 info = tokenInfo,
                 expr = '{ IgnoredToken[name, Ctx](${ Expr(tokenInfo) }, $ctxManipulation) },
                 regex = regex,
+                source = source,
               )
             case other =>
               raiseShouldNeverBeCalled(other)
 
         case '{ type name <: ValidName; Token[name](using $_) } =>
           compileNameAndPattern[name](tree).map:
-            case ('[type name <: ValidName; name], tokenInfo, regex) =>
+            case ('[type name <: ValidName; name], tokenInfo, regex, source) =>
               (
                 info = tokenInfo,
                 expr = '{
@@ -70,13 +71,14 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
                   )
                 },
                 regex = regex,
+                source = source,
               )
             case other =>
               raiseShouldNeverBeCalled(other)
 
         case '{ type name <: ValidName; Token[name]($value: String)(using $_) } if value.asTerm.symbol == tree.symbol =>
           compileNameAndPattern[name](tree).map:
-            case ('[type name <: ValidName; name], tokenInfo, regex) =>
+            case ('[type name <: ValidName; name], tokenInfo, regex, source) =>
               (
                 info = tokenInfo,
                 expr = '{
@@ -87,13 +89,14 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
                   )
                 },
                 regex = regex,
+                source = source,
               )
             case other =>
               raiseShouldNeverBeCalled(other)
 
         case '{ type name <: ValidName; Token[name]($value: value)(using $_) } =>
           compileNameAndPattern[name](tree).map:
-            case ('[type name <: ValidName; name], tokenInfo, regex) =>
+            case ('[type name <: ValidName; name], tokenInfo, regex, source) =>
               // we need to widen here to avoid weird types
               TypeRepr.of[value].widen.asType match
                 case '[result] =>
@@ -116,9 +119,12 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
                       )
                     },
                     regex = regex,
+                    source = source,
                   )
-            case (_, tokenInfo, _) =>
-              raiseShouldNeverBeCalled[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Option[Regex])](
+            case (_, tokenInfo, _, _) =>
+              raiseShouldNeverBeCalled[
+                (info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Option[Regex], source: Source),
+              ](
                 tokenInfo,
               )
       }
@@ -147,7 +153,9 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
           )
           Nil
 
-      acc ::: pairs.map((info, expr, regex) => (info = info, expr = expr, pos = tree.pos, regex = regex))
+      acc ::: pairs.map((info, expr, regex, source) =>
+        (info = info, expr = expr, pos = tree.pos, regex = regex, source = source),
+      )
 
     case (_, CaseDef(_, Some(guard), _)) => errorAndAbort(show"Guards are not supported yet", guard.pos)
 
@@ -201,7 +209,11 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
   // further up. Errors above are reported without aborting, so the lexer stays typed from all of its cases
   // and doesn't cascade; they only keep a partial grammar from being exported.
   if !diagnostics.hasErrors then
-    JsonExport.maybeWrite(exportId(declaredName(Symbol.spliceOwner.owner)), "tokens", tokens.map(_.info))
+    JsonExport.maybeWrite(
+      exportId(declaredName(Symbol.spliceOwner.owner)),
+      "tokens",
+      tokens.map(t => (info = t.info, source = t.source)),
+    )
 
   val fields = tokens.map(t => (t.info.name.raw, t.expr.asTerm.tpe))
   val types = fields.foldLeft(TypeRepr.of[Any]):

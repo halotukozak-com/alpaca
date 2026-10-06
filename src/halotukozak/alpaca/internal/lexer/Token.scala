@@ -6,7 +6,7 @@ package lexer
 import halotukozak.alpaca.internal.{Default, Printable, RuleOnly, Showable, ValidName}
 import halotukozak.alpaca.{LexerCtx, SepValue}
 import halotukozak.mcodec.MCodec
-import halotukozak.regex.{Regex, RegexParseError, RegexParser}
+import halotukozak.regex.{RegexParseError, RegexParser}
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.unchecked.uncheckedVariance as uv
@@ -43,7 +43,6 @@ private[lexer] final case class TokenInfo(
   regexGroupName: String,
   pattern: Printable,
   ignored: Boolean,
-  source: Source | Null = null,
 ) derives ToExprFactory
 
 private[lexer] object TokenInfo:
@@ -61,7 +60,7 @@ private[lexer] object TokenInfo:
    * @param ignored whether matches of this token are dropped from the lexeme stream
    * @param quotes the Quotes instance
    * @return a TokenInfo expression, together with the pattern's already-parsed [[Regex]] so
-   *         callers don't have to parse it again, or `None` if the pattern is invalid
+   *         callers don't have to parse it again, or `None` if the pattern is invalid, and where the token is defined
    */
 // $COVERAGE-OFF$
   def apply(using
@@ -72,7 +71,7 @@ private[lexer] object TokenInfo:
     alternatives: List[String],
     ignored: Boolean,
     pos: quotes.reflect.Position,
-  ): (Type[? <: ValidName], TokenInfo, Option[Regex]) =
+  ): CompiledPattern =
     import quotes.reflect.*
     ValidName.check(name, pos)
     val pattern = alternatives.mkString("|")
@@ -90,8 +89,9 @@ private[lexer] object TokenInfo:
         case Left(err) => reportInvalid(err); None
     (
       ConstantType(StringConstant(name)).asType.asInstanceOf[Type[? <: ValidName]],
-      TokenInfo(Printable(name), nextRegexGroupName(), Printable(pattern), ignored, Source(pos)),
+      TokenInfo(Printable(name), nextRegexGroupName(), Printable(pattern), ignored),
       regex,
+      Source(pos),
     )
 
   /**
@@ -106,11 +106,11 @@ private[lexer] object TokenInfo:
   given Showable[TokenInfo] = Showable.fromToString
 
   // Excludes regexGroupName, an internal-only detail with no meaning to the export's consumer.
-  given MCodec[TokenInfo] =
+  given MCodec[(info: TokenInfo, source: Source)] =
     MCodec
-      .derived[(name: Printable, pattern: Printable, ignored: Boolean, source: Source | Null)]
+      .derived[(name: Printable, pattern: Printable, ignored: Boolean, source: Source)]
       .transform(
-        onWrite = { case TokenInfo(name, _, pattern, ignored, source) =>
+        onWrite = { case (TokenInfo(name, _, pattern, ignored), source) =>
           (name = name, pattern = pattern, ignored = ignored, source = source)
         },
         onRead = _ => throw UnsupportedOperationException("TokenInfo's export codec is write-only"),

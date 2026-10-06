@@ -9,9 +9,9 @@ import org.scalatest.matchers.should.Matchers
 
 final class ConflictResolutionTableTest extends AnyFunSuite with Matchers:
   private val prodA =
-    Production.NonEmpty(NonTerminal(Printable("A")), NEL(Terminal(Printable("a"))), source = TestSource)
+    Production.NonEmpty(NonTerminal(Printable("A")), NEL(Terminal(Printable("a"))))
   private val prodB =
-    Production.NonEmpty(NonTerminal(Printable("B")), NEL(Terminal(Printable("b"))), Printable("named"), TestSource)
+    Production.NonEmpty(NonTerminal(Printable("B")), NEL(Terminal(Printable("b"))), Printable("named"))
   private val tokenX = ConflictKey.Shift(Printable("X"))
   private val tokenY = ConflictKey.Shift(Printable("Y"))
 
@@ -75,7 +75,7 @@ final class ConflictResolutionTableTest extends AnyFunSuite with Matchers:
   test("toMermaid escapes double quotes in labels") {
 
     val prodWithQuote =
-      Production.NonEmpty(NonTerminal(Printable("A\"B")), NEL(Terminal(Printable("a"))), source = TestSource)
+      Production.NonEmpty(NonTerminal(Printable("A\"B")), NEL(Terminal(Printable("a"))))
     val table = ConflictResolutionTable(
       Map(ConflictKey.Reduction(prodWithQuote) -> Map.empty),
     )
@@ -86,7 +86,7 @@ final class ConflictResolutionTableTest extends AnyFunSuite with Matchers:
   test("toMermaid escapes backslashes in labels") {
 
     val prodWithBackslash =
-      Production.NonEmpty(NonTerminal(Printable("A\\B")), NEL(Terminal(Printable("a"))), source = TestSource)
+      Production.NonEmpty(NonTerminal(Printable("A\\B")), NEL(Terminal(Printable("a"))))
     val table = ConflictResolutionTable(
       Map(ConflictKey.Reduction(prodWithBackslash) -> Map.empty),
     )
@@ -97,7 +97,7 @@ final class ConflictResolutionTableTest extends AnyFunSuite with Matchers:
   test("toMermaid escapes newlines in labels") {
 
     val prodWithNewline =
-      Production.NonEmpty(NonTerminal(Printable("A\nB")), NEL(Terminal(Printable("a"))), source = TestSource)
+      Production.NonEmpty(NonTerminal(Printable("A\nB")), NEL(Terminal(Printable("a"))))
     val table = ConflictResolutionTable(
       Map(ConflictKey.Reduction(prodWithNewline) -> Map.empty),
     )

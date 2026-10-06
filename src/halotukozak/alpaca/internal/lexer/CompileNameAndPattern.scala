@@ -19,9 +19,10 @@ import scala.annotation.tailrec
  *
  * @tparam T the type of the pattern
  * @param pattern the pattern tree to compile
- * @return a list of TokenInfo expressions, each paired with its already-parsed [[Regex]], or `None` if it is invalid
+ * @return a list of TokenInfo expressions, each paired with its already-parsed [[Regex]], or `None` if it is invalid,
+ *         and where it is defined
  */
-private[lexer] type CompiledPattern = (Type[? <: ValidName], TokenInfo, Option[Regex])
+private[lexer] type CompiledPattern = (Type[? <: ValidName], TokenInfo, Option[Regex], Source)
 
 private[lexer] def compileNameAndPattern[T: Type](
   using Quotes,
