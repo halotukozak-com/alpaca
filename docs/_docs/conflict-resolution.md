@@ -23,7 +23,7 @@ Both are detected at compile time. They do not manifest as runtime errors.
 
 `Resolutions` is a type class, keyed by the parser type: `Resolutions[P <: Parser[?]]`. You provide an instance with `given Resolutions[MyParser.type] = resolutions(...)`, and Alpaca picks it up via implicit search when it builds `MyParser`'s parse table.
 
-Because the `given` refers to `MyParser.type`, it must be declared **after** the full parser object, as a sibling declaration at the same scope -- not as a member inside the object:
+The parse table is built when the parser object is compiled, so the `given` has to be visible there. Declare it next to the parser object -- after it, as the examples on this page do, or before it:
 
 ```scala sc-hidden sc-name:cr-plus-lexer
 import halotukozak.alpaca.*
@@ -35,7 +35,7 @@ val Lexer = lexer:
 ```
 
 ```scala sc-compile-with:cr-plus-lexer
-object CalcParser extends Parser:              // object first, fully defined
+object CalcParser extends Parser:
   val Expr: Rule[Int] = rule(
     "plus" { case (Expr(a), Lexer.PLUS(_), Expr(b)) => a + b },
     { case Lexer.NUMBER(n) => n.value },
@@ -43,10 +43,12 @@ object CalcParser extends Parser:              // object first, fully defined
   val root = rule:
     case Expr(e) => e
 
-given Resolutions[CalcParser.type] = resolutions(  // given AFTER
+given Resolutions[CalcParser.type] = resolutions(
   production.plus.before(Lexer.PLUS),
 )
 ```
+
+It can also go inside the parser object, but only as its last member, after every rule. Declared any earlier in the object, it cannot see the rules: `production.plus` fails with "value plus is not a member of ...ProductionSelector", or the compiler asks you to "Define resolutions as the last field of the parser."
 
 `production.name` inside `resolutions(...)` still refers to productions by name without qualification -- it is resolved by the inferred parser type `P`, not by textual scope. Only bare non-terminal references passed to `Production(symbols*)` need to be qualified with the parser object's name (see [The Production(symbols*) Selector](#the-productionsymbols-selector)).
 

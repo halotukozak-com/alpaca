@@ -57,7 +57,7 @@ Without conflict resolution, this grammar is ambiguous -- the compiler reports s
 
 ## Conflict Resolution
 
-`Resolutions` must be declared right after the full parser object, as a sibling declaration -- so resolving the grammar above means restating `CalcParser` together with its `given Resolutions[CalcParser.type]` in one block:
+The parse table is built when `CalcParser` is compiled, so its `given Resolutions[CalcParser.type]` has to be declared together with it (see [Where resolutions Live](../conflict-resolution.md#where-resolutions-live)) -- resolving the grammar above means restating `CalcParser` with the `given` in one block:
 
 ```scala sc-name:calc-resolved sc-compile-with:calc-lexer
 object CalcParser extends Parser:

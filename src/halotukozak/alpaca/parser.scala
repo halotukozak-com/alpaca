@@ -10,8 +10,8 @@ import scala.annotation.{compileTimeOnly, unused}
 type Parser[Ctx <: ParserCtx] = parser.Parser[Ctx]
 
 /**
- * How the parser `P` resolves the conflicts in its grammar. Provide one as a `given` declared after the parser object,
- * built with [[resolutions]]:
+ * How the parser `P` resolves the conflicts in its grammar. Provide one as a `given` next to the parser object (before or
+ * after it) or as the object's last member, built with [[resolutions]]:
  * {{{
  * given Resolutions[CalcParser.type] = resolutions(
  *   production.plus.before(CalcLexer.PLUS), // + is left-associative

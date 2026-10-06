@@ -403,6 +403,6 @@ given Resolutions[CalcParser.type] = resolutions(
 )
 ```
 
-`Resolutions` is a type class: the `given` must be declared **after** the parser object, as a sibling declaration, not as a member inside it. See [Conflict Resolution](conflict-resolution.md#where-resolutions-live) for details.
+`Resolutions` is a type class: declare the `given` next to the parser object (before or after it), or inside it as its last member. See [Conflict Resolution](conflict-resolution.md#where-resolutions-live) for details.
 
 See [Parser Context](parser-context.md) for custom state, [Extractors](extractors.md) for all pattern forms, and [Debug Settings](debug-settings.md) for compile-time debugging.
