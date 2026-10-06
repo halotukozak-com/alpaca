@@ -208,6 +208,38 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       """).loneElement.message should startWith("""Invalid regex pattern for token "(": """)
   }
 
+  test("a shadowed token keeps the lexer typed, so parser actions reading its lexemes compile") {
+    typeCheckErrors("""
+      import halotukozak.alpaca.{Parser, Rule, rule}
+
+      val L = lexer:
+        case name @ "[a-z]+" => Token["IDENT"](name)
+        case "if" => Token["IF"]
+
+      object P extends Parser:
+        val root: Rule[String] = rule:
+          case L.IDENT(name) => name.value
+      """).loneElement.message should startWith("""Token "IF" can never match: """)
+  }
+
+  test("invalid regexes keep the lexer typed and are all reported") {
+    typeCheckErrors("""
+      import halotukozak.alpaca.{Parser, Rule, rule}
+
+      val L = lexer:
+        case name @ "\\b[a-z]+" => Token["VAR"](name)
+        case "(" | "[0-9]+" | ")" => Token["NUM"]
+
+      object P extends Parser:
+        val root: Rule[String] = rule:
+          case L.VAR(name) => name.value
+      """).map(_.message.takeWhile(_ != ':')) should contain theSameElementsAs List(
+      "Invalid regex pattern for token \"VAR\"",
+      "Invalid regex pattern for token \"NUM\"",
+      "Invalid regex pattern for token \"NUM\"",
+    )
+  }
+
   test("duplicate token name points at the redefinition and suggests alternatives") {
     typeCheckErrors("""
       val Lexer = lexer:
