@@ -14,7 +14,10 @@ jobs:
       pull-requests: write
 
     steps:
+      # Missing when the benchmark was skipped because the PR did not touch src/ or build.mill.
       - name: Download Benchmark Result
+        id: download
+        continue-on-error: true
         uses: actions/download-artifact@v8
         with:
           name: compilation-benchmark-result
@@ -22,6 +25,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upsert PR Comment
+        if: steps.download.outcome == 'success'
         uses: actions/github-script@v9
         with:
           script: |
