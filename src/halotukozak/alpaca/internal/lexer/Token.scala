@@ -6,7 +6,7 @@ package lexer
 import halotukozak.alpaca.internal.{Default, Printable, RuleOnly, Showable, ValidName}
 import halotukozak.alpaca.{LexerCtx, SepValue}
 import halotukozak.mcodec.MCodec
-import halotukozak.regex.{Regex, RegexParser}
+import halotukozak.regex.{Regex, RegexParseError, RegexParser}
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.unchecked.uncheckedVariance as uv
@@ -50,32 +50,43 @@ private[lexer] object TokenInfo:
   private val counter = AtomicInteger(0)
 
   /**
-   * Creates a TokenInfo expression from a name and regex pattern.
+   * Creates a TokenInfo expression from a name and the alternatives of its regex pattern.
    *
    * This validates the name and constructs an expression that will
-   * create a TokenInfo at runtime.
+   * create a TokenInfo at runtime. An invalid pattern is reported as an error without aborting,
+   * so the lexer is still typed from all of its cases.
    *
    * @param name the token name
-   * @param pattern the regex pattern
+   * @param alternatives the regex patterns, joined with `|` into the token's pattern
    * @param ignored whether matches of this token are dropped from the lexeme stream
    * @param quotes the Quotes instance
    * @return a TokenInfo expression, together with the pattern's already-parsed [[Regex]] so
-   *         callers don't have to parse it again
+   *         callers don't have to parse it again, or `None` if the pattern is invalid
    */
 // $COVERAGE-OFF$
   def apply(
     using quotes: Quotes,
   )(
     name: String,
-    pattern: String,
+    alternatives: List[String],
     ignored: Boolean,
     pos: quotes.reflect.Position,
-  ): (Type[? <: ValidName], TokenInfo, Regex) =
+  ): (Type[? <: ValidName], TokenInfo, Option[Regex]) =
     import quotes.reflect.*
     ValidName.check(name, pos)
-    val regex = RegexParser.parse(pattern) match
-      case Left(err) => errorAndAbort(show"""Invalid regex pattern for token "${Printable(name)}": $err""", pos)
-      case Right(regex) => regex
+    val pattern = alternatives.mkString("|")
+    def reportInvalid(err: RegexParseError): Unit =
+      error(show"""Invalid regex pattern for token "${Printable(name)}": $err""", pos)
+    // An alternative can be invalid on its own and still parse once joined, e.g. "(" | ")".
+    val invalidAlternatives = alternatives match
+      case _ :: Nil => Nil
+      case _ => alternatives.map(RegexParser.parse).collect { case Left(err) => err }
+    invalidAlternatives.foreach(reportInvalid)
+    val regex = Option
+      .when(invalidAlternatives.isEmpty)(RegexParser.parse(pattern))
+      .flatMap:
+        case Right(regex) => Some(regex)
+        case Left(err) => reportInvalid(err); None
     (
       ConstantType(StringConstant(name)).asType.asInstanceOf[Type[? <: ValidName]],
       TokenInfo(Printable(name), nextRegexGroupName(), Printable(pattern), ignored, Source(pos)),

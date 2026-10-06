@@ -25,7 +25,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
   if cases.isEmpty then errorAndAbort(show"Lexer definition must contain at least one case", rules.asTerm.pos)
 
   val tokens = cases.foldLeft(
-    List.empty[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], pos: Position, regex: Regex)],
+    List.empty[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], pos: Position, regex: Option[Regex])],
   ):
     case (acc, CaseDef(tree, None, body)) =>
       def replaceWithNewCtx(newCtx: Term) = replaceRefs(
@@ -35,7 +35,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
 
       def extractSimple(ctxManipulation: Expr[CtxManipulation[Ctx]]): PartialFunction[
         Expr[TokenDef[ValidName, Ctx, Any]],
-        List[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Regex)],
+        List[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Option[Regex])],
       ] = {
         case '{ Token.Ignored(using $_) } =>
           compileNameAndPattern[Nothing](tree).map:
@@ -104,7 +104,9 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
                     regex = regex,
                   )
             case (_, tokenInfo, _) =>
-              raiseShouldNeverBeCalled[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Regex)](tokenInfo)
+              raiseShouldNeverBeCalled[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Option[Regex])](
+                tokenInfo,
+              )
       }
 
       val pairs = extractSimple('{ (c: Ctx) => c })
@@ -124,7 +126,9 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
               extractSimple(ctxManipulation).lift(expr.asExprOf[TokenDef[ValidName, Ctx, Any]])
           }
         .getOrElse:
-          raiseShouldNeverBeCalled[List[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Regex)]](body)
+          raiseShouldNeverBeCalled[List[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Option[Regex])]](
+            body,
+          )
 
       acc ::: pairs.map((info, expr, regex) => (info = info, expr = expr, pos = tree.pos, regex = regex))
 
@@ -134,49 +138,52 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
   def quote(name: Printable): Shown = show"\"$name\""
 
   // A token's regex as the Scala string literal the user would write in a `case`.
-  def literal(token: (info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], pos: Position, regex: Regex)): Shown =
-    quote(Printable(token.info.pattern.raw.replace("\\", "\\\\").replace("\"", "\\\"")))
+  def literal(info: TokenInfo): Shown =
+    quote(Printable(info.pattern.raw.replace("\\", "\\\\").replace("\"", "\\\"")))
 
   tokens
     .groupBy(_.info.name)
     .iterator
     .filter(_._2.sizeIs > 1)
     .foreach: (name, duplicates) =>
-      val alternatives = duplicates.map(literal).mkShow(" | ")
+      val alternatives = duplicates.map(token => literal(token.info)).mkShow(" | ")
       errorAndAbort(
         show"Token name ${quote(name)} is defined ${duplicates.size} times. Combine the patterns into a single case using alternatives: case $alternatives => ...",
         duplicates(1).pos,
       )
 
-  SubsetChecker
-    .checkRegexes(tokens.map(token => (name = token.info.name, subset = Subset.of(token.regex))))
-    .foreach: (first, second) =>
-      val byName = tokens.map(token => token.info.name -> token).toMap
-      val shadowed = byName(first)
-      val quoted = second.map(quote)
-      val covering = quoted.mkShow(" or ")
-      val (which, wins) =
-        if second.sizeIs == 1 then (show"which is", show"it always wins")
-        else (show"which are", show"one of them always wins")
-      val advice = second match
-        case List(only) if Subset.of(byName(only).regex).subset(Subset.of(shadowed.regex)) =>
-          show"""${quote(only)} and ${quote(first)} match exactly the same inputs; remove one of them."""
-        case List(only) =>
-          show"""Declare ${quote(first)} (${literal(shadowed)}) before ${quote(only)} (${literal(byName(only))})."""
-        case _ =>
-          val coveringAll = quoted.mkShow(" and ")
-          show"""${quote(first)} is redundant: remove it, or narrow $coveringAll so they no longer cover it."""
-      errorAndAbort(
-        show"""Token ${quote(first)} can never match: every input it matches is also matched by $covering,
+  val parsed = tokens.flatMap(token => token.regex.map(regex => (info = token.info, pos = token.pos, regex = regex)))
+
+  val shadowing = SubsetChecker.checkRegexes(parsed.map(p => (name = p.info.name, subset = Subset.of(p.regex))))
+  shadowing.foreach: (first, second) =>
+    val byName = parsed.map(p => p.info.name -> p).toMap
+    val shadowed = byName(first)
+    val quoted = second.map(quote)
+    val covering = quoted.mkShow(" or ")
+    val (which, wins) =
+      if second.sizeIs == 1 then (show"which is", show"it always wins")
+      else (show"which are", show"one of them always wins")
+    val advice = second match
+      case List(only) if Subset.of(byName(only).regex).subset(Subset.of(shadowed.regex)) =>
+        show"""${quote(only)} and ${quote(first)} match exactly the same inputs; remove one of them."""
+      case List(only) =>
+        val earlier = byName(only).info
+        show"""Declare ${quote(first)} (${literal(shadowed.info)}) before ${quote(only)} (${literal(earlier)})."""
+      case _ =>
+        val coveringAll = quoted.mkShow(" and ")
+        show"""${quote(first)} is redundant: remove it, or narrow $coveringAll so they no longer cover it."""
+    error(
+      show"""Token ${quote(first)} can never match: every input it matches is also matched by $covering,
            |$which defined earlier, so $wins.
            |$advice""".trimMargin,
-        shadowed.pos,
-      )
+      shadowed.pos,
+    )
 
   // Symbol.spliceOwner is a synthetic "macro" method dotty introduces to host the transparent
   // inline def's expansion; the val this `lexer{...}` call is actually bound to is one owner hop
   // further up.
-  JsonExport.maybeWrite(exportId(declaredName(Symbol.spliceOwner.owner)), "tokens", tokens.map(_.info))
+  if shadowing.isEmpty && parsed.sizeIs == tokens.size then
+    JsonExport.maybeWrite(exportId(declaredName(Symbol.spliceOwner.owner)), "tokens", tokens.map(_.info))
 
   val fields = tokens.map(t => (t.info.name.raw, t.expr.asTerm.tpe))
   val types = fields.foldLeft(TypeRepr.of[Any]):
@@ -196,7 +203,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
   (refinementTpeFrom(fields).asType, fieldsTpeFrom(fields).asType, types.asType).runtimeChecked match {
     case ('[refinedTpe], '[fields], '[types]) =>
       val tokensExpr = Expr.ofList(tokens.map(_.expr))
-      val matcherExpr = '{ TokenMatcher.fromRegexes(${ Varargs(tokens.map(t => Expr(t.regex))) }*) }
+      val matcherExpr = '{ TokenMatcher.fromRegexes(${ Varargs(parsed.map(p => Expr(p.regex))) }*) }
 
       '{
         {
