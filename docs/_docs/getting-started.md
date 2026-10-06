@@ -25,7 +25,7 @@ object brainfuck extends ScalaModule {
   def scalaVersion = "3.9.0"
   def scalacOptions = Seq("-Yretain-trees")
   def mvnDeps = Seq(
-    mvn"com.halotukozak::alpaca::0.3.2"
+    mvn"com.halotukozak::alpaca::1.0.0-RC1"
   )
 }
 ```
