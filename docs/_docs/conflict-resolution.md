@@ -93,7 +93,7 @@ given Resolutions[CalcParser.type] = resolutions(
 
 ## Naming Productions
 
-To reference a production in `resolutions`, name it with a string literal placed before the `{ case ... }` block:
+To reference a production in `resolutions`, name it with a string literal placed before the `{ case ... }` block. Each name may be used only once in a parser, across all its rules; a second production with the same name is a compile error even if neither is referenced:
 
 ```scala sc-hidden sc-name:cr-plusminus-lexer
 import halotukozak.alpaca.*
