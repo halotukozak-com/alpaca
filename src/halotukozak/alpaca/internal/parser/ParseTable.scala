@@ -10,8 +10,6 @@ import scala.annotation.tailrec
 import scala.collection.immutable.SortedSet
 import scala.collection.mutable
 import scala.quoted.runtime.StopMacroExpansion
-import scala.util.boundary
-import scala.util.boundary.break
 
 /**
  * An opaque type representing the LR parse table.
@@ -152,20 +150,22 @@ private[parser] object ParseTable:
                 case (red: Reduction, Shift(_)) => raiseShiftReduceConflict(symbol, red, path)
                 case (Shift(_), Shift(_)) => throw AlgorithmError("Shift-Shift conflict should never happen")
 
-    // noinspection ScalaUnreachableCode
+    // read off the automaton, not the table: a shift lost to an unresolved conflict is still a way into its state
+    lazy val predecessor: Array[(stateId: Int, symbol: Symbol) | Null] =
+      val result = Array.fill[(stateId: Int, symbol: Symbol) | Null](automaton.states.length)(null)
+      for
+        srcId <- automaton.goto.indices
+        (symbol, targetId) <- automaton.goto(srcId)
+        if targetId != 0 && result(targetId) == null
+      do result(targetId) = (stateId = srcId, symbol = symbol)
+      result
+
     @tailrec def toPath(stateId: Int, acc: List[Symbol]): List[Symbol] =
       if stateId == 0 then acc
-      else {
-        val (sourceStateId, symbol) = boundary[(Int, Symbol)]:
-          for srcId <- tableRows.indices do
-            tableRows(srcId).foreach:
-              case (sym, Shift(`stateId`)) => break((srcId, sym))
-              case _ =>
-          throw AlgorithmError(show"No predecessor state found for state $stateId")
-
-        if sourceStateId == stateId then symbol :: acc
-        else toPath(sourceStateId, symbol :: acc)
-      }
+      else
+        predecessor(stateId) match
+          case null => throw AlgorithmError(show"No predecessor state found for state $stateId")
+          case (stateId = sourceStateId, symbol = symbol) => toPath(sourceStateId, symbol :: acc)
 
     for stateId <- automaton.states.indices do {
       val kernelItems = for
