@@ -9,11 +9,11 @@ import kotlin.streams.asSequence
 
 /**
  * The export-format version this plugin build understands. Bumped only when the *shape* of an
- * exported `.tokens.json`/`.productions.json`/`.table.json` file changes -- kept independently in
+ * exported `.tokens.json`/`.productions.json`/`.table.json` file, or the meaning of its contents, changes -- kept independently in
  * sync with the alpaca library's own `JsonExport.ExportFormatVersion` constant, since the two ship
  * on separate release schedules.
  */
-const val CURRENT_EXPORT_FORMAT_VERSION: Int = 1
+const val CURRENT_EXPORT_FORMAT_VERSION: Int = 2
 
 /** The envelope every export file is wrapped in: `{"version": ..., "context": ...}`. `version`
  *  defaults to 0 so a file with no `version` key at all (written before this envelope existed)

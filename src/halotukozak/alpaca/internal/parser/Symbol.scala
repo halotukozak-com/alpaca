@@ -85,11 +85,15 @@ object Terminal:
   /** The augmented start symbol used internally by the parser. */
   val Start: NonTerminal { type IsEmpty = false } = NonTerminal(Printable("S'"))
 
-  /** The end-of-file terminal symbol. */
-  val EOF: Terminal { type IsEmpty = false } = Terminal(Printable("$"))
+  /**
+   * The end-of-file terminal symbol, shown as `$`. Its name is synthetic so that a token named `$` stays a separate
+   * terminal.
+   */
+  val EOF: Terminal { type IsEmpty = false } = Terminal(Printable("$" + SyntheticInfix))
 
-  /** The empty terminal symbol (epsilon). */
-  val Empty: Terminal { type IsEmpty = true } = Terminal(Printable("ε")).asInstanceOf[Terminal { type IsEmpty = true }]
+  /** The empty terminal symbol (epsilon), shown as `ε`; synthetic like [[EOF]]. */
+  val Empty: Terminal { type IsEmpty = true } =
+    Terminal(Printable("ε" + SyntheticInfix)).asInstanceOf[Terminal { type IsEmpty = true }]
 
   /**
    * Placeholder lookahead used only while propagating LALR(1) lookaheads (#504, see
@@ -99,18 +103,27 @@ object Terminal:
    * terminal it closure-generates is a lookahead the target state gets regardless of the seed
    * (spontaneous generation).
    */
-  val Dummy: Terminal { type IsEmpty = false } = Terminal(Printable(s"#$SyntheticInfix"))
+  val Dummy: Terminal { type IsEmpty = false } = Terminal(Printable("#" + SyntheticInfix))
+
+  extension (symbol: Symbol)
+    /**
+     * The name the symbol is shown by: token names unencoded (`+`, not `$plus`), the parser's own terminals
+     * without their synthetic suffix ([[EOF]] as `$`, [[Empty]] as `ε`), and the non-terminals the EBNF extractors
+     * synthesize by the extractor they stand for (`Operation.List`), without the uniqueness suffix.
+     */
+    def displayName: String =
+      val name = symbol.name.raw
+      if name.endsWith(SyntheticInfix) then name.dropRight(SyntheticInfix.length)
+      else
+        name.indexOf(s"_${SyntheticInfix}_") match
+          case -1 => name
+          case end => name.substring(0, end)
 
   /**
-   * Symbols are shown as the user wrote them: token names unencoded (`+`, not `$plus`), and the non-terminals the
-   * EBNF extractors synthesize by the extractor they stand for (`Operation.List`), without the uniqueness suffix.
-   * Characters that would not show up in a message are escaped (see [[Printable]]).
+   * Symbols are shown by their [[displayName]], with characters that would not show up in a message escaped (see
+   * [[Printable]]).
    */
-  given Showable[Symbol] = symbol =>
-    val name = symbol.name.raw
-    Printable(name.indexOf(s"_${SyntheticInfix}_") match
-      case -1 => name
-      case end => name.substring(0, end)).show
+  given Showable[Symbol] = symbol => Printable(symbol.displayName).show
 
   // $COVERAGE-OFF$
   given [S <: Symbol] => ToExpr[S]:

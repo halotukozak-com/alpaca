@@ -10,7 +10,7 @@ package alpaca.internal
 
 // ValidName is only ever used as a compile-time bound on type parameters (Name <: ValidName),
 // never as the type of an actual value, so opaque type would hide nothing (see #223).
-// The banned and reserved names are enforced separately, at macro time, by ValidName.check.
+// The banned names are enforced separately, at macro time, by ValidName.validate.
 type ValidName = String & Singleton
 
 private[alpaca] object ValidName:
@@ -22,22 +22,16 @@ private[alpaca] object ValidName:
       case x => raiseShouldNeverBeCalled(x.show)
 
   /**
-   * Validates a token name during macro expansion.
-   *
-   * Token names must not be empty or an underscore (_), and must not be one of the names the parser reserves for
-   * its own terminals: `$` (the end of the input) and `ε` (the empty sequence).
+   * Validates a token name during macro expansion, reporting an invalid one without aborting: the empty name and an
+   * underscore (_) can't name a token.
    *
    * @param name the token name to validate
+   * @return the name if it is valid, `None` once it has been reported
    */
-  private[internal] def check(using Quotes, Diagnostics)(name: String, pos: quotes.reflect.Position): Unit =
+  private[internal] def validate(using Quotes, Diagnostics)(name: String, pos: quotes.reflect.Position)
+    : Option[ValidName] =
     name match
-      case invalid @ "_" => errorAndAbort(show"Invalid token name: ${Printable(invalid)}", pos)
-      case "" => errorAndAbort(show"Invalid token name: it is empty", pos)
-      case reserved @ ("$" | "ε") =>
-        val quoted = show"\"${Printable(reserved)}\""
-        errorAndAbort(
-          show"Token name $quoted is reserved: the parser uses \"$$\" for the end of the input and \"ε\" for the empty sequence",
-          pos,
-        )
-      case _ =>
+      case "" => error(show"Invalid token name: it is empty", pos); None
+      case invalid @ "_" => error(show"Invalid token name: ${Printable(invalid)}", pos); None
+      case valid => Some(valid.asInstanceOf[ValidName])
 // $COVERAGE-ON$

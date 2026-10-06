@@ -208,8 +208,8 @@ trait Rule[R]:
  * Why the input does not match the grammar, as reported by `parse` in a [[Result.Failure]].
  *
  * @param unexpected the lexeme the parser could not accept; its `name` is `"$"` when the input ended too early
- * @param expected   the token names the grammar would have accepted at that point (`"$"` stands for the end of
- *                   the input), sorted
+ * @param expected   the token names the grammar would have accepted at that point, sorted; `"$"` stands for the
+ *                   end of the input, and a token named `$` follows it as a second `"$"`
  */
 final case class ParserError(unexpected: Lexeme[?, ?], expected: List[String]):
   /** A readable description, e.g. `Unexpected + "+" at line 1, column 3. Expected one of: Num`. */
@@ -222,18 +222,21 @@ final case class ParserError(unexpected: Lexeme[?, ?], expected: List[String]):
             case n: Int => Some(n)
             case _ => None
 
-    def describe(name: String): Shown = if name == "$" then show"end of input" else Printable(name).show
+    // the end of the input comes first among the "$"s; another one is a token named "$"
+    val endOfInput = expected.indexOf("$")
+    def describe(name: String, index: Int): Shown =
+      if index == endOfInput then show"end of input" else Printable(name).show
 
     val what =
-      if unexpected.name == "$" then describe(unexpected.name)
-      else show"""${describe(unexpected.name)} "${Printable(unexpected.text)}""""
+      if unexpected eq Lexeme.EOF then show"end of input"
+      else show"""${Printable(unexpected.name)} "${Printable(unexpected.text)}""""
     // `column` is recorded after the match, so the token itself starts `text.length` earlier.
     val where = (field("line"), field("column")) match
       case (Some(line), Some(column)) => show" at line $line, column ${column - unexpected.text.length}"
       case (Some(line), None) => show" at line $line"
       case (None, Some(column)) => show" at column ${column - unexpected.text.length}"
       case (None, None) => show""
-    show"Unexpected $what$where. Expected one of: ${expected.map(describe).mkShow(", ")}"
+    show"Unexpected $what$where. Expected one of: ${expected.zipWithIndex.map(describe).mkShow(", ")}"
   }
 
 object ParserError:

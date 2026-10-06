@@ -19,11 +19,13 @@ private[internal] object JsonExport:
 
   /**
    * Bumped only when the *shape* of an exported `.tokens.json`/`.productions.json`/`.table.json`
-   *  file changes -- not the library's own release version, which changes on every release
-   *  regardless of whether the export shape did. A consumer (e.g. the IntelliJ plugin) reads this
-   *  back to detect whether it understands the payload before parsing it.
+   *  file, or the meaning of its contents, changes -- not the library's own release version, which
+   *  changes on every release regardless of whether the export did. Version 2: the end of the input
+   *  is the terminal `$$$synthetic$$`, so that `$` can be an ordinary token name. A consumer (e.g.
+   *  the IntelliJ plugin) reads this back to detect whether it understands the payload before
+   *  parsing it.
    */
-  private[internal] val ExportFormatVersion: Int = 1
+  private[internal] val ExportFormatVersion: Int = 2
 
 // $COVERAGE-OFF$
   /**

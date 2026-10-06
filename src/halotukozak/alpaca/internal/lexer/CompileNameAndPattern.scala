@@ -22,7 +22,7 @@ private[lexer] type CompiledPattern = (tokenType: Type[? <: ValidName], info: To
  *
  * @tparam T the type of the pattern
  * @param pattern the pattern tree to compile
- * @return one [[CompiledPattern]] per token the pattern defines
+ * @return one [[CompiledPattern]] per token the pattern defines; a token with an invalid name is reported and left out
  */
 private[lexer] def compileNameAndPattern[T: Type](
   using Quotes,
@@ -51,22 +51,22 @@ private[lexer] def compileNameAndPattern[T: Type](
   @tailrec def loop(tpe: TypeRepr, pattern: Tree): List[CompiledPattern] = (tpe, pattern) match {
     // case x @ "regex" => Token[x.type]
     case (TermRef(_, name), Bind(bind, Literal(StringConstant(regex)))) if name == bind =>
-      TokenInfo(regex, regex :: Nil, ignored, pattern.pos) :: Nil
+      TokenInfo(regex, regex :: Nil, ignored, pattern.pos).toList
     // case x @ ("regex" | "regex2") => Token[x.type]
     case (TermRef(_, name), Bind(bind, Alternatives(alternatives))) if name == bind =>
-      literals(alternatives).map(str => TokenInfo(str, str :: Nil, ignored, pattern.pos))
+      literals(alternatives).flatMap(str => TokenInfo(str, str :: Nil, ignored, pattern.pos))
     // case x @ <?> => Token[<?>]
     case (tpe, Bind(_, tree)) =>
       loop(tpe, tree)
     // case x : "regex" => Token.Ignored
     case (tpe, Literal(StringConstant(str))) if tpe =:= TypeRepr.of[Nothing] =>
-      TokenInfo(str, str :: Nil, ignored, pattern.pos) :: Nil
+      TokenInfo(str, str :: Nil, ignored, pattern.pos).toList
     // case x : ("regex" | "regex2") => Token.Ignored
     case (tpe, Alternatives(alternatives)) if tpe =:= TypeRepr.of[Nothing] =>
-      literals(alternatives).map(str => TokenInfo(str, str :: Nil, ignored, pattern.pos))
+      literals(alternatives).flatMap(str => TokenInfo(str, str :: Nil, ignored, pattern.pos))
     // case x : "regex" => Token["name"]
     case (ConstantType(StringConstant(name)), Literal(StringConstant(regex))) =>
-      TokenInfo(name, regex :: Nil, ignored, pattern.pos) :: Nil
+      TokenInfo(name, regex :: Nil, ignored, pattern.pos).toList
     // case x : ("regex" | "regex2") => Token["name"]
     case (ConstantType(StringConstant(str)), Alternatives(alternatives)) =>
       val patterns = literals(alternatives)
@@ -74,7 +74,7 @@ private[lexer] def compileNameAndPattern[T: Type](
       // priority order, so unlike cross-case shadowing (createLexer.scala) there's no "earlier wins"
       // relationship to check here: one alternative being a prefix of another (e.g. ">" and ">=")
       // is normal and both remain reachable.
-      if patterns.isEmpty then Nil else TokenInfo(str, patterns, ignored, pattern.pos) :: Nil
+      if patterns.isEmpty then Nil else TokenInfo(str, patterns, ignored, pattern.pos).toList
     case (_, Literal(StringConstant(_)) | Alternatives(_)) =>
       error(
         show"""A token name must be a string literal, as in `Token["NAME"]`, or the type of the bound match, as in `case x @ "regex" => Token[x.type]`""",

@@ -86,7 +86,7 @@ abstract class Parser[Ctx <: ParserCtx](
     // The accepted root node, or `None` when an error stopped the parser.
     @tailrec def loop(remaining: List[Lexeme[?, ?]]): Option[Node] = {
       val current = if remaining.isEmpty then Lexeme.EOF else remaining.head
-      val nextSymbol = Terminal(Printable(current.name))
+      val nextSymbol = if remaining.isEmpty then Symbol.EOF else Terminal(Printable(current.name))
       val action = tables.parseTable.get(stateStack.last, nextSymbol)
       if action == null then {
         val error = ParserError(current, tables.parseTable.expectedTerminals(stateStack.last))

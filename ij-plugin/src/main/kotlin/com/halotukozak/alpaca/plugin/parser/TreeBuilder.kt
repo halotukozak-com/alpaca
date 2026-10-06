@@ -1,7 +1,8 @@
 package com.halotukozak.alpaca.plugin.parser
 
-/** The end-of-input terminal name Alpaca's parser tables use (matches `Symbol.EOF` on the Scala side). */
-const val EOF_TERMINAL_NAME = "$"
+/** The end-of-input terminal name Alpaca's parser tables use (matches `Symbol.EOF` on the Scala side), kept apart
+ *  from a token named `$`. */
+const val EOF_TERMINAL_NAME = "\$\$\$synthetic\$\$"
 
 /**
  * The minimal tree-building surface [AlpacaLrDriver] needs: a real [com.intellij.lang.PsiBuilder]
