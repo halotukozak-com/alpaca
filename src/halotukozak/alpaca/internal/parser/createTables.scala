@@ -140,8 +140,6 @@ private[alpaca] object Tables:
       val rules = parserTpe.typeSymbol.declarations.iterator.collect:
         case decl if decl.typeRef <:< TypeRepr.of[Rule[?]] => decl.tree // todo: can we avoid .tree?
 
-      // a rule whose body is not a `rule(...)` call (e.g. `???` while the grammar is being written) has no
-      // productions to read; each one is reported, and the macro stops once all of them are
       var unreadable = false
       val table = rules
         .flatMap:
@@ -165,7 +163,6 @@ private[alpaca] object Tables:
           case other => raiseShouldNeverBeCalled(other)
         .toList
         .tap: _ =>
-          // the errors are already reported; building tables from the readable rules alone would only add misleading ones
           if unreadable then throw new scala.quoted.runtime.StopMacroExpansion
         .tap: table =>
           // csv may be not the best format for this due to the commas
