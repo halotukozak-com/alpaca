@@ -97,6 +97,15 @@ intellijPlatform {
     }
 }
 
+tasks.compileTestKotlin {
+    // Kotlin's classpath snapshot does not see changes to the main classes here (not even a changed
+    // `const` that the tests inline), so the build cache replayed test classes compiled against the
+    // old ones. Fingerprinting the main classes in full keeps the cache key honest.
+    inputs
+        .files(sourceSets.main.map { it.output.classesDirs })
+        .withNormalizer(ClasspathNormalizer::class)
+}
+
 tasks.test {
     // The tests drive real grammars that the alpaca build exports into this directory (see
     // .github/workflows/ij-plugin-test.yml). Declaring it as an input keeps the Gradle build cache
