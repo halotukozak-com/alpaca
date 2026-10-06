@@ -19,8 +19,7 @@ import scala.reflect.NameTransformer
  *
  * @tparam Ctx the parser context type
  */
-opaque type Tables[Ctx <: ParserCtx] <: (parseTable: ParseTable, actionTable: ActionTable[Ctx]) =
-  (parseTable: ParseTable, actionTable: ActionTable[Ctx])
+opaque type Tables[Ctx <: ParserCtx] = (parseTable: ParseTable, actionTable: ActionTable[Ctx])
 
 object Tables:
   /**
@@ -33,6 +32,10 @@ object Tables:
    * @return the generated parse and action tables
    */
   inline given [Ctx <: ParserCtx]: Tables[Ctx] = ${ createTablesImpl[Ctx] }
+
+  extension [Ctx <: ParserCtx](tables: Tables[Ctx])
+    private[alpaca] def parseTable: ParseTable = tables.parseTable
+    private[alpaca] def actionTable: ActionTable[Ctx] = tables.actionTable
 
 /**
  * Macro implementation that builds parse and action tables at compile time.
