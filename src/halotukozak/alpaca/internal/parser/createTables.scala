@@ -19,10 +19,10 @@ import scala.reflect.NameTransformer
  *
  * @tparam Ctx the parser context type
  */
-opaque private[alpaca] type Tables[Ctx <: ParserCtx] <: (parseTable: ParseTable, actionTable: ActionTable[Ctx]) =
+opaque type Tables[Ctx <: ParserCtx] <: (parseTable: ParseTable, actionTable: ActionTable[Ctx]) =
   (parseTable: ParseTable, actionTable: ActionTable[Ctx])
 
-private[alpaca] object Tables:
+object Tables:
   /**
    * Automatically generates parse and action tables from a parser definition.
    *
