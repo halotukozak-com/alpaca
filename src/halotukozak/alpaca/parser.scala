@@ -118,8 +118,8 @@ extension (name: String)
  * The runtime value type of a separator symbol used by `.SeparatedBy`.
  *
  * The parser places `Lexeme` values on the stack for terminals, so when
- * the separator is a token type `Token[n, ?, v]`, its runtime value is
- * `Lexeme[n, v]`. For a rule separator `Rule[t]` (typically passed as a
+ * the separator is a token named `n` whose value has type `v` (e.g.
+ * `MyLexer.COMMA`), its runtime value is `Lexeme[n, v]`. For a rule separator `Rule[t]` (typically passed as a
  * singleton type like `Sep.type`), the runtime value is `t` — whatever
  * that rule produces.
  *

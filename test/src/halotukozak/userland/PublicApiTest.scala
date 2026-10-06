@@ -47,9 +47,8 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
   // Known API issues: each check fails today, and `pendingUntilFixed` fails the test once it passes.
   private def knownIssue(check: => Any) = pendingUntilFixed(check: Unit)
 
-  test("KNOWN ISSUE: the Token type users import is the type of a lexer's tokens") {
-    knownIssue:
-      assert(typeChecks("""val token: Token["WORD", LexerCtx.Default, String] = WordLexer.WORD"""))
+  test("a lexer's token is named by its path") {
+    assert(typeChecks("""val token: WordLexer.WORD = WordLexer.WORD"""))
   }
 
   test("KNOWN ISSUE: the lexer's internal bookkeeping cannot be overwritten from user code") {
@@ -57,10 +56,14 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
       assert(!typeChecks("""LexerCtx.Default().lastRawMatched = "x""""))
   }
 
-  test("KNOWN ISSUE: the DSL's marker types cannot be instantiated from user code") {
+  test("the lexer DSL's marker types cannot be created or extended from user code") {
+    assert(!typeChecks("""new Token["A", LexerCtx.Default, Int]"""))
+    assert(!typeChecks("""new IgnoredToken[LexerCtx.Default]"""))
+    assert(!typeChecks("""class MyToken extends Token["A", LexerCtx.Default, Int]"""))
+  }
+
+  test("KNOWN ISSUE: a Rule cannot be instantiated from user code") {
     knownIssue:
-      assert(!typeChecks("""new Token["A", LexerCtx.Default, Int]"""))
-      assert(!typeChecks("""new IgnoredToken[LexerCtx.Default]"""))
       assert(!typeChecks("""new Rule[Int] {}"""))
   }
 

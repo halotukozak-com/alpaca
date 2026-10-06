@@ -54,25 +54,26 @@ transparent inline def lexer[Ctx <: LexerCtx](
   }
 
 /**
- * A token defined in a lexer: its name, the lexer context it belongs to, and the type of the value its lexemes carry.
+ * What `Token["NAME"]` and `Token["NAME"](value)` return inside a `lexer` block: a marker the `lexer` macro reads to
+ * define a token. It exists only at compile time and cannot be created or extended outside the library.
  *
- * Tokens are created inside a `lexer` block with `Token["NAME"]` or `Token["NAME"](value)`, and read from the lexer as
- * `MyLexer.NAME`. In a parser, `MyLexer.NAME(lexeme)` matches one; as a type, a token can be a `SeparatedBy`
- * separator, and in `resolutions(...)` it can be ordered against productions.
+ * The token a lexer defines is read as `MyLexer.NAME`, and its type is named the same way: `val t: MyLexer.NAME =
+ * MyLexer.NAME`. In a parser, `MyLexer.NAME(lexeme)` matches one; as a type, a token can be a `SeparatedBy` separator,
+ * and in `resolutions(...)` it can be ordered against productions.
  *
  * @tparam Name  the token's name
  * @tparam Ctx   the lexer context type
  * @tparam Value the type of the value its lexemes carry
  */
-class Token[+Name <: ValidName, +Ctx <: LexerCtx, +Value]
+sealed class Token[+Name <: ValidName, +Ctx <: LexerCtx, +Value] private[alpaca] ()
 
 /**
- * The token `Token.Ignored` creates: its matches are consumed but produce no lexeme. Use it for whitespace, comments
- * and anything else the parser should not see.
+ * What `Token.Ignored` returns inside a `lexer` block: its matches are consumed but produce no lexeme. Use it for
+ * whitespace, comments and anything else the parser should not see.
  *
  * @tparam Ctx the lexer context type
  */
-final class IgnoredToken[+Ctx <: LexerCtx] extends Token[ValidName, Ctx, Nothing]
+final class IgnoredToken[+Ctx <: LexerCtx] private[alpaca] () extends Token[ValidName, Ctx, Nothing]
 
 /** Factory methods for creating token definitions in the lexer DSL. */
 object Token:

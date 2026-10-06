@@ -211,11 +211,8 @@ val Lexer = lexer:
   case id @ "[a-zA-Z_][a-zA-Z0-9_]*" => Token["ID"](id)
   case "\\s+" => Token.Ignored
 
-// Each alternative becomes a separate token:
-// Lexer.`if`    : Token["if", ...]
-// Lexer.`else`  : Token["else", ...]
-// Lexer.`\\+`   : Token["\\+", ...]
-// Lexer.-       : Token["-", ...]
+// Each alternative becomes a separate token, named by its path:
+// Lexer.`if`, Lexer.`else`, Lexer.`while`, Lexer.`\\+`, Lexer.-, Lexer.`\\*`
 ```
 
 Keywords like `if` always need backticks. `-` is a valid Scala identifier and does not.

@@ -81,7 +81,7 @@ This is equivalent to the EBNF notation `root → Num [Num]`.
 
 `Rule.SeparatedBy[Separator](binding)` matches zero or more occurrences delimited by a separator and returns a `List[R | SepValue[Separator]]`. Separators are preserved in the result list (interleaved between the rule values), which is useful when a separator carries its own semantic information (e.g. distinguishing `,` from `;`).
 
-`SepValue[Separator]` is the runtime value type of the separator: for a token separator `Token[n, ?, v]` it is `Lexeme[n, v]` (terminals are pushed to the parse stack as lexemes); for a rule separator `Rule[t]` it is `t`.
+`SepValue[Separator]` is the runtime value type of the separator: for a token separator named `n` whose value has type `v` it is `Lexeme[n, v]` (terminals are pushed to the parse stack as lexemes); for a rule separator `Rule[t]` it is `t`.
 
 The `Separator` type parameter is a token type (e.g. ``MyLexer.`,` ``) or a rule's singleton type (e.g. `Sep.type`).
 
