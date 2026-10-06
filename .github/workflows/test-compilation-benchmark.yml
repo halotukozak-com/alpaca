@@ -18,9 +18,12 @@ jobs:
         id: changes
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
         run: |
-          if gh api --paginate "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
-               --jq '.[].filename' | grep -qE '^(src/|build\.mill$)'; then
+          # a failed request fails the step instead of looking like "no matching files"
+          files=$(gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[].filename')
+          if grep -qE '^(src/|build\.mill$)' <<< "$files"; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
