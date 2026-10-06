@@ -228,7 +228,7 @@ val lexemes = lexed.getOrThrow
 
 The method returns a `Result` -- the same type `parse` returns (see [Parsing Input](parser.md#parsing-input)):
 
-- **`ctx`** -- the final lexer context after processing all input. With `LexerCtx.Default`, this includes `column` and `line`.
+- **`ctx`** -- the final lexer context after processing all input. With `LexerCtx.Default`, this includes `column` and `line`: the position after the last match.
 - **`getOrThrow`** -- the lexemes: matched tokens with `Token.Ignored` entries removed. Each `Lexeme` carries the token `name`, extracted `value`, and a snapshot of context fields at match time.
 
 If the input contains a character that matches no pattern, `tokenize` does not throw: it returns a `Result.Failure` listing `LexerError`s, and `getOrThrow` throws them as a `LexerException`. Match on the result to handle them yourself:
@@ -293,7 +293,8 @@ val Lexer = lexer:
   case "\\s+" => Token.Ignored
 
 val lexemes = Lexer.tokenize("42 13").getOrThrow
-lexemes(0).column    // 3: Int (post-match column)
+lexemes(0).column    // 1: Int (where the token starts)
+lexemes(1).column    // 4: Int
 lexemes(0).line      // 1: Int
 lexemes(0).text      // "42": String (the matched text, not remaining input)
 ```
@@ -305,7 +306,7 @@ The `Lexeme` class extends `Selectable` with a structural refinement that encode
 
 A lexeme's `text` is the **matched string**, not the remaining input.
 
-The `column` value is the **post-match** cursor. The token `"42"` starts at column 1 but the snapshot records `column = 3` (1 + 2 characters consumed).
+Other fields are snapshotted after the rule body runs, but the `Line` and `Column` fields keep their values from before the match, so `line` and `column` point at the **start** of the token: `"42"` has `column = 1`, while the context's `column` after it is 3.
 
 </details>
 

@@ -2,7 +2,7 @@
 
 Every Alpaca lexer carries a **context** object that evolves as the input is processed. Context lets you do stateful lexing: counting brackets, tracking indentation, recording whether you are inside a string literal, or anything else that depends on the tokens seen so far.
 
-By default, the lexer uses `LexerCtx.Default`, which gives you column and line tracking with no extra setup.
+By default, the lexer uses `LexerCtx.Default`, which gives you line and column tracking with no extra setup.
 
 <details>
 <summary>Under the hood: how tracking fields update</summary>
@@ -24,7 +24,7 @@ final case class Default(
 ) extends LexerCtx
 ```
 
-- `column` -- 1-based column within the current line, incremented by the matched length and reset to 1 when a token matches exactly `"\n"`
+- `column` -- 1-based column within the current line, counted in Unicode code points (an emoji is one column), advanced by the matched text and reset to 1 when a token matches exactly `"\n"`
 - `line` -- 1-based line number, incremented when a token matches exactly `"\n"`
 
 > **Note:** the built-in trackers look at the whole matched text, not at individual characters. A token that matches `"\n"` together with other characters (e.g. `case "\\s+" => Token.Ignored` matching `" \n  "`) does not advance `line`. If you need line numbers, give newlines their own pattern -- `case "\n" => Token.Ignored` -- before any broader whitespace pattern, and keep that pattern from matching `\n` (e.g. `"[ \t]+"`).
@@ -46,13 +46,13 @@ val lexemes = lexed.getOrThrow
 // lexed.ctx.column == 6
 // lexed.ctx.line   == 1
 //
-// Each lexeme carries a snapshot of context fields at match time:
-// inc: text="+", column=2, line=1
-// dec: text="-", column=4, line=1
-// inc: text="+", column=6, line=1
+// Each lexeme records where its token starts:
+// inc: text="+", column=1, line=1
+// dec: text="-", column=3, line=1
+// inc: text="+", column=5, line=1
 ```
 
-Position advances by the matched length after each token. The snapshot captures values *after* the token was consumed, not before.
+In the context, `column` and `line` are the position right after the last match. In a lexeme, they are the position where its token **starts** -- the place to point an error message at.
 
 ## The LexerCtx Trait
 
@@ -131,7 +131,7 @@ val ExampleLexer = lexer[BrainLexContext]:
 
 ## Context Snapshots in Lexemes
 
-Each `Lexeme` carries a snapshot of all context fields right after its match (see [The Lexeme Structure](lexer.md#the-lexeme-structure)). Snapshots are independent: later changes to the context do not reach lexemes that were already produced. Accessing a field the context type does not have (e.g., `.brackets` with `LexerCtx.Default`) is a compile error.
+Each `Lexeme` carries a snapshot of all context fields right after its rule body ran (see [The Lexeme Structure](lexer.md#the-lexeme-structure)), with one exception: the `Line` and `Column` fields hold the values from before the match, so a lexeme is positioned where its token starts. Snapshots are independent: later changes to the context do not reach lexemes that were already produced. Accessing a field the context type does not have (e.g., `.brackets` with `LexerCtx.Default`) is a compile error.
 
 For custom contexts, all case class fields appear in the snapshot:
 
@@ -162,11 +162,11 @@ val lexemes = BrainLexer.tokenize("[+[+]]").getOrThrow
 
 Alpaca ships two ready-made tracking fields, both re-exported from `halotukozak.alpaca`:
 
-**`Column`** -- an opaque `Int` that advances by the matched length after each token and resets to 1 when the matched text is exactly `"\n"`.
+**`Column`** -- an opaque `Int` that advances by the number of code points matched after each token and resets to 1 when the matched text is exactly `"\n"`.
 
 **`Line`** -- an opaque `Int` that increments when the matched text is exactly `"\n"`.
 
-Each is a plain case-class field with a `given Tracking` in its companion. Use either one, both, or neither. `LexerCtx.Default` uses both. To add them to a custom context:
+Each is a plain case-class field with a `given Tracking` in its companion. Use either one, both, or neither. `LexerCtx.Default` uses both. They are recognised by their type, not their name, so the fields can be called anything; `LexerError` and `ParserError` take their line and column from them. To add them to a custom context:
 
 ```scala
 import halotukozak.alpaca.*
@@ -186,7 +186,7 @@ After every successful token match -- once the text cursor has already advanced 
 
 1. applies each tracked field's `Tracking` update (`column`, `line`, and any custom fragments),
 2. applies the rule body's own context changes,
-3. records the lexeme snapshot.
+3. records the lexeme snapshot, taking the `Line` and `Column` fields from before step 1.
 
 Steps 1 and 3 are derived by the `lexer` macro from the context's case fields -- there is nothing to wire up by hand.
 

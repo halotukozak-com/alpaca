@@ -78,7 +78,8 @@ abstract class Parser[Ctx <: ParserCtx](
         case head :: _ => (head, Terminal(Printable(head.name)))
       val action = tables.parseTable.get(stateStack.last, nextSymbol)
       if action == null then {
-        val error = ParserError(current, tables.parseTable.expectedTerminals(stateStack.last))
+        val error =
+          ParserError.at(current, tables.parseTable.expectedTerminals(stateStack.last), lexemes.lastOption.orNull)
         errors += error
         // the end of the input cannot be skipped
         errorHandling(ctx, error) match

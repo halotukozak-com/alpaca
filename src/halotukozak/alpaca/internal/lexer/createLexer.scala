@@ -13,7 +13,7 @@ import scala.reflect.NameTransformer
 // $COVERAGE-OFF$
 @publicInBinary private[alpaca] def createLexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
   rules: Expr[LexerScope.Of[Ctx] ?=> LexerDefinition[Ctx]],
-  onTokenMatch: Expr[(Token[?, Ctx, ?], String, Ctx) => Ctx],
+  onTokenMatch: Expr[Tracking.Hook[Ctx]],
   errorHandling: Expr[ErrorHandling[Ctx, LexerError]],
 )(using quotes: Quotes,
 ): Expr[Lexer[Ctx] { type LexemeFields = lexemeFields }] = {

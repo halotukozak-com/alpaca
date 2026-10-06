@@ -210,33 +210,41 @@ sealed trait Rule[R]:
  * @param unexpected the lexeme the parser could not accept; its `name` is `"$"` when the input ended too early
  * @param expected   the token names the grammar would have accepted at that point (`"$"` stands for the end of
  *                   the input), sorted
+ * @param line       the line the unexpected lexeme starts on, when the lexer context has a [[Line]] field; at the end
+ *                   of the input, the line right after the last lexeme
+ * @param column     the column the unexpected lexeme starts at, when the lexer context has a [[Column]] field; at the
+ *                   end of the input, the column right after the last lexeme
  */
-final case class ParserError(unexpected: Lexeme[?, ?], expected: List[String]):
+final case class ParserError(
+  unexpected: Lexeme[?, ?],
+  expected: List[String],
+  line: Option[Int],
+  column: Option[Int],
+):
   /** A readable description, e.g. `Unexpected + "+" at line 1, column 3. Expected one of: Num`. */
   def message: String = {
-    def field(name: String): Option[Int] =
-      unexpected.fieldNames.indexOf(name) match
-        case -1 => None
-        case i =>
-          unexpected.fieldValues(i) match
-            case n: Int => Some(n)
-            case _ => None
-
     def describe(name: String): Shown = if name == "$" then show"end of input" else Printable(name).show
 
     val what =
       if unexpected eq Lexeme.EOF then show"end of input"
       else show"""${Printable(unexpected.name)} "${Printable(unexpected.text)}""""
-    // `column` is recorded after the match, so the token itself starts `text.length` earlier.
-    val where = (field("line"), field("column")) match
-      case (Some(line), Some(column)) => show" at line $line, column ${column - unexpected.text.length}"
-      case (Some(line), None) => show" at line $line"
-      case (None, Some(column)) => show" at column ${column - unexpected.text.length}"
-      case (None, None) => show""
-    show"Unexpected $what$where. Expected one of: ${expected.map(describe).mkShow(", ")}"
+    show"Unexpected $what${describePosition(line, column)}. Expected one of: ${expected.map(describe).mkShow(", ")}"
   }
 
 object ParserError:
+
+  /**
+   * An error at `unexpected`, positioned where it starts; at the end of the input (`unexpected` is `Lexeme.EOF`),
+   * right after `previous`, the last lexeme, if there is one.
+   */
+  private[alpaca] def at(unexpected: Lexeme[?, ?], expected: List[String], previous: => Lexeme[?, ?] | Null)
+    : ParserError =
+    if unexpected ne Lexeme.EOF then ParserError(unexpected, expected, unexpected.startLine, unexpected.startColumn)
+    else
+      previous match
+        case null => ParserError(unexpected, expected, None, None)
+        case last => ParserError(unexpected, expected, last.endLine, last.endColumn)
+
   extension [Ctx, A](result: Result[Ctx, A, ParserError])
     /** The value; throws the errors as a [[ParserException]] if parsing failed. */
     def getOrThrow: A = result match

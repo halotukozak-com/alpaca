@@ -20,7 +20,7 @@ import scala.collection.mutable
  * @tparam Ctx the global context type
  */
 transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca] (
-  onTokenMatch: (Token[?, Ctx, ?], String, Ctx) => Ctx,
+  onTokenMatch: Tracking.Hook[Ctx],
   initialCtx: () => Ctx,
 )(using errorHandling: ErrorHandling[Ctx, LexerError],
 ) extends Selectable:
@@ -75,12 +75,12 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
 
         case _ =>
           val cpLen = Character.charCount(Character.codePointAt(globalCtx.text, 0))
-          val unexpected = LexerError.at(globalCtx.text.subSequence(0, cpLen).toString, globalCtx)
+          val unexpected = LexerError.at(globalCtx.text.subSequence(0, cpLen).toString, globalCtx, onTokenMatch)
           errorHandling(globalCtx, unexpected) match {
             case Strategy.SkipToNextMatch =>
               val skipped = matcher.findFirst(globalCtx.text, cpLen).fold(cpLen)((firstMatching, _, _) => firstMatching)
               val matchedStr = globalCtx.text.subSequence(0, skipped).toString
-              errors += LexerError.at(matchedStr, globalCtx)
+              errors += LexerError.at(matchedStr, globalCtx, onTokenMatch)
               globalCtx.lastRawMatched = matchedStr
               globalCtx.text = globalCtx.text.from(skipped)
               Step.Matched(RecoveredToken(matchedStr), matchedStr)

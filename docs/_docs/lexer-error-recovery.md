@@ -90,7 +90,7 @@ When `tokenize()` hits input that matches no pattern, it records a `LexerError` 
 
 ### Default Behavior
 
-By default the lexer stops at the first unmatched character. The `LexerError` names it, and its `message` gives the line and column when the context has `line` and `column` fields (as `LexerCtx.Default` does):
+By default the lexer stops at the first unmatched character. The `LexerError` names it, and its `message` gives the line and column when the context has `Line` and `Column` fields (as `LexerCtx.Default` does). Columns count Unicode code points, so an emoji is one column:
 
 ```
 Unexpected character '@' at line 1, column 5
@@ -148,4 +148,3 @@ Note that the BrainFuck lexer from [Getting Started](getting-started.md) handles
 
 - **No skip-and-continue by default.** The default strategy stops at the first unmatched character. Use a custom `ErrorHandling` or a catch-all pattern for resilience.
 - **Guards are not supported.** Pattern guards in lexer rules are a compile-time error. Move conditions into rule bodies.
-- **Error positions come from fields named `line` and `column`.** A context that tracks them under other names gets `LexerError`s without a line or column.

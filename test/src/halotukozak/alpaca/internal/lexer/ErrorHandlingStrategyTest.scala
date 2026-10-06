@@ -92,8 +92,8 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
     result.failure.errors.head.message shouldBe "Unexpected character 'b'"
   }
 
-  test("a custom context with line and column fields gets positioned errors") {
-    final case class Tracked(column: Column = Column.Start, line: Line = Line.Start) extends LexerCtx
+  test("a custom context gets positioned errors from its Line and Column fields, whatever their names") {
+    final case class Tracked(col: Column = Column.Start, ln: Line = Line.Start) extends LexerCtx
 
     val L = lexer[Tracked]:
       case "a" => Token["A"]

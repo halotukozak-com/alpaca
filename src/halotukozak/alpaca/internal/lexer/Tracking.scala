@@ -39,20 +39,21 @@ object Tracking:
    * [[Tracking]] update per case field whose type provides a `given`,
    * followed by the fixed step every context needs regardless of what it
    * tracks -- apply the rule body's context changes and record the lexeme
-   * (see [[materializeImpl]]). Cursor advancement itself already happened
+   * (see [[Hook]]). Cursor advancement itself already happened
    * earlier, in `Lexer`, before this hook runs.
    */
-  @publicInBinary inline private[alpaca] def materialize[Ctx <: LexerCtx: Mirror.ProductOf as m]
-    : (Token[?, Ctx, ?], String, Ctx) => Ctx =
+  @publicInBinary inline private[alpaca] def materialize[Ctx <: LexerCtx: Mirror.ProductOf as m]: Hook[Ctx] =
     materializeImpl[Ctx](
       fieldSteps[m.MirroredElemTypes](0),
       constValueTuple[m.MirroredElemLabels].toArrayOf[String](using containsOnly.refl),
+      indexOfType[m.MirroredElemTypes, Line](0),
+      indexOfType[m.MirroredElemTypes, Column](0),
     )
 
   /**
    * One `(index, update)` pair per case field that has a `given Tracking`;
    * fields with none are skipped entirely, rather than carried along as a
-   * no-op, so that [[Derived.apply]] can tell -- without inspecting the
+   * no-op, so that [[Hook.apply]] can tell -- without inspecting the
    * context -- whether there is any field update to do at all.
    */
   inline private def fieldSteps[Elems <: Tuple](index: Int): List[(index: Int, update: Tracking[?])] =
@@ -65,50 +66,82 @@ object Tracking:
             (index = index, update = tracking) :: rest
           case _ => rest
 
+  /** The index of the first case field of type `F`, or -1: positions are found by type, whatever the field's name. */
+  inline private def indexOfType[Elems <: Tuple, F](index: Int): Int =
+    inline erasedValue[Elems] match
+      case _: EmptyTuple => -1
+      case _: (F *: _) => index
+      case _: (_ *: t) => indexOfType[t, F](index + 1)
+
+  @publicInBinary private[Tracking] def materializeImpl[Ctx <: LexerCtx: Mirror.ProductOf](
+    steps: List[(index: Int, update: Tracking[?])],
+    fieldNames: Array[String],
+    lineIndex: Int,
+    columnIndex: Int,
+  ): Hook[Ctx] = Hook(steps, fieldNames, lineIndex, columnIndex)
+
   /**
-   * Named (not anonymous-per-inline-site) so [[materialize]] stays cheap to
-   * inline. `materialize` is itself `inline`, so this gets constructed from
-   * wherever `lexer` is ultimately called -- it can't be `private`/
-   * `private[alpaca]` (unlike a plain member, `@publicInBinary` isn't allowed
-   * on a class), so it's a plain, unqualified class instead; it's still
-   * effectively internal since
-   * `internal.lexer` is never exported wholesale, only specific symbols are.
+   * The hook `Lexer` runs after every token match. A plain public class
+   * (rather than an anonymous function) because `materialize` is `inline` and
+   * its type appears wherever `lexer` is called; it is still effectively
+   * internal, since `internal.lexer` is never exported wholesale.
    *
    * All tracked fields are folded into a single `productIterator` snapshot,
    * mutated in place, and rebuilt with one `Mirror.fromProduct` -- one
    * allocation and one reflective reconstruction per token match, regardless
    * of how many fields are tracked, rather than one per field. Contexts with
    * no tracked fields (`steps.isEmpty`) skip the snapshot/rebuild entirely.
+   *
+   * A lexeme snapshots the context after the rule body, except for its
+   * [[Line]] and [[Column]] fields, which keep their values from before the
+   * match: a lexeme is positioned where its token starts.
+   *
+   * @param lineIndex   the index of the context's [[Line]] field, or -1
+   * @param columnIndex the index of the context's [[Column]] field, or -1
    */
-  @publicInBinary private[Tracking] def materializeImpl[Ctx <: LexerCtx: Mirror.ProductOf as m](
+  final class Hook[Ctx <: LexerCtx] private[Tracking] (
     steps: List[(index: Int, update: Tracking[?])],
     fieldNames: Array[String],
-  ): (Token[?, Ctx, ?], String, Ctx) => Ctx = (token, raw, ctx) => {
-    val afterFields =
-      if steps.isEmpty then ctx
-      else
-        val values = ctx.productIterator.toArray
-        steps.foreach:
-          case (index, update: Tracking[Any] @unchecked) =>
-            values(index) = update(raw, values(index))
-        val updated = m.fromProduct(Tuple.fromArray(values))
-        updated.carryEngineStateFrom(ctx)
+    private[alpaca] val lineIndex: Int,
+    private[alpaca] val columnIndex: Int,
+  )(using m: Mirror.ProductOf[Ctx],
+  ) extends ((Token[?, Ctx, ?], String, Ctx) => Ctx):
 
-    token match {
-      case DefinedToken(info, modifyCtx, remapping) =>
-        modifyCtx(afterFields)
-          .carryEngineStateFrom(afterFields)
-          .tap: c =>
-            val name = info.name.raw
-            c.lastLexeme = Lexeme(
-              name = name,
-              value = remapping(c),
-              text = raw,
-              fieldNames = fieldNames,
-              fieldValues = c.productIterator.toArray,
-            )
+    def apply(token: Token[?, Ctx, ?], raw: String, ctx: Ctx): Ctx = {
+      val afterFields =
+        if steps.isEmpty then ctx
+        else
+          val values = ctx.productIterator.toArray
+          steps.foreach:
+            case (index, update: Tracking[Any] @unchecked) =>
+              values(index) = update(raw, values(index))
+          val updated = m.fromProduct(Tuple.fromArray(values))
+          updated.carryEngineStateFrom(ctx)
 
-      case IgnoredToken(_, modifyCtx) =>
-        modifyCtx(afterFields).carryEngineStateFrom(afterFields)
+      token match {
+        case DefinedToken(info, modifyCtx, remapping) =>
+          modifyCtx(afterFields)
+            .carryEngineStateFrom(afterFields)
+            .tap: c =>
+              val values = c.productIterator.toArray
+              val lineAfter = if lineIndex < 0 then 0 else values(lineIndex).asInstanceOf[Int]
+              val columnAfter = if columnIndex < 0 then 0 else values(columnIndex).asInstanceOf[Int]
+              if lineIndex >= 0 then values(lineIndex) = ctx.productElement(lineIndex)
+              if columnIndex >= 0 then values(columnIndex) = ctx.productElement(columnIndex)
+              val name = info.name.raw
+              c.lastLexeme = Lexeme(
+                name = name,
+                value = remapping(c),
+                text = raw,
+                fieldNames = fieldNames,
+                fieldValues = values,
+                lineIndex = lineIndex,
+                columnIndex = columnIndex,
+                lineAfter = lineAfter,
+                columnAfter = columnAfter,
+              )
+
+        case IgnoredToken(_, modifyCtx) =>
+          modifyCtx(afterFields).carryEngineStateFrom(afterFields)
+      }
     }
-  }

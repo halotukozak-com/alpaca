@@ -19,13 +19,7 @@ final class ParserErrorHandlingTest extends AnyFunSuite with Matchers:
       case Result.Success(_, _) => fail("expected a failure")
 
   extension (error: ParserError)
-    private def at: (text: String, column: Option[Int]) =
-      (
-        error.unexpected.text,
-        error.unexpected.fieldNames.indexOf("column") match
-          case -1 => None
-          case i => Some(error.unexpected.fieldValues(i).asInstanceOf[Int] - error.unexpected.text.length),
-      )
+    private def at: (text: String, column: Option[Int]) = (error.unexpected.text, error.column)
 
   case class StoppingContext() extends ParserCtx
   case class SkippingContext() extends ParserCtx

@@ -226,6 +226,6 @@ object FieldAccessParser extends Parser:
     case CalcLexer.ID(id) => (id.value, id.column, id.line)
 ```
 
-**Pitfall:** `column` is the column right *after* the token. For a token `"42"` starting at column 1, `column` is 3.
+The `Line` and `Column` fields are the exception to "right after the match": they record where the token starts. For a token `"42"` at the start of the input, `column` is 1.
 
 See [Parser](parser.md) for grammar rules and [Between Stages](on-token-match.md) for how lexemes are built.

@@ -330,7 +330,7 @@ parsed.toOption                   // Some(ast), or None
 parsed.toEither                   // Right(ast), or Left(errors)
 ```
 
-A `ParserError` is plain data: it carries the lexeme the parser could not accept (`unexpected`) and the token names the grammar would have accepted there (`expected`, with `"$"` standing for the end of the input). Its `message` also gives the token's line and column when the lexer tracks them, e.g. for `1 + + 2` in a grammar of numbers and `+`:
+A `ParserError` is plain data: it carries the lexeme the parser could not accept (`unexpected`), the token names the grammar would have accepted there (`expected`, with `"$"` standing for the end of the input), and the `line` and `column` where that lexeme starts. `line` and `column` are `Option[Int]`s, taken from the lexer context's `Line` and `Column` fields whatever their names, and `None` when the context has no such field; at the end of the input they point right after the last lexeme. Its `message` includes them, e.g. for `1 + + 2` in a grammar of numbers and `+`:
 
 ```
 Unexpected PLUS "+" at line 1, column 5. Expected one of: NUMBER
@@ -339,7 +339,7 @@ Unexpected PLUS "+" at line 1, column 5. Expected one of: NUMBER
 ```scala sc-compile-with:brain-tokenize
 BrainParser.parse(BrainLexer.tokenize("[+").getOrThrow) match
   case Result.Failure(_, _, errors) =>
-    println(errors.head.message)    // Unexpected end of input. Expected one of: ...
+    println(errors.head.message)    // Unexpected end of input. Expected one of: ... (no position: BrainLexContext has no Line or Column)
     println(errors.head.expected)   // the token names the grammar would have accepted
   case Result.Success(_, _) => ()
 ```
