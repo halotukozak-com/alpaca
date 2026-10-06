@@ -72,13 +72,12 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
       assert(typeChecks("""def lexemes(lexer: Tokenization[LexerCtx.Default]) = lexer.tokenize("")"""))
   }
 
-  test("KNOWN ISSUE: a production name that is not a string literal is reported") {
-    knownIssue:
-      assert(typeCheckErrors("""
-      val name = "plus"
-      object NamedParser extends Parser:
-        val root: Rule[Int] = rule(name { case WordLexer.WORD(_) => 1 })
-      """).nonEmpty)
+  test("a production name that is not a string literal is reported") {
+    typeCheckErrors("""
+    val name = "plus"
+    object NamedParser extends Parser:
+      val root: Rule[Int] = rule(name { case WordLexer.WORD(_) => 1 })
+    """).map(_.message) shouldBe List("A production name must be a string literal, as in `\"plus\" { case ... }`")
   }
 
   test("KNOWN ISSUE: the remaining text handed to ErrorHandling keeps its content after the callback") {
