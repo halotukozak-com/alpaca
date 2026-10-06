@@ -2,7 +2,7 @@ package halotukozak
 package alpaca.internal.lexer
 
 import halotukozak.alpaca.internal.lexer.LazyReader
-import halotukozak.alpaca.withLazyReader
+import halotukozak.alpaca.{lexer, withLazyReader, Token}
 import org.scalatest.funsuite.AnyFunSuite
 
 import java.io.StringReader
@@ -11,7 +11,7 @@ import scala.util.Using
 final class LazyReaderTest extends AnyFunSuite:
   test("charAt should return correct character at position") {
     val reader = new StringReader("hello world")
-    Using(new LazyReader(reader, 11)): lazyReader =>
+    Using.resource(new LazyReader(reader, 11)): lazyReader =>
       assert(lazyReader.charAt(0) == 'h')
       assert(lazyReader.charAt(4) == 'o')
       assert(lazyReader.charAt(6) == 'w')
@@ -20,7 +20,7 @@ final class LazyReaderTest extends AnyFunSuite:
 
   test("charAt should throw IndexOutOfBoundsException for position beyond end") {
     val reader = new StringReader("hello")
-    Using(new LazyReader(reader, 5)) { lazyReader =>
+    Using.resource(new LazyReader(reader, 5)) { lazyReader =>
       val exception = intercept[IndexOutOfBoundsException]:
         lazyReader.charAt(10)
 
@@ -30,19 +30,19 @@ final class LazyReaderTest extends AnyFunSuite:
 
   test("length should return correct value") {
     val reader = new StringReader("hello world")
-    Using(new LazyReader(reader, 11)): lazyReader =>
+    Using.resource(new LazyReader(reader, 11)): lazyReader =>
       assert(lazyReader.length == 11)
   }
 
   test("length should handle very large sizes by capping at Int.MaxValue") {
     val reader = new StringReader("test")
-    Using(new LazyReader(reader, Long.MaxValue)): lazyReader =>
+    Using.resource(new LazyReader(reader, Long.MaxValue)): lazyReader =>
       assert(lazyReader.length == Int.MaxValue)
   }
 
   test("subSequence should return correct substring") {
     val reader = new StringReader("hello world")
-    Using(new LazyReader(reader, 11)): lazyReader =>
+    Using.resource(new LazyReader(reader, 11)): lazyReader =>
       assert(lazyReader.subSequence(0, 5) == "hello")
       assert(lazyReader.subSequence(6, 11) == "world")
       assert(lazyReader.subSequence(0, 11) == "hello world")
@@ -51,7 +51,7 @@ final class LazyReaderTest extends AnyFunSuite:
 
   test("from should remove characters from beginning and update length") {
     val reader = new StringReader("hello world")
-    Using(new LazyReader(reader, 11)) { lazyReader =>
+    Using.resource(new LazyReader(reader, 11)) { lazyReader =>
       lazyReader.from(6): Unit
 
       assert(lazyReader.length == 5)
@@ -71,7 +71,7 @@ final class LazyReaderTest extends AnyFunSuite:
 
   test("empty string should work correctly") {
     val reader = new StringReader("")
-    Using(new LazyReader(reader, 0)) { lazyReader =>
+    Using.resource(new LazyReader(reader, 0)) { lazyReader =>
       assert(lazyReader.length == 0)
       assert(lazyReader.subSequence(0, 0) == "")
 
@@ -84,7 +84,7 @@ final class LazyReaderTest extends AnyFunSuite:
 
   test("from called multiple times should accumulate offset correctly") {
     val reader = new StringReader("abcdefghij")
-    Using(new LazyReader(reader, 10)) { lazyReader =>
+    Using.resource(new LazyReader(reader, 10)) { lazyReader =>
       lazyReader.from(3): Unit
       assert(lazyReader.charAt(0) == 'd')
       assert(lazyReader.length == 7)
@@ -97,21 +97,41 @@ final class LazyReaderTest extends AnyFunSuite:
 
   test("subSequence after from should return offset-adjusted content") {
     val reader = new StringReader("hello world")
-    Using(new LazyReader(reader, 11)): lazyReader =>
+    Using.resource(new LazyReader(reader, 11)): lazyReader =>
       lazyReader.from(6): Unit
       assert(lazyReader.subSequence(0, 5) == "world")
   }
 
   test("from advancing to exact end should produce length 0") {
     val reader = new StringReader("abc")
-    Using(new LazyReader(reader, 3)): lazyReader =>
+    Using.resource(new LazyReader(reader, 3)): lazyReader =>
       lazyReader.from(3): Unit
       assert(lazyReader.length == 0)
   }
 
   test("toString after from should return remaining content") {
     val reader = new StringReader("hello world")
-    Using(new LazyReader(reader, 11)): lazyReader =>
+    Using.resource(new LazyReader(reader, 11)): lazyReader =>
       lazyReader.from(6): Unit
       assert(lazyReader.toString == "world")
+  }
+
+  test("tokenizing a LazyReader past its compaction threshold gives the same lexemes as the String") {
+    val Lexer = lexer:
+      case w @ "[a-zżółw]+" => Token["WORD"](w)
+      case "\\s+" => Token.Ignored
+    val input = Iterator.fill(40000)("żółw").mkString(" ")
+
+    withLazyReader(input): lazyReader =>
+      assert(Lexer.tokenize(lazyReader).getOrThrow.map(_.text) == Lexer.tokenize(input).getOrThrow.map(_.text))
+  }
+
+  test("tokenizing a LazyReader consumes it") {
+    val Lexer = lexer:
+      case w @ "[a-z]+" => Token["WORD"](w)
+      case " " => Token.Ignored
+
+    withLazyReader("ab cd"): lazyReader =>
+      assert(Lexer.tokenize(lazyReader).getOrThrow.map(_.text) == List("ab", "cd"))
+      assert(lazyReader.length == 0)
   }
