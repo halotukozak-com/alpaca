@@ -42,6 +42,8 @@ val BrainLexer = lexer:
 
 The result is a `Tokenization` object. It can tokenize input strings, provides typed accessors for each defined token (e.g., `BrainLexer.inc`), and exposes a `.tokens` list for introspection (`BrainLexer.tokens` returns all defined tokens including ignored ones).
 
+This is the BrainFuck lexer from [Getting Started](getting-started.md), reduced to the eight standard commands; everything else is a comment, which the `"."` catch-all ignores. Later pages extend it with [custom context](lexer-context.md) (bracket counting) and [error recovery](lexer-error-recovery.md).
+
 ## How a Token Is Chosen
 
 A `lexer` block looks like a Scala `match`, but it does **not** pick the first `case` that fits. At each position in the input:
@@ -311,32 +313,3 @@ The `position` value is the **post-match** cursor. The token `"42"` starts at co
 </details>
 
 The parser appends `Lexeme.EOF` (name `"$"`, value `""`, empty fields) internally before running. You do not need to handle EOF in your lexer rules.
-
-## Running Example: BrainLexer
-
-The BrainFuck lexer introduced in [Getting Started](getting-started.md) tokenizes the eight BrainFuck commands. It uses `Token.Ignored` for everything else -- BrainFuck treats non-command characters as comments.
-
-```scala
-import halotukozak.alpaca.*
-
-val BrainLexer = lexer:
-  case ">" => Token["next"]
-  case "<" => Token["prev"]
-  case "\\+" => Token["inc"]
-  case "-" => Token["dec"]
-  case "\\." => Token["print"]
-  case "," => Token["read"]
-  case "\\[" => Token["jumpForward"]
-  case "\\]" => Token["jumpBack"]
-  case "." => Token.Ignored
-  case "\n" => Token.Ignored
-
-val lexemes = BrainLexer.tokenize("++[>+<-].").getOrThrow
-// lexemes.map(_.name) == List("inc", "inc", "jumpForward", "next", "inc", "prev", "dec", "jumpBack", "print")
-```
-
-Pattern order matters here: `"\\."` (literal dot -- the BF print command) must appear before `"."` (any character -- the catch-all). Otherwise the catch-all shadows the print command and you get a compile error.
-
-Later pages extend this lexer with [custom context](lexer-context.md) (bracket counting), [error recovery](lexer-error-recovery.md), and value-bearing tokens for function names.
-
-See [Debug Settings](debug-settings.md) for dumping the parser's generated grammar tables during compilation.

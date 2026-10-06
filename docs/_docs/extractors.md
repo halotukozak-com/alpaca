@@ -188,17 +188,9 @@ object RuleSeparatorParser extends Parser:
 
 The macro generates two synthetic non-terminals and four productions: an empty case (→ `Nil`), a bridge from the outer to the non-empty non-terminal (identity), a singleton (→ `List(elem)`), and a left-recursive append (→ `list :+ separator :+ elem`).
 
-## Lexeme Fields
+## Mixing EBNF Extractors
 
-When a terminal extractor binds a variable, the variable is a `Lexeme` carrying both the value and a snapshot of the lexer context at match time. Access fields with dot notation:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `binding.value` | Token-specific | The extracted semantic value |
-| `binding.name` | `String` | The token name (e.g., `"functionName"`) |
-| `binding.text` | `String` | The raw matched characters |
-| `binding.position` | `Int` | Character position (post-match) |
-| `binding.line` | `Int` | Line number |
+EBNF extractors combine freely with each other and with plain terminals in one production:
 
 ```scala sc-hidden sc-name:CalcLexerPreamble
 import halotukozak.alpaca.*
@@ -211,7 +203,7 @@ val CalcLexer = lexer:
 ```
 
 ```scala sc-compile-with:CalcLexerPreamble
-object LexemeFieldsParser extends Parser:
+object MixedEbnfParser extends Parser:
   val Num: Rule[Int] = rule:
     case CalcLexer.NUMBER(n) => n.value
 
@@ -224,77 +216,16 @@ object LexemeFieldsParser extends Parser:
 // "1,2,1 2 3"  => (1, Some(2), List(1, 2, 3))
 ```
 
-## Lexeme Object Structure
+## Lexeme Bindings
 
-When a terminal extractor binds a variable, the variable is a `Lexeme`.
-A `Lexeme` is the record that crosses the lexer-to-parser boundary and carries both the extracted value and a snapshot of the lexer context at match time.
-
-The user-visible fields are:
-
-- **`name: String`** — the token type name (e.g., `"NUMBER"`, `"PLUS"`)
-- **`value: T`** — the extracted value; the type depends on the `Token["NAME"](value)` definition in the lexer
-- **`text: String`** — the raw matched characters; always a `String` regardless of token type
-- **`position: Int`** — 1-based column within the current line at match time (post-match; resets after a token that matches exactly `"\n"`). Only present when the lexer context has a `Column` field, as `LexerCtx.Default` does.
-- **`line: Int`** — line number at match time. Only present when the lexer context has a `Line` field, as `LexerCtx.Default` does.
-
-`Lexeme` extends `Selectable`, so custom context fields captured at match time are also accessible by name, type-safely at compile time — `id.position` returns `Int`, not `Any`. There is no aggregate `fields: Map[String, Any]` accessor; each field is exposed individually through structural selection.
-The type refinement is encoded in the `tokenize()` return type and flows through to the parser.
-
-A concrete example of the snapshot embedded in each lexeme:
-
-```scala
-import halotukozak.alpaca.*
-
-val MiniLang = lexer:
-  case num @ "[0-9]+" => Token["NUM"](num.toInt)
-  case "\\+"          => Token["PLUS"]
-  case "\\s+"         => Token.Ignored
-
-val lexemes = MiniLang.tokenize("42 + 13").getOrThrow
-// lexemes(0): name = "NUM",  value = 42, text = "42", position = 3, line = 1
-// lexemes(1): name = "PLUS", value = (), text = "+",  position = 5, line = 1
-// lexemes(2): name = "NUM",  value = 13, text = "13", position = 8, line = 1
-
-// Inside parser rules, access via dot notation:
-//   n.value     == 42     (Int)
-//   n.text      == "42"   (String — matched characters)
-//   n.position  == 3      (Int — post-match character position)
-//   n.line      == 1      (Int — line number)
-```
-
-Available fields depend on the `LexerCtx` used to build the lexer:
-- `LexerCtx.Default` provides `text`, `position`, and `line`.
-- A `Line` field (already included in `LexerCtx.Default`) provides `line`; a `Column` field provides `position`.
-- Custom context fields appear if the lexer context declares them.
-
-See [Between Stages](on-token-match.md) for the full Lexeme structure, context snapshot lifecycle, and how positional values are computed.
-
-## Accessing Fields on a Bound Lexeme
-
-After binding a terminal, use dot notation to access any field from the context snapshot:
+A terminal extractor binds a `Lexeme` (see [The Lexeme Structure](lexer.md#the-lexeme-structure)): its `value`, `name` and matched `text`, plus every field of the lexer context as it was right after the match -- `position` and `line` with `LexerCtx.Default`, or your own fields with a custom context (see [Context Snapshots in Lexemes](lexer-context.md#context-snapshots-in-lexemes)). The fields are typed, so `id.position` is an `Int`, and a field the context does not have is a compile error:
 
 ```scala sc-compile-with:CalcLexerPreamble
-import scala.collection.mutable
-
-case class ErrorTrackingCtx(
-  errors: mutable.Buffer[(String, Any, Int)] = mutable.Buffer.empty,
-) extends ParserCtx
-
-object FieldAccessParser extends Parser[ErrorTrackingCtx]:
-  val root: Rule[Int] = rule:
-    case CalcLexer.ID(id) =>
-      val name = id.value      // String — the identifier text
-      val raw  = id.text       // String — matched characters
-      val pos  = id.position   // Int — character position
-      val ln   = id.line       // Int — line number
-      // Use for error reporting:
-      ctx.errors.append(("undefined", id, id.line))
-      pos
+object FieldAccessParser extends Parser:
+  val root: Rule[(String, Int, Int)] = rule:
+    case CalcLexer.ID(id) => (id.value, id.position, id.line)
 ```
 
-Field access is type-safe via the `Selectable` refinement on `Lexeme`. The `position` and `line` fields are available when the lexer uses `LexerCtx.Default` or a custom context with `Column`/`Line` fields. Custom context fields (e.g., `name.squareBrackets`) are accessible if the lexer context declares them.
+**Pitfall:** `position` is the column right *after* the token. For a token `"42"` starting at column 1, `position` is 3.
 
-**Pitfall:** `position` records the post-match cursor position (after advancing by the token length), not the start position.
-For a token `"42"` starting at column 1, `position` is 3. See [Between Stages](on-token-match.md) for the exact semantics.
-
-See [Parser](parser.md) for grammar rules and [Between Stages](on-token-match.md) for how lexeme snapshots are constructed.
+See [Parser](parser.md) for grammar rules and [Between Stages](on-token-match.md) for how lexemes are built.

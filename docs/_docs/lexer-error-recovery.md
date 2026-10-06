@@ -50,7 +50,7 @@ which are defined earlier, so one of them always wins.
 "AB" is redundant: remove it, or narrow "A" and "B" so they no longer cover it.
 ```
 
-A pattern is reported only when it really can never win -- an earlier pattern matching just a *prefix* of it (`"a"` before `"ab"`) is fine. When one pattern's language contains the other's in the wrong order, e.g. `"[0-9]+(\\.[0-9]+)?"` before `"[0-9]+"`, give the later pattern inputs of its own -- e.g. `"[0-9]+\\.[0-9]+"` before `"[0-9]+"` -- or use a single pattern. See [Shadowing Detection](theory/lexer-fa.md#shadowing-detection) for the details.
+A pattern is reported only when it really can never win -- an earlier pattern matching just a *prefix* of it (`"a"` before `"ab"`) is fine. When one pattern's language contains the other's in the wrong order, e.g. `"[0-9]+(\\.[0-9]+)?"` before `"[0-9]+"`, give the later pattern inputs of its own -- e.g. `"[0-9]+\\.[0-9]+"` before `"[0-9]+"` -- or use a single pattern. See [How a Token Is Chosen](lexer.md#how-a-token-is-chosen) for which pattern wins where two can match, and [Shadowing Detection](theory/lexer-fa.md#shadowing-detection) for how the check works.
 
 ### Invalid Regex
 
@@ -82,36 +82,6 @@ val BrainLexer = lexer[BrainLexContext]:
     Token["jumpBack"]
   case "\\+" => Token["inc"]
   case "." => Token.Ignored
-```
-
-## Pattern Ordering
-
-The lexer takes the longest match, and on a tie the pattern declared first wins. The general rule: **more specific patterns before more general ones** -- the order only matters where two patterns can match the same text.
-
-In the BrainFuck lexer, this matters for the print command vs the catch-all:
-
-```scala
-import halotukozak.alpaca.*
-
-// RIGHT -- literal dot before catch-all dot
-val BrainLexer = lexer:
-  case "\\." => Token["print"]   // specific: literal dot (BF print)
-  case "." => Token.Ignored      // general: any character (catch-all)
-```
-
-If you reverse the order, `"."` shadows `"\\."` and you get a shadowing compile error.
-
-Patterns that can never match the same text can go in any order. In the extended BrainFuck lexer, the function-name pattern `"[A-Za-z]+"` and the single-character commands never overlap, so their relative order does not matter -- only the `"."` catch-all has to stay last:
-
-```scala
-import halotukozak.alpaca.*
-
-val BrainLexer = lexer:
-  case "\\+" => Token["inc"]
-  case "-" => Token["dec"]
-  // ... other single-char commands ...
-  case name @ "[A-Za-z]+" => Token["functionName"](name)  // no overlap with the commands
-  case "." => Token.Ignored                                // catch-all: must come last
 ```
 
 ## Runtime Error Handling

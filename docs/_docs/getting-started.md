@@ -97,7 +97,7 @@ Three tokens carry values via the `@` binding:
 
 The custom context `BrainLexContext` tracks bracket depth. Inside rule bodies, `ctx` gives access to the context — the lexer increments and decrements counters and uses `require` to catch mismatched brackets at lex time.
 
-Pattern order matters: `"\\."` (literal dot — the print command) must appear before `"."` (any character — the catch-all). Otherwise the catch-all would shadow the print command.
+Pattern order matters: `"\\."` (literal dot — the print command) must appear before `"."` (any character — the catch-all). Both match one character, so the earlier one wins; in the other order the print command could never match, and the lexer reports that as a compile error (see [How a Token Is Chosen](lexer.md#how-a-token-is-chosen)).
 
 Try it:
 
@@ -258,14 +258,47 @@ import halotukozak.alpaca.*
 
 The pipeline is always the same: `tokenize` produces lexemes, `parse` produces a `Result` holding the AST (`getOrThrow` takes the `BrainAST` out of it; input that does not match the grammar comes back as a `Result.Failure` listing the `ParserError`s, see [Parsing Input](parser.md#parsing-input)), and you evaluate the result however you want.
 
+## Step 6: Test It
+
+Each stage can be checked on its own:
+
+```scala sc-compile-with:gs-eval
+import halotukozak.alpaca.*
+
+// Lexer
+val tokens = BrainLexer.tokenize("><+-.,").getOrThrow
+assert(tokens.map(_.name) == List("next", "prev", "inc", "dec", "print", "read"))
+
+// Parser
+val loop = BrainParser.parse(BrainLexer.tokenize("[>+<-]").getOrThrow).getOrThrow
+assert(loop == BrainAST.Root(List(
+  BrainAST.While(List(BrainAST.Next, BrainAST.Inc, BrainAST.Prev, BrainAST.Dec))
+)))
+val repeat = BrainParser.parse(BrainLexer.tokenize("3+").getOrThrow).getOrThrow
+assert(repeat == BrainAST.Root(List(BrainAST.Repeat(3, BrainAST.Inc))))
+
+// Evaluator
+val mem = Memory()
+BrainParser.parse(BrainLexer.tokenize("$a 3+ $b 5+").getOrThrow).getOrThrow.eval(mem)
+assert(mem.cells(0) == 3 && mem.cells(1) == 5)  // named cells get indices in order of first use
+val cleared = Memory()
+BrainParser.parse(BrainLexer.tokenize("+++++[-]").getOrThrow).getOrThrow.eval(cleared)
+assert(cleared.cells(0) == 0)  // the loop decrements the cell to zero
+```
+
 ## What's Next
 
-This BrainFuck interpreter uses the simplest form of every Alpaca feature. The rest of the documentation extends it:
+Some ways to take the interpreter further:
+
+- **Source positions** — add `Column` and `Line` fields to `BrainLexContext` (see [Built-in Tracking Fragments](lexer-context.md#built-in-tracking-fragments)); `LexerError` and `ParserError` messages then name the line and column of each error.
+- **String literals** — add a `"..."` token for printing text inline.
+
+This interpreter uses the simplest form of every Alpaca feature. The rest of the documentation covers each in full:
 
 - [Lexer](lexer.md) — regex patterns, value extraction, token naming rules
-- [Lexer Context](lexer-context.md) — tracking state during tokenization (we add bracket matching to BrainLexer)
+- [Lexer Context](lexer-context.md) — tracking state during tokenization
 - [Parser](parser.md) — rules, named productions, EBNF operators
-- [Parser Context](parser-context.md) — shared state during parsing (we add a function registry)
+- [Parser Context](parser-context.md) — shared state during parsing
 - [Extractors](extractors.md) — pattern matching on terminals and non-terminals
 - [Conflict Resolution](conflict-resolution.md) — resolving shift/reduce and reduce/reduce conflicts
 - [Theory](theory/index.md) — formal foundations behind everything above

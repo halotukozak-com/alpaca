@@ -131,27 +131,7 @@ val ExampleLexer = lexer[BrainLexContext]:
 
 ## Context Snapshots in Lexemes
 
-Each `Lexeme` carries a snapshot of all context fields at the moment of the match. Access them by name via `Selectable`:
-
-```scala
-import halotukozak.alpaca.*
-
-val BrainLexer = lexer:
-  case "\\+" => Token["inc"]
-  case "\\s+" => Token.Ignored
-
-val lexemes = BrainLexer.tokenize("+ +").getOrThrow
-lexemes(0).position  // 2: Int (post-match position)
-lexemes(0).line      // 1: Int
-lexemes(0).text      // "+": String (the matched text, not remaining input)
-```
-
-The type safety comes from `Selectable`: the `tokenize()` return type carries a structural refinement that encodes every context field and its type. If you access a field that does not exist on the context type (e.g., `.brackets` when using `LexerCtx.Default`), the compiler reports a type error.
-
-Two important details:
-
-- **`text` is the matched string**, not the remaining input. The snapshot replaces `text` with the actual matched characters for that token.
-- **Snapshots are independent.** Each lexeme captures the context state at its own match time. Modifying the context after a match does not retroactively change earlier lexemes.
+Each `Lexeme` carries a snapshot of all context fields right after its match (see [The Lexeme Structure](lexer.md#the-lexeme-structure)). Snapshots are independent: later changes to the context do not reach lexemes that were already produced. Accessing a field the context type does not have (e.g., `.brackets` with `LexerCtx.Default`) is a compile error.
 
 For custom contexts, all case class fields appear in the snapshot:
 

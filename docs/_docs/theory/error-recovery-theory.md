@@ -80,13 +80,7 @@ The `error` pseudo-terminal matches any sequence of tokens until a recovery poin
 
 ### Lexer
 
-Alpaca provides three `ErrorHandling` strategies (see [Error Recovery](../lexer-error-recovery.md)); each reports the unmatched input as a `LexerError`:
-
-| Strategy | Behavior |
-|----------|----------|
-| `Stop` | Stop at the first error (default) |
-| `SkipOne` | Skip one character and continue |
-| `SkipToNextMatch` | Skip to next match and continue |
+Alpaca's lexer stops at the first unmatched character by default (`ErrorHandling.Strategy.Stop`), or, with another `ErrorHandling` strategy, skips the character (`SkipOne`) or the whole unmatched run (`SkipToNextMatch`) and goes on. Either way each unmatched piece of input is reported as a `LexerError` (see [Error Recovery](../lexer-error-recovery.md#error-handling-strategies)).
 
 ### Parser
 
