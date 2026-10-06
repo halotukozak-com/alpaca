@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Grammars exported by Alpaca 0.3.2 and later failed to load: the plugin rejected the `start`/`end` offsets that exports now carry in `source`.
+
 ## [0.2.0] - 2026-09-09
 
 ### Added
