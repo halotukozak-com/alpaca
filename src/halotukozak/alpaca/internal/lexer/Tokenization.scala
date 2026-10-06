@@ -57,7 +57,9 @@ transparent abstract class Tokenization[Ctx <: LexerCtx](
    */
   final def tokenize(input: CharSequence): Result[Ctx, List[Lexeme], LexerError] = {
     var globalCtx = empty()
-    globalCtx.text = OffsetCharSequence(input)
+    globalCtx.text = input match
+      case reader: LazyReader => reader
+      case _ => OffsetCharSequence(input)
 
     val acc = mutable.ListBuffer.empty[Lexeme]
     val errors = mutable.ListBuffer.empty[LexerError]

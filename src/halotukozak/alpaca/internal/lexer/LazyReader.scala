@@ -8,6 +8,7 @@ import java.nio.charset.{Charset, StandardCharsets}
 import java.nio.file.{Files, Path}
 import scala.annotation.tailrec
 import scala.collection.mutable
+import scala.util.Using
 
 /**
  * A lazy character sequence that reads from a Reader on demand.
@@ -106,6 +107,12 @@ object LazyReader:
    * @return a new LazyReader
    */
   def from(path: Path, charset: Charset = StandardCharsets.UTF_8): LazyReader =
-    val reader = Files.newBufferedReader(path, charset)
-    val size = Files.size(path)
-    LazyReader(reader, size)
+    LazyReader(Files.newBufferedReader(path, charset), charCount(path, charset))
+
+  // `length` counts chars, not bytes, so a file with multi-byte characters has to be decoded once to measure it
+  private def charCount(path: Path, charset: Charset): Long =
+    Using.resource(Files.newBufferedReader(path, charset)): reader =>
+      @tailrec def loop(count: Long): Long = reader.skip(Long.MaxValue) match
+        case 0 => count
+        case skipped => loop(count + skipped)
+      loop(0)
