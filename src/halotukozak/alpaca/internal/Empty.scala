@@ -20,7 +20,7 @@ import scala.compiletime.constValue
 trait Empty[T] extends (() => T)
 
 object Empty:
-  inline private def collectDefaults[Owner <: String](elems: Tuple)(using elems.type containsOnly MadeFieldElem)
+  inline private def collectDefaults(inline owner: String, elems: Tuple)(using elems.type containsOnly MadeFieldElem)
     : Tuple =
     inline elems match
       case EmptyTuple => EmptyTuple
@@ -29,11 +29,11 @@ object Empty:
         inline head.default match
           case _: NotExists =>
             compiletime.error(
-              "Field `" + constValue[MadeElem.ExtractLabel[head]] + "` of " + constValue[Owner] +
+              "Field `" + constValue[MadeElem.ExtractLabel[head]] + "` of " + owner +
                 " has no default value. Every field of a lexer or parser context needs one, so that the initial context can be built.",
             )
           case default =>
-            default *: collectDefaults[Owner](elems.tail.asInstanceOf[tail & Tuple.Tail[elems.type]])
+            default *: collectDefaults(owner, elems.tail.asInstanceOf[tail & Tuple.Tail[elems.type]])
 
   /**
    * Automatically derives an Empty instance for any Product type with default parameters.
@@ -46,7 +46,7 @@ object Empty:
    */
   inline given derived[T <: Product: Made.Of as m]: Empty[T] = inline m match
     case m: Made.ProductOf[T] =>
-      () => m.fromTuple(collectDefaults[m.Label](m.elems).asInstanceOf[m.ElemTypes])
+      () => m.fromTuple(collectDefaults(constValue[m.Label], m.elems).asInstanceOf[m.ElemTypes])
     case _ =>
       compiletime.error("Cannot derive Empty for non-Product types.")
 // $COVERAGE-ON$
