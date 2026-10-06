@@ -51,9 +51,22 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     assert(typeChecks("""val token: WordLexer.WORD = WordLexer.WORD"""))
   }
 
-  test("KNOWN ISSUE: the lexer's internal bookkeeping cannot be overwritten from user code") {
-    knownIssue:
-      assert(!typeChecks("""LexerCtx.Default().lastRawMatched = "x""""))
+  test("the lexer's internal bookkeeping cannot be overwritten from user code") {
+    assert(!typeChecks("""LexerCtx.Default().lastRawMatched = "x""""))
+  }
+
+  test("ctx and its field assignments are compile errors outside a lexer rule") {
+    case class CountingCtx(count: Int = 0) extends LexerCtx
+    typeCheckErrors("""
+      given CountingCtx = CountingCtx()
+      ctx.count
+    """).map(_.message) shouldBe List("`ctx` can only be used inside a lexer rule")
+    typeCheckErrors("""
+      def bump(using CountingCtx) = ctx.count += 1
+    """).map(_.message) shouldBe List("`ctx` can only be used inside a lexer rule")
+    typeCheckErrors("""
+      CountingCtx().applyDynamic("count_=")(1)
+    """).map(_.message) shouldBe List("Lexer context fields can only be assigned inside a lexer rule")
   }
 
   test("the lexer DSL's marker types cannot be created or extended from user code") {
@@ -62,9 +75,8 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     assert(!typeChecks("""class MyToken extends Token["A", LexerCtx.Default, Int]"""))
   }
 
-  test("KNOWN ISSUE: a Rule cannot be instantiated from user code") {
-    knownIssue:
-      assert(!typeChecks("""new Rule[Int] {}"""))
+  test("a Rule cannot be instantiated from user code") {
+    assert(!typeChecks("""new Rule[Int] {}"""))
   }
 
   test("a lexer's type can be named") {
@@ -111,7 +123,7 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     errors("""val p = Production(WordLexer.WORD)""") shouldBe List(outsideResolutions)
   }
 
-  test("KNOWN ISSUE: the remaining text handed to ErrorHandling keeps its content after the callback") {
+  test("the remaining text handed to ErrorHandling keeps its content after the callback") {
     var seen: CharSequence | Null = null
     case class RecordingCtx(n: Int = 0) extends LexerCtx
     given ErrorHandling[RecordingCtx, LexerError] = (ctx, _) =>
@@ -121,6 +133,5 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
       case "a" => Token["A"]
 
     Lexer.tokenize("a!aa!").toEither.left.map(_.size) shouldBe Left(2)
-    knownIssue:
-      seen.nn.toString shouldBe "!aa!"
+    seen.nn.toString shouldBe "!aa!"
   }

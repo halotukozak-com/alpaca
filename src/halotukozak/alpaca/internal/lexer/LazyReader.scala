@@ -71,7 +71,7 @@ final class LazyReader(private val reader: Reader, private var size: Long) exten
    * @param count the number of characters to skip
    * @return this LazyReader for chaining
    */
-  def from(count: Int): LazyReader =
+  private[alpaca] def from(count: Int): LazyReader =
     offset += count
     size -= count
     // Compact when offset exceeds 64KB to bound memory waste

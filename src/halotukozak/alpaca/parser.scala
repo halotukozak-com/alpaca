@@ -156,7 +156,7 @@ type SepValue[S] = S match
  *
  * @tparam R the type of value produced when this rule is matched
  */
-trait Rule[R]:
+sealed trait Rule[R]:
 
   /**
    * Pattern matching extractor for single occurrences of this rule.

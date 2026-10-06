@@ -149,6 +149,8 @@ transparent inline def ctx[C <: LexerCtx](using c: C): C = ${ ctxImpl[C]('c) }
 @publicInBinary private[alpaca] def ctxImpl[C <: LexerCtx: Type](c: Expr[C])(using quotes: Quotes): Expr[C] = {
   import quotes.reflect.*
 
+  requireLexerRule(c.asTerm)
+
   val ctxTpe = TypeRepr.of[C].widen
 
   val fields = ctxTpe.typeSymbol.caseFields.iterator
@@ -183,10 +185,10 @@ trait LexerCtx extends Product, Selectable:
 
   /**
    * The raw string that was matched for the last token.
-   * @note Internal API — the lexer macro reads this field at user-site, so it
-   *       has to be source-visible outside the `alpaca` package.
+   * @note This is for internal use only and should not be accessed directly.
    */
-  var lastRawMatched: String = compiletime.uninitialized
+  @publicInBinary
+  private[alpaca] var lastRawMatched: String = compiletime.uninitialized
 
   /**
    * The remaining text to be tokenized.
@@ -196,12 +198,14 @@ trait LexerCtx extends Product, Selectable:
   private[alpaca] var text: CharSequence = compiletime.uninitialized
 
   /**
-   * A read-only view of the text still remaining to be tokenized.
+   * A copy of the text still remaining to be tokenized, taken when this is called.
    *
    * Exposed so a custom [[ErrorHandling]] instance can inspect the character(s)
    * that failed to match any token rule, e.g. to pick a recovery strategy based on what comes next.
+   * The copy keeps its content after the callback returns; it costs time and memory proportional to the
+   * remaining input.
    */
-  final def remainingText: CharSequence = text
+  final def remainingText: CharSequence = text.toString
 
   /**
    * Propagates the engine-internal bookkeeping fields above from `prev` onto
@@ -223,16 +227,10 @@ trait LexerCtx extends Product, Selectable:
    * Structural fallback for the getter/setter refinement that `ctx` (see
    * below) types itself with, so that `ctx.field += 1` type-checks even when
    * `field` is an immutable `val`. The `lexer` macro rewrites away every such
-   * structural access inside a rule before it is compiled, so in practice
-   * this is only a safety net; it should never be hit at runtime.
+   * structural access inside a rule before it is inlined; anywhere else it is a compile error.
    */
-  // $COVERAGE-OFF$
-  def applyDynamic(name: String)(@unused args: Any*): Any =
-    throw new UnsupportedOperationException(
-      show"Cannot mutate lexer context field '${Printable(name)}' on ${Printable(productPrefix)}: either this " +
-        "assignment is outside a lexer rule, or the lexer macro failed to rewrite it into a functional update.",
-    )
-  // $COVERAGE-ON$
+  inline def applyDynamic(@unused inline name: String)(@unused inline args: Any*): Any =
+    compiletime.error("Lexer context fields can only be assigned inside a lexer rule")
 
 object LexerCtx:
 
