@@ -46,10 +46,10 @@ final class EmptyTest extends AnyFunSuite with Matchers with LoneElement:
       "Field `a` of Mixed has no default value. Every field of a lexer or parser context needs one, so that the initial context can be built."
   }
 
-  test("names every parameter that lacks a default") {
+  test("names the first parameter that lacks a default") {
     case class TwoMissing(a: Int, b: String, c: Int = 0)
     typeCheckErrors("summon[Empty[TwoMissing]]").loneElement.message should startWith(
-      "Fields `a`, `b` of TwoMissing have no default value.",
+      "Field `a` of TwoMissing has no default value.",
     )
   }
 
