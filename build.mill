@@ -55,7 +55,7 @@ object `package` extends Module:
         // lexerImpl/createTablesImpl exceed Scoverage's hardcoded instrumentation size limit
         // under this compiler version (dotty's MaxInstrumentableTreeNodes = 3000 tree nodes,
         // not configurable); excluded rather than left uninstrumented with a -Werror warning.
-        "--coverage-exclude-files:.*Lexer.*",
+        "--coverage-exclude-files:.*lexerImpl.*",
         "--coverage-exclude-files:.*createTables.*",
         //  "-Yprofile-enabled",
         //  s"-Yprofile-trace:$moduleDir/debug/compile-trace.json",

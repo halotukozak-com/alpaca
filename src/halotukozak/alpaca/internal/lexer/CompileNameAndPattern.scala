@@ -71,7 +71,7 @@ private[lexer] def compileNameAndPattern[T: Type](
     case (ConstantType(StringConstant(str)), Alternatives(alternatives)) =>
       val patterns = literals(alternatives)
       // Alternatives are merged into a single regex and matched via longest-match, not
-      // priority order, so unlike cross-case shadowing (Lexer.scala) there's no "earlier wins"
+      // priority order, so unlike cross-case shadowing (lexerImpl.scala) there's no "earlier wins"
       // relationship to check here: one alternative being a prefix of another (e.g. ">" and ">=")
       // is normal and both remain reachable.
       if patterns.isEmpty then Nil else TokenInfo(str, patterns, ignored, pattern.pos) :: Nil

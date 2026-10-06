@@ -136,7 +136,7 @@ object Token:
 // function currently binds `c` — deliberately *not* `c.type`: refining the
 // singleton type of the specific enclosing lambda parameter, rather than the
 // nominal class `C`, is what a `lexer` rule's own macro (which tears the
-// rule apart and rebuilds its pieces as fresh lambdas — see `Lexer.scala`)
+// rule apart and rebuilds its pieces as fresh lambdas — see `lexerImpl.scala`)
 // empirically stumbles on downstream, even though the two only differ in
 // which stable path they're attached to.
 /**
