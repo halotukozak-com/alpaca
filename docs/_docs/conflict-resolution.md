@@ -48,23 +48,7 @@ given Resolutions[CalcParser.type] = resolutions(
 )
 ```
 
-or inside the parser object, as its **last** member, after every rule:
-
-```scala sc-compile-with:cr-plus-lexer
-object CalcParser extends Parser:
-  val Expr: Rule[Int] = rule(
-    "plus" { case (Expr(a), Lexer.PLUS(_), Expr(b)) => a + b },
-    { case Lexer.NUMBER(n) => n.value },
-  )
-  val root = rule:
-    case Expr(e) => e
-
-  given Resolutions[CalcParser.type] = resolutions(
-    production.plus.before(Lexer.PLUS),
-  )
-```
-
-Inside the object, a `given` declared before some of the rules cannot see them: `production.plus` then fails with "value plus is not a member of ...ProductionSelector", or the compiler asks you to "Define resolutions as the last field of the parser."
+It can also go inside the parser object, but only as its last member, after every rule. Declared any earlier in the object, it cannot see the rules: `production.plus` fails with "value plus is not a member of ...ProductionSelector", or the compiler asks you to "Define resolutions as the last field of the parser."
 
 `production.name` inside `resolutions(...)` still refers to productions by name without qualification -- it is resolved by the inferred parser type `P`, not by textual scope. Only bare non-terminal references passed to `Production(symbols*)` need to be qualified with the parser object's name (see [The Production(symbols*) Selector](#the-productionsymbols-selector)).
 
