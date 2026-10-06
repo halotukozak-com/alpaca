@@ -77,7 +77,8 @@ make the same decisions.
 
 Concrete grounding from Alpaca's source: `ParseTable.scala` first builds the LR(0) automaton
 (`LR0Automaton`), then computes each state's lookaheads by propagation over it (`Lookaheads`, the
-spontaneous-generation-and-propagation algorithm), and finally closes each state with its real
+spontaneous-generation-and-propagation algorithm of Aho, Lam, Sethi & Ullman, *Compilers*, 2nd ed.,
+section 4.7.5), and finally closes each state with its real
 lookaheads (`State.fromItem`) to read off the reduce actions.
 
 ## The LR(1) Item

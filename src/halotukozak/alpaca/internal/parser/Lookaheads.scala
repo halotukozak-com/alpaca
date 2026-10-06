@@ -9,7 +9,9 @@ import scala.collection.mutable
 
 /**
  * Computes LALR(1) lookaheads for every kernel item of every state of an [[LR0Automaton]]
- * (#504), via the spontaneous-generation-and-propagation algorithm (DeRemer & Pennello 1982).
+ * (#504), by spontaneous generation and propagation of lookaheads: Aho, Lam, Sethi & Ullman, *Compilers: Principles,
+ * Techniques, and Tools* (2nd ed.), section 4.7.5 "Efficient Construction of LALR Parsing Tables". (Not DeRemer &
+ * Pennello 1982, which computes the same sets differently, from the reads/includes/lookback relations.)
  *
  * For each kernel item, this closes it once on its own, seeded with the placeholder lookahead
  * [[Symbol.Dummy]] (reusing [[State.fromItem]], the same closure [[ParseTable]] uses once real
