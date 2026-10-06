@@ -99,7 +99,7 @@ object Terminal:
    * terminal it closure-generates is a lookahead the target state gets regardless of the seed
    * (spontaneous generation).
    */
-  val Dummy: Terminal { type IsEmpty = false } = Terminal(Printable("#"))
+  val Dummy: Terminal { type IsEmpty = false } = Terminal(Printable(s"#$SyntheticInfix"))
 
   /**
    * Symbols are shown as the user wrote them: token names unencoded (`+`, not `$plus`), and the non-terminals the
