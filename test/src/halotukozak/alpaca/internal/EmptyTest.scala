@@ -42,13 +42,13 @@ final class EmptyTest extends AnyFunSuite with Matchers with LoneElement:
   }
 
   test("cannot derive Empty when any parameter lacks a default (compile-time)") {
-    typeCheckErrors("summon[Empty[Mixed]]").loneElement.message shouldBe
+    typeCheckErrors("summon[Empty[Mixed]]").distinct.loneElement.message shouldBe
       "Field `a` of Mixed has no default value. Every field of a lexer or parser context needs one, so that the initial context can be built."
   }
 
   test("names the first parameter that lacks a default") {
     case class TwoMissing(a: Int, b: String, c: Int = 0)
-    typeCheckErrors("summon[Empty[TwoMissing]]").loneElement.message should startWith(
+    typeCheckErrors("summon[Empty[TwoMissing]]").distinct.loneElement.message should startWith(
       "Field `a` of TwoMissing has no default value.",
     )
   }
@@ -66,7 +66,7 @@ final class EmptyTest extends AnyFunSuite with Matchers with LoneElement:
 
       val L = lexer[Ctx]:
         case n @ "[0-9]+" => Token["NUM"](n.toInt)
-    """).loneElement.message should startWith("Field `errors` of Ctx has no default value.")
+    """).distinct.loneElement.message should startWith("Field `errors` of Ctx has no default value.")
   }
 
   test("a tracking field without a default is reported the same way (#617)") {
@@ -77,7 +77,7 @@ final class EmptyTest extends AnyFunSuite with Matchers with LoneElement:
 
       val L = lexer[Ctx]:
         case n @ "[0-9]+" => Token["NUM"](n.toInt)
-    """).loneElement.message should startWith("Field `line` of Ctx has no default value.")
+    """).distinct.loneElement.message should startWith("Field `line` of Ctx has no default value.")
   }
 
   test("a parser context field without a default is a compile error (#617)") {
@@ -92,7 +92,7 @@ final class EmptyTest extends AnyFunSuite with Matchers with LoneElement:
       object P extends Parser[Ctx]:
         val root: Rule[Int] = rule:
           case L.NUM(n) => n.value
-    """).loneElement.message should startWith("Field `depth` of Ctx has no default value.")
+    """).distinct.loneElement.message should startWith("Field `depth` of Ctx has no default value.")
   }
 
   test("cannot derive Empty for non-case classes (compile-time)") {

@@ -20,7 +20,8 @@ import scala.compiletime.constValue
 trait Empty[T] extends (() => T)
 
 object Empty:
-  inline private def collectDefaults[Owner <: String](elems: Tuple)(using elems.type containsOnly MadeFieldElem): Tuple =
+  inline private def collectDefaults[Owner <: String](elems: Tuple)(using elems.type containsOnly MadeFieldElem)
+    : Tuple =
     inline elems match
       case EmptyTuple => EmptyTuple
       case _: (head *: tail) =>
