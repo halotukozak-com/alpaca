@@ -104,6 +104,28 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
     message should include("Reduce Num.SeparatedBy -> Num.SeparatedBy.nonEmpty")
   }
 
+  test("conflict in a state entered only by a shift lost to another conflict is reported, not crashing the macro") {
+    val messages = typeCheckErrors("""
+    object SeparatedConflictParser extends Parser[CalcContext]:
+      val Expr: Rule[Int] = rule(
+        { case (Expr(expr1), CalcLexer.`+`(_), Expr(expr2)) => expr1 + expr2 },
+        { case CalcLexer.Num(lexem) => lexem.value },
+      )
+
+      val root = rule:
+        case Expr.SeparatedBy[CalcLexer.`+`](exprs) => exprs.size
+    """).map(_.message)
+    messages.map(_.linesIterator.find(_.nonEmpty).get) should contain theSameElementsAs List(
+      "Shift \"+\" vs Reduce Expr -> Expr + Expr",
+      "Shift \"+\" vs Reduce Expr.SeparatedBy.nonEmpty -> Expr.SeparatedBy.nonEmpty + Expr",
+      "Shift \"+\" vs Reduce Expr.SeparatedBy.nonEmpty -> Expr",
+    )
+    messages.mkString("\n") should include("""
+                                             |In situation like:
+                                             |Expr.SeparatedBy.nonEmpty + Expr + ...
+                                             |""".stripMargin)
+  }
+
   test("parse table Reduce-Reduce conflict") {
     val conflict: scala.compiletime.testing.Error = typeCheckErrors("""
     object ReduceReduceCalcParser extends Parser[CalcContext]:
