@@ -36,8 +36,6 @@ subsection:
         page: cookbook/json-parser.md
       - title: Contextual Lexing
         page: cookbook/contextual-lexing.md
-      - title: BrainFuck Interpreter
-        page: cookbook/brainfuck-interpreter.md
   - title: Theory
     index: theory/index.md
     subsection:

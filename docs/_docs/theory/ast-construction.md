@@ -172,4 +172,4 @@ For most real languages, building an AST is the right choice. Direct computation
 ## Cross-links
 
 - See [Semantic Actions](semantic-actions.md) for how Alpaca executes `case` bodies during reductions.
-- See the [BrainFuck Interpreter](../cookbook/brainfuck-interpreter.md) for the complete AST + evaluator example.
+- See [Getting Started](../getting-started.md) for the complete BrainFuck AST and evaluator.

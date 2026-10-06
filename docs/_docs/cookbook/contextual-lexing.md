@@ -130,22 +130,11 @@ object BrainParser extends Parser[BrainParserCtx]:
 By default, the lexer stops at unmatched input and `tokenize()` returns a `Result.Failure` listing it as a `LexerError`. You can customize this with an `ErrorHandling` instance:
 
 ```scala sc-compile-with:BrainLexer
-// Option A: skip unrecognized characters (each is still reported as a LexerError)
+// skip unrecognized characters (each is still reported as a LexerError)
 given ErrorHandling[BrainLexContext, LexerError] = (_, _) => ErrorHandling.Strategy.SkipOne
 ```
 
-```scala sc-compile-with:BrainLexer
-// Option B: stop at the first unrecognized character (the default)
-given ErrorHandling[BrainLexContext, LexerError] = (_, _) => ErrorHandling.Strategy.Stop
-```
-
-Three strategies are available; each reports the unmatched input as a `LexerError`:
-
-| Strategy | Behavior |
-|----------|----------|
-| `SkipOne` | Skip one character and continue; the lexemes are the failure's `recovered` |
-| `SkipToNextMatch` | Skip to the next match and continue; the lexemes are the failure's `recovered` |
-| `Stop` | Stop at the error (the default); the failure has no `recovered` lexemes |
+`SkipToNextMatch` skips the whole unmatched run at once, and `Stop` is the default; see [Error Handling Strategies](../lexer-error-recovery.md#error-handling-strategies) for all three.
 
 An alternative to custom `ErrorHandling` is a catch-all pattern at the end of your lexer:
 
@@ -162,11 +151,4 @@ val LenientLexer = lexer:
 
 This is simpler and often sufficient. The BrainFuck lexer uses this approach -- `"." => Token.Ignored` catches all non-command characters.
 
-## Data Flow Summary
-
-1. **Input** flows into the lexer
-2. **The post-match update** advances tracking fields and applies rule-body changes to the `LexerCtx` after every match
-3. **`Lexeme`s** are produced, each carrying a context snapshot
-4. **`List[Lexeme]`** flows into the parser
-5. **`ParserCtx`** is initialized and updated as rules are reduced
-6. **Result** is produced, along with the final `ParserCtx`
+See [Between Stages](../on-token-match.md#data-flow-summary) for the full sequence from input to parse result.

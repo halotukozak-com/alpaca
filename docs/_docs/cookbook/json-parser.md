@@ -18,7 +18,7 @@ val JsonLexer = lexer:
   case ":" => Token[":"]
   case "," => Token[","]
   case x @ ("false" | "true") => Token["Bool"](x.toBoolean)
-  case "null" => Token["Null"](null: @annotation.nowarn("msg=unused explicit parameter"))
+  case "null" => Token["Null"]
   case x @ """[-+]?\d+(\.\d+)?""" => Token["Number"](x.toDouble)
   case x @ """"(\\.|[^"])*"""" => Token["String"](x.slice(1, x.length - 1))
 ```
@@ -37,7 +37,7 @@ object JsonParser extends Parser:
     case Value(value) => value
 
   val Value: Rule[Any] = rule(
-    { case JsonLexer.Null(n) => n.value },
+    { case JsonLexer.Null(_) => null },
     { case JsonLexer.Bool(b) => b.value },
     { case JsonLexer.Number(n) => n.value },
     { case JsonLexer.String(s) => s.value },
