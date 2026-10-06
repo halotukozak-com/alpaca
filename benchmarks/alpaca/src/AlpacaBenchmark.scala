@@ -36,7 +36,7 @@ class AlpacaBenchmark:
   private var input: String = uninitialized
 
   // Pre-built closures that call the correct lexer/parser for this scenario.
-  // This avoids path-dependent type issues with Tokenization#Lexeme.
+  // This avoids path-dependent type issues with Lexer#Lexeme.
   private var lexFn: String => Any = uninitialized
   private var parseFn: String => Any = uninitialized
   private var fullParseFn: String => Any = uninitialized

@@ -19,7 +19,7 @@ import scala.collection.mutable
  *
  * @tparam Ctx the global context type
  */
-transparent abstract class Tokenization[Ctx <: LexerCtx](
+transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca] (
   onTokenMatch: (Token[?, Ctx, ?], String, Ctx) => Ctx,
 )(using
   errorHandling: ErrorHandling[Ctx, LexerError],
@@ -118,7 +118,7 @@ transparent abstract class Tokenization[Ctx <: LexerCtx](
 
   private lazy val tokensArray: Vector[Token[?, Ctx, ?]] = tokens.toVector
 
-/** The outcome of one step of [[Tokenization.tokenize]]: a token matched (or recovered) from `text`, or a stop. */
+/** The outcome of one step of [[Lexer.tokenize]]: a token matched (or recovered) from `text`, or a stop. */
 private enum Step[-Ctx <: LexerCtx]:
   case Matched(token: Token[?, Ctx, ?], text: String)
   case Stopped

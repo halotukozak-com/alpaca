@@ -17,7 +17,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
   errorHandling: Expr[ErrorHandling[Ctx, LexerError]],
   empty: Expr[Empty[Ctx]],
 )(using quotes: Quotes,
-): Expr[Tokenization[Ctx] { type LexemeFields = lexemeFields }] = {
+): Expr[Lexer[Ctx] { type LexemeFields = lexemeFields }] = {
   import quotes.reflect.*
   given diagnostics: Diagnostics = Diagnostics()
 
@@ -232,14 +232,14 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
 
       '{
         {
-          new Tokenization[Ctx]($onTokenMatch)(using $errorHandling, $empty):
+          new Lexer[Ctx]($onTokenMatch)(using $errorHandling, $empty):
             @publicInBinary
             override private[alpaca] val tokens: List[lexer.Token[?, Ctx, ?]] = $tokensExpr
 
             override def selectDynamic(name: String): lexer.Token[?, Ctx, ?] = ${ selectDynamicImpl('{ name }) }
 
             override protected val matcher: TokenMatcher = $matcherExpr
-        }.asInstanceOf[Tokenization[Ctx] { type LexemeFields = lexemeFields; type Fields = fields } & refinedTpe & types]
+        }.asInstanceOf[Lexer[Ctx] { type LexemeFields = lexemeFields; type Fields = fields } & refinedTpe & types]
       }
   }
 }

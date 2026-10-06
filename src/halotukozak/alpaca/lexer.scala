@@ -9,10 +9,10 @@ import scala.annotation.{compileTimeOnly, publicInBinary, unused}
 
 /**
  * Public re-exports of lexer types users are expected to reference directly
- *  (custom `given` instances, tracking traits, large-file tokenization) even
+ *  (lexer and lexeme types, custom `given` instances, tracking traits, large-file tokenization) even
  *  though they are implemented under `internal.lexer`.
  */
-export alpaca.internal.lexer.{Column, LazyReader, Line, Tracking}
+export alpaca.internal.lexer.{Column, LazyReader, Lexeme, Lexer, Line, Tracking}
 
 /**
  * Creates a lexer from a DSL-based definition.
@@ -33,7 +33,7 @@ export alpaca.internal.lexer.{Column, LazyReader, Line, Tracking}
  * @param rules the lexer rules as a partial function
  * @param errorHandling implicit ErrorHandling for custom error recovery
  * @param empty implicit Empty instance to create the initial context
- * @return a Tokenization instance that can tokenize input strings
+ * @return a [[Lexer]] that can tokenize input strings
  */
 transparent inline def lexer[Ctx <: LexerCtx](
   using Ctx withDefault LexerCtx.Default,
@@ -43,7 +43,7 @@ transparent inline def lexer[Ctx <: LexerCtx](
   m: Mirror.ProductOf[Ctx],
   errorHandling: ErrorHandling[Ctx, LexerError],
   empty: Empty[Ctx],
-): Tokenization[Ctx] { type LexemeFields = NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes] } =
+): Lexer[Ctx] { type LexemeFields = NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes] } =
   ${
     lexerImpl[Ctx, NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes]](
       '{ rules },

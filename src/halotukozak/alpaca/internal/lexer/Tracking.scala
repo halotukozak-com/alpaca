@@ -40,7 +40,7 @@ object Tracking:
    * followed by the fixed step every context needs regardless of what it
    * tracks -- apply the rule body's context changes and record the lexeme
    * (see [[materializeImpl]]). Cursor advancement itself already happened
-   * earlier, in `Tokenization`, before this hook runs.
+   * earlier, in `Lexer`, before this hook runs.
    */
   @publicInBinary inline private[alpaca] def materialize[Ctx <: LexerCtx: Mirror.ProductOf as m]
     : (Token[?, Ctx, ?], String, Ctx) => Ctx =
