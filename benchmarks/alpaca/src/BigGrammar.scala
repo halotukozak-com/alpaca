@@ -1,7 +1,7 @@
 package bench.alpaca
 
 import halotukozak.alpaca.internal.parser.Parser
-import halotukozak.alpaca.{lexer, rule, Rule, Token}
+import halotukozak.alpaca.{after, lexer, resolutions, rule, Production as P, Resolutions, Rule, Token}
 
 // Synthetic big-grammar lexer with 30 keyword token types plus numbers and whitespace.
 // Token names are 2-char codes (ka-kz, la-ld) to avoid prefix shadowing in the regex lexer.
@@ -19,7 +19,7 @@ val BigGrammarLexer = lexer {
 // Synthetic big-grammar parser with 50+ rules combining 30 token types.
 // Grammar structure: simple rules match single tokens, compound rules match
 // sequences, and composite rules combine alternatives. The root rule accepts
-// any statement (single token, pair, triple, or number).
+// a list of statements (single token, pair, triple, or number).
 object BigGrammarParser extends Parser:
 
   // --- Simple token rules (30 rules: one per token type) ---
@@ -155,5 +155,20 @@ object BigGrammarParser extends Parser:
     { case Num(v) => v },
   )
 
-  // --- Root: a single statement ---
-  val root: Rule[Any] = rule { case Statement(v) => v }
+  // --- Root: a list of statements ---
+  val root: Rule[List[Any]] = rule { case Statement.List(vs) => vs }
+
+// Statements are not delimited, so `ka kb` could be one pair or two single tokens.
+// Prefer shifting: the longest pair or triple wins.
+given Resolutions[BigGrammarParser.type] = resolutions(
+  P(BigGrammarParser.TokA).after(BigGrammarLexer.kb),
+  P(BigGrammarParser.TokC).after(BigGrammarLexer.kd),
+  P(BigGrammarParser.TokD).after(BigGrammarLexer.ke),
+  P(BigGrammarParser.TokE).after(BigGrammarLexer.kf),
+  P(BigGrammarParser.TokG).after(BigGrammarLexer.kh),
+  P(BigGrammarParser.TokI).after(BigGrammarLexer.kj),
+  P(BigGrammarParser.TokJ).after(BigGrammarLexer.kk),
+  P(BigGrammarParser.TokM).after(BigGrammarLexer.kn),
+  P(BigGrammarParser.TokA, BigGrammarParser.TokB).after(BigGrammarLexer.kc),
+  P(BigGrammarParser.TokG, BigGrammarParser.TokH).after(BigGrammarLexer.ki),
+)
