@@ -198,6 +198,8 @@ given Resolutions[CalcParser.type] = resolutions(
 )
 ```
 
+The non-terminals must be rules of the parser being resolved: a rule of another parser is a compile error, even when this parser has a rule of the same name. Tokens can come from any lexer.
+
 Both `production.name` and `Production(symbols*)` can coexist in one `resolutions(...)` call.
 
 ## Token-Side Resolution

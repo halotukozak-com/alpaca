@@ -1,0 +1,56 @@
+package halotukozak
+package alpaca.internal.parser
+
+import halotukozak.alpaca.{before, lexer, resolutions, rule, Production, Resolutions, Rule, Token}
+import org.scalatest.LoneElement
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
+
+import scala.compiletime.testing.{typeCheckErrors, typeChecks}
+
+val OtherRuleLexer = lexer:
+  case "\\+" => Token["PLUS"]
+  case n @ "[0-9]+" => Token["NUM"](n.toInt)
+  case "\\s+" => Token.Ignored
+
+object OtherRuleParser extends Parser:
+  val Expr: Rule[Int] = rule(
+    { case (Expr(a), OtherRuleLexer.PLUS(_), OtherRuleLexer.NUM(b)) => a + b.value },
+    { case OtherRuleLexer.NUM(n) => n.value },
+  )
+  val root: Rule[Int] = rule { case Expr(e) => e }
+
+final class ProductionOtherParserRuleTest extends AnyFunSuite with Matchers with LoneElement:
+
+  test("a rule of another parser in Production(...) is reported, even when this parser has a rule of the same name") {
+    val error = typeCheckErrors("""
+    object SameRuleNameParser extends Parser:
+      val Expr: Rule[Int] = rule(
+        { case (Expr(a), OtherRuleLexer.PLUS(_), Expr(b)) => a + b },
+        { case OtherRuleLexer.NUM(n) => n.value },
+      )
+      val root: Rule[Int] = rule { case Expr(e) => e }
+    given Resolutions[SameRuleNameParser.type] = resolutions(
+      Production(SameRuleNameParser.Expr, OtherRuleLexer.PLUS, OtherRuleParser.Expr).before(OtherRuleLexer.PLUS),
+    )
+    """).loneElement
+    error.message shouldBe
+      "Rule Expr belongs to another parser, OtherRuleParser; `Production(...)` in the resolutions of SameRuleNameParser can only refer to SameRuleNameParser's rules"
+    error.lineContent.trim shouldBe
+      "Production(SameRuleNameParser.Expr, OtherRuleLexer.PLUS, OtherRuleParser.Expr).before(OtherRuleLexer.PLUS),"
+    error.column shouldBe 79 // the `Expr` of `OtherRuleParser.Expr`
+  }
+
+  test("Production(...) with this parser's own rules still resolves") {
+    assert(typeChecks("""
+    object OwnRuleParser extends Parser:
+      val Expr: Rule[Int] = rule(
+        { case (Expr(a), OtherRuleLexer.PLUS(_), Expr(b)) => a + b },
+        { case OtherRuleLexer.NUM(n) => n.value },
+      )
+      val root: Rule[Int] = rule { case Expr(e) => e }
+    given Resolutions[OwnRuleParser.type] = resolutions(
+      Production(OwnRuleParser.Expr, OtherRuleLexer.PLUS, OwnRuleParser.Expr).before(OtherRuleLexer.PLUS),
+    )
+    """))
+  }
