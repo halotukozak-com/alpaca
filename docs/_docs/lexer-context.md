@@ -61,7 +61,7 @@ Position advances by the matched length after each token. The snapshot captures 
 1. **It must be a case class** -- `LexerCtx` extends `Product` directly, and the auto-derivation machinery requires a `Product` instance.
 2. **All fields must have default values** -- The `Empty[T]` derivation macro reads default parameter values from the companion to construct the initial context. If any parameter lacks a default, the macro fails at compile time.
 
-> **Warning:** Do not declare `var text`, `var lastLexeme`, or `var lastRawMatched` in your case class. These fields are provided by the `LexerCtx` trait and managed internally by the lexer. Redeclaring them shadows the internal fields and breaks tokenization.
+> **Note:** `text`, `lastLexeme` and `lastRawMatched` are taken: the `LexerCtx` trait declares them for the lexer's own bookkeeping, so a field with one of these names does not compile.
 
 State fields are ordinary immutable `val` case-class parameters. Writing `ctx.count += 1` in a rule body still type-checks and does the expected thing -- the `lexer` macro rewrites every such assignment into a functional `copy` before the rule is compiled. A field of a mutable collection type (e.g., `scala.collection.mutable.Stack`) works too: you mutate the collection in place and never reassign the field.
 

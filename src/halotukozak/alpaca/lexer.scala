@@ -323,5 +323,4 @@ final class LexerException(val errors: ::[LexerError]) extends RuntimeException(
  *
  * @tparam Ctx the global context type
  */
-
 type LexerDefinition[Ctx <: LexerCtx] = PartialFunction[String, Token[ValidName, Ctx, Any]]
