@@ -73,6 +73,10 @@ object Tables:
       val parserName = Printable(declaredName(parserSymbol))
       val exportName = exportId(parserName.raw)
 
+      // set when a rule is reported as unreadable, so the expansion stops before the errors that would only follow
+      // from its productions missing (e.g. "No root rule defined")
+      var unreadable = false
+
       def extractEBNF(ruleName: String)
         : PartialFunction[Expr[Rule[?]], Seq[(production: Production, action: Expr[Action[Ctx]])]] = {
         case '{ rule(${ Varargs(cases) }*) } =>
@@ -92,8 +96,12 @@ object Tables:
               replaceRefs(replacements*).transformTerm(rhs)(methSym)
 
           val extractProductionName: Function[Expr[ProductionDefinition[?]], (Tree, ValidName | Null)] =
-            case '{ ($name: ValidName).apply($production: ProductionDefinition[?]) } =>
-              production.asTerm -> name.value.orNull
+            case '{ ($name: String).apply($production: ProductionDefinition[?]) } =>
+              production.asTerm -> name.value.fold[ValidName | Null] {
+                error(show"A production name must be a string literal, as in `\"plus\" { case ... }`", name.asTerm.pos)
+                unreadable = true
+                null
+              }(_.asInstanceOf[ValidName])
             case other =>
               other.asTerm -> null
 
@@ -143,7 +151,6 @@ object Tables:
       val rules = parserTpe.typeSymbol.declarations.iterator.collect:
         case decl if decl.typeRef <:< TypeRepr.of[Rule[?]] => decl.tree // todo: can we avoid .tree?
 
-      var unreadable = false
       val table = rules
         .flatMap:
           // todo: def rules, or error? https://github.com/halotukozak/alpaca/issues/230
