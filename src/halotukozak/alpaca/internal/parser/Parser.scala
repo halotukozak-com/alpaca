@@ -23,7 +23,7 @@ abstract class Parser[Ctx <: ParserCtx](
   using Ctx withDefault ParserCtx.Empty,
 )(using
   tables: Tables[Ctx],
-  errorHandling: ErrorHandling[Ctx, ParserError],
+  errorHandling: ErrorHandling[Ctx, ParserError[Lexeme[?, ?]]],
 ):
 
   /**
@@ -56,7 +56,7 @@ abstract class Parser[Ctx <: ParserCtx](
    *         context's [[ErrorHandling]] skipped past the errors, the value is the failure's `recovered`
    */
   @publicInBinary private[alpaca] def parseResult[R, L <: Lexeme[?, ?]](lexemes: List[L])
-    : Result[Ctx, R, ParserError.Of[L]] = {
+    : Result[Ctx, R, ParserError[L]] = {
     enum Node:
       case Result(value: Any)
       case Token(lexeme: Lexeme[?, ?])
@@ -71,19 +71,17 @@ abstract class Parser[Ctx <: ParserCtx](
     val nodeStack = mutable.ArrayDeque.empty[Node]
     stateStack += 0
     nodeStack += Node.Result(null)
-    val errors = mutable.ListBuffer.empty[ParserError.Of[L]]
+    val errors = mutable.ListBuffer.empty[ParserError[L]]
 
     // The accepted root node, or `None` when an error stopped the parser.
-    @tailrec def loop(remaining: List[Lexeme[?, ?]]): Option[Node] = {
+    @tailrec def loop(remaining: List[L]): Option[Node] = {
       val (current, nextSymbol) = remaining match
         case Nil => (Lexeme.EOF, Symbol.EOF)
         case head :: _ => (head, Terminal(Printable(head.name)))
       val action = tables.parseTable.get(stateStack.last, nextSymbol)
       if action == null then {
-        val after = if remaining.isEmpty then lexemes.lastOption else None
-        // `current` is `Lexeme.EOF` at the end, typed as `L` like the real lexemes
-        val error = ParserError(current, tables.parseTable.expectedTerminals(stateStack.last), after)
-          .asInstanceOf[ParserError.Of[L]]
+        val last = if remaining.isEmpty then lexemes.lastOption else None
+        val error = ParserError(remaining.headOption, tables.parseTable.expectedTerminals(stateStack.last), last)
         errors += error
         // the end of the input cannot be skipped
         errorHandling(ctx, error) match

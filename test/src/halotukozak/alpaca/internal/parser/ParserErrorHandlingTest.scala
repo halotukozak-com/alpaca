@@ -13,25 +13,25 @@ final class ParserErrorHandlingTest extends AnyFunSuite with Matchers:
     case "\\+" => Token["+"]
     case value @ "[1-9][0-9]*" => Token["Num"](value.toInt)
 
-  extension [A](result: Result[?, A, ParserError.Of[CalcLexer.Lexeme]])
-    private def failure: (recovered: Option[A], errors: List[ParserError.Of[CalcLexer.Lexeme]]) = result match
+  extension [A](result: Result[?, A, ParserError[CalcLexer.Lexeme]])
+    private def failure: (recovered: Option[A], errors: List[ParserError[CalcLexer.Lexeme]]) = result match
       case Result.Failure(_, recovered, errors) => (recovered, errors)
       case Result.Success(_, _) => fail("expected a failure")
 
-  extension (error: ParserError.Of[CalcLexer.Lexeme])
-    private def at: (text: String, column: Int) = (error.unexpected.text, error.unexpected.column)
+  extension (error: ParserError[CalcLexer.Lexeme])
+    private def at: (text: String, column: Int) = (error.unexpected.get.text, error.unexpected.get.column)
 
   case class StoppingContext() extends ParserCtx
   case class SkippingContext() extends ParserCtx
   case class FirstSkipContext() extends ParserCtx
   case class SkipAheadContext() extends ParserCtx
 
-  given ErrorHandling[SkippingContext, ParserError] = (_, _) => ErrorHandling.Strategy.SkipOne
+  given ErrorHandling[SkippingContext, ParserError[?]] = (_, _) => ErrorHandling.Strategy.SkipOne
 
-  given ErrorHandling[SkipAheadContext, ParserError] = (_, _) => ErrorHandling.Strategy.SkipToNextMatch
+  given ErrorHandling[SkipAheadContext, ParserError[?]] = (_, _) => ErrorHandling.Strategy.SkipToNextMatch
 
-  private var seen = List.empty[ParserError]
-  given ErrorHandling[FirstSkipContext, ParserError] = (_, error) =>
+  private var seen = List.empty[ParserError[?]]
+  given ErrorHandling[FirstSkipContext, ParserError[?]] = (_, error) =>
     seen = seen :+ error
     if seen.sizeIs == 1 then ErrorHandling.Strategy.SkipOne else ErrorHandling.Strategy.Stop
 
@@ -90,7 +90,7 @@ final class ParserErrorHandlingTest extends AnyFunSuite with Matchers:
   test("SkipOne cannot skip the end of the input") {
     val result = SkippingParser.parse(CalcLexer.tokenize("1+").getOrThrow).failure
     result.recovered shouldBe None
-    result.errors.map(error => error.unexpected.name: String) shouldBe List("$")
+    result.errors.map(_.unexpected.map(_.name: String)) shouldBe List(None)
   }
 
   test("input without errors is a success whatever the strategy") {
@@ -114,5 +114,5 @@ final class ParserErrorHandlingTest extends AnyFunSuite with Matchers:
   test("SkipToNextMatch reaches the end of the input when nothing further is acceptable") {
     val result = SkipAheadParser.parse(CalcLexer.tokenize("1+++").getOrThrow).failure
     result.recovered shouldBe None
-    result.errors.map(error => error.unexpected.name: String) shouldBe List("+", "$")
+    result.errors.map(_.unexpected.map(_.name: String)) shouldBe List(Some("+"), None)
   }

@@ -254,7 +254,7 @@ final class ParserApiTest extends AnyFunSuite with Matchers:
 
   test("parse error") {
     CalcApiParser.parse(CalcLexer.tokenize("a 123 4 + 5").getOrThrow) match
-      case Result.Failure(_, None, ParserError(unexpected, expected) :: Nil) =>
+      case Result.Failure(_, None, ParserError(Some(unexpected), expected, None) :: Nil) =>
         (unexpected.name, unexpected.value) shouldBe ("NUMBER", 123)
         expected shouldBe List("$", "ASSIGN", "DIVIDE", "MINUS", "PLUS", "TIMES", "\\(")
       case _ => fail("expected a single parse error")

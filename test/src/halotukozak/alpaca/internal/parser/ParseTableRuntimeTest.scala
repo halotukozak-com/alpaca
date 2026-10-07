@@ -3,7 +3,7 @@ package alpaca
 package internal
 package parser
 
-import halotukozak.alpaca.{lexer, rule, ParserCtx, ParserError, ParserException, Result, Rule, Token}
+import halotukozak.alpaca.{lexer, rule, ParserCtx, ParserException, Result, Rule, Token}
 import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -37,28 +37,27 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers with LoneEle
     result shouldBe 6
   }
 
-  private def errorsOf(result: Result[?, ?, ParserError]): List[ParserError] = result match
+  private def errorsOf[E](result: Result[?, ?, E]): List[E] = result match
     case Result.Failure(_, _, errors) => errors
     case Result.Success(_, _) => fail("expected a parse failure")
 
-  test("unexpected token fails with a ParserError naming the token, its position and the expected terminals") {
+  test("unexpected token fails with a ParserError naming the token and the expected terminals") {
     val lexemes = CalcLexer.tokenize("1++2").getOrThrow
 
     val error = errorsOf(CalcParser.parse(lexemes)).loneElement
-    (error.unexpected.name: String) shouldBe "+"
-    error.unexpected.text shouldBe "+"
+    error.unexpected.map(l => (l.name: String, l.text)) shouldBe Some(("+", "+"))
     error.expected shouldBe List("Num")
-    error.message shouldBe """Unexpected + "+" at line 1, column 3. Expected one of: Num"""
+    error.message shouldBe """Unexpected + "+". Expected one of: Num"""
   }
 
   test("input that ends too early fails with a ParserError for the end of input") {
     val lexemes = CalcLexer.tokenize("1+").getOrThrow
 
     val error = errorsOf(CalcParser.parse(lexemes)).loneElement
-    (error.unexpected.name: String) shouldBe "$"
+    error.unexpected shouldBe None
     error.expected shouldBe List("Num")
-    error.after.map(_.text) shouldBe Some("+")
-    error.message shouldBe """Unexpected end of input after + "+" at line 1, column 2. Expected one of: Num"""
+    error.last.map(_.text) shouldBe Some("+")
+    error.message shouldBe """Unexpected end of input after + "+". Expected one of: Num"""
   }
 
   test("ParserError lists only terminals, with the end of input among them when it is accepted") {

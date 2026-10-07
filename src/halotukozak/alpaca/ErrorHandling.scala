@@ -11,11 +11,11 @@ import scala.annotation.implicitNotFound
  * the error, so it can decide per error.
  *
  * The lexer looks for an `ErrorHandling[Ctx, LexerError]` for its context, the parser for an
- * `ErrorHandling[Ctx, ParserError]` for its context. Both default to [[ErrorHandling.Strategy.Stop]]; define a
+ * `ErrorHandling[Ctx, ParserError[?]]` for its context. Both default to [[ErrorHandling.Strategy.Stop]]; define a
  * `given` for your context type to change that:
  * {{{
  * given ErrorHandling[MyLexerCtx, LexerError] = (ctx, error) => ErrorHandling.Strategy.SkipOne
- * given ErrorHandling[MyParserCtx, ParserError] = (ctx, error) => ErrorHandling.Strategy.SkipToNextMatch
+ * given ErrorHandling[MyParserCtx, ParserError[?]] = (ctx, error) => ErrorHandling.Strategy.SkipToNextMatch
  * }}}
  *
  * @tparam Ctx the lexer or parser context this applies to

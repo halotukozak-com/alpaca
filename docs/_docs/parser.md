@@ -306,7 +306,7 @@ extension (ast: BrainAST)
 ```scala sc-name:brain-tokenize sc-compile-with:brain-eval-defs
 val lexemes = BrainLexer.tokenize("++[>+<-]").getOrThrow
 val parsed = BrainParser.parse(lexemes)
-// parsed: Result[ParserCtx.Empty, BrainAST, ParserError]
+// parsed: Result[ParserCtx.Empty, BrainAST, ParserError[BrainLexer.Lexeme]]
 ```
 
 `parse()` does not throw when the input does not match the grammar. It returns a `Result` -- the same type `tokenize` returns -- which is one of two cases, both carrying the parser context (`ctx`) as it was when parsing ended:
@@ -330,29 +330,29 @@ parsed.toOption                   // Some(ast), or None
 parsed.toEither                   // Right(ast), or Left(errors)
 ```
 
-A `ParserError` is plain data: it carries the lexeme the parser could not accept (`unexpected`), the token names the grammar would have accepted there (`expected`, with `"$"` standing for the end of the input), and, when the input ended too early, the last lexeme before the end (`after`, otherwise `None`). `parse` types both lexemes with the lexer's lexeme type, so the error's position is in the lexer context's fields: `error.unexpected.line` and `error.unexpected.column` with `LexerCtx.Default`, a compile error when the context has no such field. At the end of the input `unexpected` is a lexeme named `"$"` with no fields, so read the position from `error.after` instead. Its `message` names the position when the lexemes have `line` and `column` fields, e.g. for `1 + + 2` in a grammar of numbers and `+`:
+A `ParserError` is plain data: it carries the lexeme the parser could not accept (`unexpected`, `None` when the input ended too early), the token names the grammar would have accepted there (`expected`, with `"$"` standing for the end of the input), and, at the end of the input, the last lexeme before it (`last`, otherwise `None`). `parse` types both lexemes with the lexer's lexeme type, so the error's position is in the lexer context's fields: `error.unexpected.map(_.line)` and `error.unexpected.map(_.column)` with `LexerCtx.Default`, a compile error when the context has no such field. At the end of the input, read the position from `error.last` instead. Its `message` names the lexemes but no position, e.g. for `1 + + 2` in a grammar of numbers and `+`:
 
 ```
-Unexpected PLUS "+" at line 1, column 5. Expected one of: NUMBER
+Unexpected PLUS "+". Expected one of: NUMBER
 ```
 
 ```scala sc-compile-with:brain-tokenize
 BrainParser.parse(BrainLexer.tokenize("[+").getOrThrow) match
   case Result.Failure(_, _, errors) =>
-    println(errors.head.message)    // Unexpected end of input after inc "+" at line 1, column 2. Expected one of: ...
-    println(errors.head.after.map(last => (last.line, last.column))) // Some((1,2))
+    println(errors.head.message)    // Unexpected end of input after inc "+". Expected one of: ...
+    println(errors.head.last.map(last => (last.line, last.column))) // Some((1,2))
     println(errors.head.expected)   // the token names the grammar would have accepted
   case Result.Success(_, _) => ()
 ```
 
 ### Error Recovery
 
-By default the parser stops at the first error, so `errors` has one element. An `ErrorHandling[Ctx, ParserError]` for your parser context can tell it to skip the unexpected input and go on instead -- the same `ErrorHandling` type the lexer uses, with `ParserError` as its error type (see [Error Recovery](lexer-error-recovery.md#error-handling-strategies)). Every skip is still reported as a `ParserError`, and if parsing then reaches the end, its value is the failure's `recovered`:
+By default the parser stops at the first error, so `errors` has one element. An `ErrorHandling[Ctx, ParserError[?]]` for your parser context can tell it to skip the unexpected input and go on instead -- the same `ErrorHandling` type the lexer uses, with `ParserError` as its error type (see [Error Recovery](lexer-error-recovery.md#error-handling-strategies)). Every skip is still reported as a `ParserError`, and if parsing then reaches the end, its value is the failure's `recovered`:
 
 ```scala sc-compile-with:brain-tokenize
 case class RecoveringCtx() extends ParserCtx
 
-given ErrorHandling[RecoveringCtx, ParserError] = (ctx, error) => ErrorHandling.Strategy.SkipOne
+given ErrorHandling[RecoveringCtx, ParserError[?]] = (ctx, error) => ErrorHandling.Strategy.SkipOne
 
 object RecoveringParser extends Parser[RecoveringCtx]:
   val root: Rule[Int] = rule:
@@ -361,7 +361,7 @@ object RecoveringParser extends Parser[RecoveringCtx]:
 RecoveringParser.parse(BrainLexer.tokenize("++>+").getOrThrow) match
   case Result.Failure(_, recovered, errors) =>
     println(recovered)                     // Some(3)
-    println(errors.map(_.unexpected.text)) // List(>)
+    println(errors.flatMap(_.unexpected).map(_.text)) // List(>)
   case Result.Success(_, _) => ()
 ```
 
