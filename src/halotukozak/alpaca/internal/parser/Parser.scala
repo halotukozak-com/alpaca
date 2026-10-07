@@ -145,43 +145,34 @@ abstract class Parser[Ctx <: ParserCtx](
       case first :: rest => Result.Failure(ctx, value, ::(first, rest))
   }
 
-private val cachedProductions: mutable.Map[Type[? <: AnyKind], (Type[? <: AnyKind], Type[? <: AnyKind])] =
-  mutable.Map.empty
-
 // $COVERAGE-OFF$
 def productionImpl[P <: Parser[?]: Type](using quotes: Quotes): Expr[ProductionSelector] = {
   import quotes.reflect.*
-  cachedProductions
-    .getOrElseUpdate(
-      Type.of[P], {
-        val rules = TypeRepr
-          .of[P]
-          .typeSymbol
-          .declarations
-          .iterator
-          .collect:
-            case decl if decl.typeRef <:< TypeRepr.of[Rule[?]] => decl.tree
+  val rules = TypeRepr
+    .of[P]
+    .typeSymbol
+    .declarations
+    .iterator
+    .collect:
+      case decl if decl.typeRef <:< TypeRepr.of[Rule[?]] => decl.tree
 
-        val extractName: PartialFunction[Expr[Rule[?]], Seq[String]] =
-          case '{ rule(${ Varargs(cases) }*) } =>
-            cases.flatMap:
-              case '{ ($name: ValidName).apply($_ : ProductionDefinition[?]) } => name.value
-              case _ => None
+  val extractName: PartialFunction[Expr[Rule[?]], Seq[String]] =
+    case '{ rule(${ Varargs(cases) }*) } =>
+      cases.flatMap:
+        case '{ ($name: ValidName).apply($_ : ProductionDefinition[?]) } => name.value
+        case _ => None
 
-        val fields = rules
-          .flatMap:
-            // todo: def rules, or error? https://github.com/halotukozak/alpaca/issues/230
-            case DefinitionRhs(_, rhs) => extractName.applyOrElse(rhs.asExprOf[Rule[?]], _ => Nil)
-            case _ =>
-              error(show"Define resolutions as the last field of the parser.", Position.ofMacroExpansion)
-              Nil
-          .map(name => (name, TypeRepr.of[Production]))
-          .toList
+  val fields = rules
+    .flatMap:
+      // todo: def rules, or error? https://github.com/halotukozak/alpaca/issues/230
+      case DefinitionRhs(_, rhs) => extractName.applyOrElse(rhs.asExprOf[Rule[?]], _ => Nil)
+      case _ =>
+        error(show"Define resolutions as the last field of the parser.", Position.ofMacroExpansion)
+        Nil
+    .map(name => (name, TypeRepr.of[Production]))
+    .toList
 
-        (refinementTpeFrom(fields).asType, fieldsTpeFrom(fields).asType)
-      },
-    )
-    .runtimeChecked match
+  (refinementTpeFrom(fields).asType, fieldsTpeFrom(fields).asType).runtimeChecked match
     case ('[refinement], '[fields]) =>
       '{ DummyProductionSelector.asInstanceOf[ProductionSelector { type Fields = fields } & refinement] }
 }
