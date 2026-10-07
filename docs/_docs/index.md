@@ -188,6 +188,20 @@ and does not represent the current state of the project.
 
 Contributions are welcome. Please feel free to submit a Pull Request.
 
+### `internal` is part of the binary contract
+
+The `halotukozak.alpaca.internal` package is not user API, but it is part of the binary contract. The lexer and parser
+macros expand into code that lives in users' binaries and calls `internal` symbols directly:
+
+- the `Tokenization` constructor (the class every generated lexer extends), `DefinedToken`/`IgnoredToken`,
+  `TokenInfo` and `Printable.apply`;
+- `Production`, `NEL` and the grammar symbols, `ParseAction`, the `ParseTable` encoding, `ActionTable`,
+  `RevertedArray`, the `ParserExtractors` actions and the `Parser` constructor;
+- every `@publicInBinary` member.
+
+A MiMa or TASTy-MiMa report on an `internal` class is therefore a real break for already-compiled users, not a false
+positive. Don't filter it out. Changing these symbols incompatibly needs a major version.
+
 ## Authors
 
 Created by [halotukozak](https://github.com/halotukozak) and [Corvette653](https://github.com/Corvette653)
