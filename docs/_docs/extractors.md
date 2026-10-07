@@ -103,7 +103,7 @@ object TuplePatternParser extends Parser:
 
 ## EBNF Extractors: .List
 
-`Rule.List(binding)` binds to a `List[R]`. The macro generates a left-recursive accumulation production (empty → `Nil`, prepend → `elem :: list`); the accumulated list is reversed once where it is bound, so parsing stays linear in the number of elements.
+`Rule.List(binding)` binds to a `List[R]`. The macro generates two synthetic non-terminals and four productions: an empty case (→ `Nil`), a bridge from the outer to the non-empty non-terminal, a singleton (→ `List(elem)`), and a left-recursive prepend (→ `elem :: list`). The bridge reverses the accumulated list once, so parsing stays linear in the number of elements.
 
 The BrainFuck parser uses `.List` for the root and for loop bodies:
 
