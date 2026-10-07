@@ -65,8 +65,8 @@ private[lexer] object TokenInfo:
    */
 // $COVERAGE-OFF$
   def apply(using
-    quotes: Quotes,
-    diagnostics: Diagnostics,
+    Quotes,
+    Diagnostics,
   )(
     name: String,
     alternatives: List[String],

@@ -28,8 +28,7 @@ private[alpaca] object ValidName:
    *
    * @param name the token name to validate
    */
-  private[internal] def check(using quotes: Quotes, diagnostics: Diagnostics)(name: String, pos: quotes.reflect.Position)
-    : Unit =
+  private[internal] def check(using Quotes, Diagnostics)(name: String, pos: quotes.reflect.Position): Unit =
     name match
       case invalid @ "_" => errorAndAbort(show"Invalid token name: ${Printable(invalid)}", pos)
       case _ =>

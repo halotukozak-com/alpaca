@@ -47,11 +47,10 @@ private[internal] final class Diagnostics:
  * Use this instead of `quotes.reflect.report.error`: the position is mandatory, so an error can't silently land on
  * the macro expansion site. Pass `Position.ofMacroExpansion` explicitly when that really is the right place.
  */
-private[internal] def error(using quotes: Quotes, diagnostics: Diagnostics)(message: Shown, pos: quotes.reflect.Position)
-  : Unit =
-  diagnostics.markError()
+private[internal] def error(using Quotes, Diagnostics)(message: Shown, pos: quotes.reflect.Position): Unit =
+  summon[Diagnostics].markError()
   quotes.reflect.report.error(message, pos)
-private[internal] def error(using quotes: Quotes, diagnostics: Diagnostics)(message: Shown, source: Source): Unit =
+private[internal] def error(using Quotes, Diagnostics)(message: Shown, source: Source): Unit =
   val (located, pos) = locate(message, source)
   error(located, pos)
 
@@ -61,19 +60,19 @@ private[internal] def error(using quotes: Quotes, diagnostics: Diagnostics)(mess
  * Use this instead of `quotes.reflect.report.errorAndAbort`: the position is mandatory, so an error can't silently
  * land on the macro expansion site. Pass `Position.ofMacroExpansion` explicitly when that really is the right place.
  */
-private[internal] def errorAndAbort(using
-  quotes: Quotes,
-  diagnostics: Diagnostics,
-)(
-  message: Shown,
-  pos: quotes.reflect.Position,
-): Nothing =
-  diagnostics.markError()
+private[internal] def errorAndAbort(using Quotes, Diagnostics)(message: Shown, pos: quotes.reflect.Position): Nothing =
+  summon[Diagnostics].markError()
   quotes.reflect.report.errorAndAbort(message, pos)
-private[internal] def errorAndAbort(using quotes: Quotes, diagnostics: Diagnostics)(message: Shown, source: Source)
-  : Nothing =
+private[internal] def errorAndAbort(using Quotes, Diagnostics)(message: Shown, source: Source): Nothing =
   val (located, pos) = locate(message, source)
   errorAndAbort(located, pos)
+
+/**
+ * Aborts the macro expansion if any error has been reported, without reporting another one: each error is already at
+ * its own position.
+ */
+private[internal] def abortOnErrors()(using Diagnostics): Unit =
+  if summon[Diagnostics].hasErrors then throw new scala.quoted.runtime.StopMacroExpansion
 
 /**
  * Reports at `source` when it's in the macro expansion's file; otherwise, since its position can't be rebuilt there,

@@ -37,15 +37,14 @@ private[parser] object DefinitionRhs:
  * extracting the grammar symbol it matches (terminal or non-terminal) together
  * with any EBNF desugaring (`Option`, `List`, `SeparatedBy`) it requires.
  */
-private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using quotes: Quotes, diagnostics: Diagnostics)
-  : PartialFunction[
-    quotes.reflect.Tree,
-    (
-      symbol: parser.Symbol.NonEmpty,
-      bind: Option[quotes.reflect.Bind],
-      others: List[(production: Production, action: Expr[Action[Ctx]])],
-    ),
-  ] = {
+private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, Diagnostics): PartialFunction[
+  quotes.reflect.Tree,
+  (
+    symbol: parser.Symbol.NonEmpty,
+    bind: Option[quotes.reflect.Bind],
+    others: List[(production: Production, action: Expr[Action[Ctx]])],
+  ),
+] = {
   import quotes.reflect.*
 
   def symbolFromType(separator: TypeTree): parser.Symbol.NonEmpty = separator.tpe.dealias.widen.asType match

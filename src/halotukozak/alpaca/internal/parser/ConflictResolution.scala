@@ -76,7 +76,7 @@ private[parser] object ConflictResolutionTable:
       winsOver(first, second).orElse(winsOver(second, first))
     }
 
-    def verifyNoConflicts()(using quotes: Quotes, diagnostics: Diagnostics): Unit = {
+    def verifyNoConflicts()(using Quotes, Diagnostics): Unit = {
       enum VisitState:
         case Unvisited, Visited, Processed
 

@@ -64,7 +64,7 @@ object Tables:
   using quotes: Quotes,
 ): Expr[(parseTable: ParseTable, actionTable: ActionTable[Ctx])] = {
   import quotes.reflect.*
-  given diagnostics: Diagnostics = Diagnostics()
+  given Diagnostics = Diagnostics()
   val parserSymbol = Symbol.spliceOwner.owner.owner
   val parserTpe = parserSymbol.typeRef
 
@@ -188,7 +188,7 @@ object Tables:
         .tap: _ =>
           // a rule reported as unreadable stops the expansion before the errors that would only follow from its
           // productions missing (e.g. "No root rule defined")
-          if diagnostics.hasErrors then throw new scala.quoted.runtime.StopMacroExpansion
+          abortOnErrors()
         .tap: table =>
           // csv may be not the best format for this due to the commas
           logger.toFile(s"${parserName.raw}/actionTable.dbg.csv", true)(table.toCsv)
@@ -208,7 +208,7 @@ object Tables:
           show"Production name '${duplicate.name.nn}' is already used by $first; give each production its own name",
           duplicate.source.toPosition.getOrElse(Position.ofMacroExpansion),
         )
-      if diagnostics.hasErrors then throw new scala.quoted.runtime.StopMacroExpansion
+      abortOnErrors()
 
       // Built once and reused by every findProduction call below, instead of once per call --
       // findProduction runs once per `.after`/`.before` reference in the grammar's conflict
