@@ -228,7 +228,7 @@ val lexemes = lexed.getOrThrow
 
 The method returns a `Result` -- the same type `parse` returns (see [Parsing Input](parser.md#parsing-input)):
 
-- **`ctx`** -- the final lexer context after processing all input. With `LexerCtx.Default`, this includes `position` and `line`.
+- **`ctx`** -- the final lexer context after processing all input. With `LexerCtx.Default`, this includes `column` and `line`.
 - **`getOrThrow`** -- the lexemes: matched tokens with `Token.Ignored` entries removed. Each `Lexeme` carries the token `name`, extracted `value`, and a snapshot of context fields at match time.
 
 If the input contains a character that matches no pattern, `tokenize` does not throw: it returns a `Result.Failure` listing `LexerError`s, and `getOrThrow` throws them as a `LexerException`. Match on the result to handle them yourself:
@@ -283,7 +283,7 @@ Every non-ignored match produces a `Lexeme`. From the caller's perspective, a le
 - **`name`** -- the token name as a string literal type (e.g., `"inc"`, `"functionName"`)
 - **`value`** -- the extracted value (`Unit` for `Token["NAME"]`, or the computed type for `Token["NAME"](expr)`)
 
-Each lexeme also carries a snapshot of all context fields at match time. The snapshot is accessed via `Selectable` -- you write `lexeme.position` or `lexeme.line` and the compiler resolves the types:
+Each lexeme also carries a snapshot of all context fields at match time. The snapshot is accessed via `Selectable` -- you write `lexeme.column` or `lexeme.line` and the compiler resolves the types:
 
 ```scala
 import halotukozak.alpaca.*
@@ -293,7 +293,7 @@ val Lexer = lexer:
   case "\\s+" => Token.Ignored
 
 val lexemes = Lexer.tokenize("42 13").getOrThrow
-lexemes(0).position  // 3: Int (post-match position)
+lexemes(0).column    // 3: Int (post-match column)
 lexemes(0).line      // 1: Int
 lexemes(0).text      // "42": String (the matched text, not remaining input)
 ```
@@ -301,11 +301,11 @@ lexemes(0).text      // "42": String (the matched text, not remaining input)
 <details>
 <summary>Under the hood: how context snapshots work</summary>
 
-The `Lexeme` class extends `Selectable` with a structural refinement that encodes every context field and its type. The compiler resolves `lexeme.position` to `Int` at compile time -- not by casting from `Any` at runtime. If you access a field that does not exist on the context type (e.g., `.indent` when using `LexerCtx.Default`), you get a compile error.
+The `Lexeme` class extends `Selectable` with a structural refinement that encodes every context field and its type. The compiler resolves `lexeme.column` to `Int` at compile time -- not by casting from `Any` at runtime. If you access a field that does not exist on the context type (e.g., `.indent` when using `LexerCtx.Default`), you get a compile error.
 
 A lexeme's `text` is the **matched string**, not the remaining input.
 
-The `position` value is the **post-match** cursor. The token `"42"` starts at column 1 but the snapshot records `position = 3` (1 + 2 characters consumed).
+The `column` value is the **post-match** cursor. The token `"42"` starts at column 1 but the snapshot records `column = 3` (1 + 2 characters consumed).
 
 </details>
 

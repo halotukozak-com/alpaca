@@ -72,12 +72,12 @@ object BrainParser extends Parser:
   val FunctionCall: Rule[BrainAST] = rule:
     case (BrainLexer.functionName(name), BrainLexer.functionCall(_)) =>
       // name.value: String -- the function name
-      // name.position: Int -- 1-based column within the current line (if the context has a Column field)
+      // name.column: Int -- 1-based column within the current line (if the context has a Column field)
       // name.line: Int -- line number (if the context has a Line field)
       BrainAST.FunctionCall(name.value)
 ```
 
-To get position and line numbers, add `Column` and `Line` fields to your context:
+To get column and line numbers, add `Column` and `Line` fields to your context:
 
 ```scala
 import halotukozak.alpaca.*
@@ -85,7 +85,7 @@ import halotukozak.alpaca.*
 case class BrainLexContext(
   brackets: Int = 0,
   squareBrackets: Int = 0,
-  position: Column = Column.Start,
+  column: Column = Column.Start,
   line: Line = Line.Start,
 ) extends LexerCtx
 ```

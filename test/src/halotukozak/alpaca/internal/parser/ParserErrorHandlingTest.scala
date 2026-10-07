@@ -22,7 +22,7 @@ final class ParserErrorHandlingTest extends AnyFunSuite with Matchers:
     private def at: (text: String, column: Option[Int]) =
       (
         error.unexpected.text,
-        error.unexpected.fieldNames.indexOf("position") match
+        error.unexpected.fieldNames.indexOf("column") match
           case -1 => None
           case i => Some(error.unexpected.fieldValues(i).asInstanceOf[Int] - error.unexpected.text.length),
       )

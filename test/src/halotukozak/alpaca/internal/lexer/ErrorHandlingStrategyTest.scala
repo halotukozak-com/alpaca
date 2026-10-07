@@ -92,8 +92,8 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
     result.failure.errors.head.message shouldBe "Unexpected character 'b'"
   }
 
-  test("a custom context with line and position fields gets positioned errors") {
-    final case class Tracked(position: Column = Column.Start, line: Line = Line.Start) extends LexerCtx
+  test("a custom context with line and column fields gets positioned errors") {
+    final case class Tracked(column: Column = Column.Start, line: Line = Line.Start) extends LexerCtx
 
     val L = lexer[Tracked]:
       case "a" => Token["A"]
@@ -129,7 +129,7 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
     seenFirstChar shouldBe '!'
   }
 
-  test("Strategy.SkipOne should update position correctly") {
+  test("Strategy.SkipOne should update column correctly") {
     given ErrorHandling[LexerCtx.Default, LexerError] = (_, _) => ErrorHandling.Strategy.SkipOne
 
     val L = lexer:
@@ -137,6 +137,6 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
 
     val result = L.tokenize("a!a")
     result.failure.recovered.map(_.map(_.name)) shouldBe Some(List("A", "A"))
-    // Default context has position tracking
-    result.ctx.position shouldBe 4 // 'a' (1) + '!' (2) + 'a' (3) -> next is 4
+    // Default context has column tracking
+    result.ctx.column shouldBe 4 // 'a' (1) + '!' (2) + 'a' (3) -> next is 4
   }

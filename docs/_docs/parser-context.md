@@ -120,6 +120,6 @@ The initial context is created once per `parse()` call. There is no per-rule cop
 
 ## Positional Info from Lexemes, Not ctx
 
-`ParserCtx` and `LexerCtx` are independent: the parser context has no `text`, `position`, or `line`. Positions come from the lexemes a rule binds -- `name.position` and `name.line` after `BrainLexer.functionName(name)`, when the lexer context tracks them (see [Lexeme Bindings](extractors.md#lexeme-bindings)).
+`ParserCtx` and `LexerCtx` are independent: the parser context has no `text`, `column`, or `line`. Positions come from the lexemes a rule binds -- `name.column` and `name.line` after `BrainLexer.functionName(name)`, when the lexer context tracks them (see [Lexeme Bindings](extractors.md#lexeme-bindings)).
 
 See [Parser](parser.md) for grammar rules and EBNF operators.

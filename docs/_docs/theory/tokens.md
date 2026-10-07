@@ -42,7 +42,7 @@ In Alpaca, each matched token is represented as a `Lexeme[Name, Value]`. A lexem
 - `value` — the extracted value with its Scala type, e.g., `3.14: Double` for a `Token["NUMBER"](num.toDouble)`,
   or `()` for a plain `Token["PLUS"]`
 - `text` — the matched characters, e.g., `"3.14"` or `"+"`
-- a snapshot of the lexer context's fields at match time, accessible as typed fields (e.g., `.position`, `.line` with
+- a snapshot of the lexer context's fields at match time, accessible as typed fields (e.g., `.column`, `.line` with
   `LexerCtx.Default`)
 
 The tokenization output for a simple expression illustrates this:
@@ -77,7 +77,7 @@ val lexemes = BrainLexer.tokenize("foo(++)").getOrThrow
 // Each Lexeme carries:
 //   .name     — token class name (e.g., "functionName")
 //   .value    — extracted value  (e.g., "foo": String)
-//   .position — column position at end of match
+//   .column   — column at end of match
 //   .line     — line number at end of match
 ```
 

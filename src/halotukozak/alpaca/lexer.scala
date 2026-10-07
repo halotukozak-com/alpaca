@@ -243,7 +243,7 @@ object LexerCtx:
    * An empty lexer context with no extra state tracking.
    *
    * This is the simplest context that only tracks the remaining text.
-   * Use this when you don't need line or position tracking.
+   * Use this when you don't need line or column tracking.
    */
   final case class Empty() extends LexerCtx
 
@@ -254,16 +254,16 @@ object LexerCtx:
    * This is the most commonly used context and provides useful information
    * for error reporting. The `text` field is inherited from [[LexerCtx]].
    *
-   * `position` and `line` are immutable `val`s of a subtype of `Int`:
+   * `column` and `line` are immutable `val`s of a subtype of `Int`:
    * `Tracking.materialize` finds each fragment's `given Tracking` and threads a
    * fresh `copy` of this case class through the lexer rather than mutating a
-   * field in place. Read them as plain `Int`s (`ctx.line`, `ctx.position`).
+   * field in place. Read them as plain `Int`s (`ctx.line`, `ctx.column`).
    *
-   * @param position the current column position within the line (1-based)
-   * @param line     the current line number (1-based)
+   * @param column the current column within the line (1-based)
+   * @param line   the current line number (1-based)
    */
   final case class Default(
-    position: Column = Column.Start,
+    column: Column = Column.Start,
     line: Line = Line.Start,
   ) extends LexerCtx
 
@@ -273,7 +273,7 @@ object LexerCtx:
  * @param unexpected the input that was not matched: one character, or with `ErrorHandling.Strategy.SkipToNextMatch`
  *                   everything skipped up to the next match
  * @param line       the line it starts on, when the lexer context tracks a `line` field
- * @param column     the column it starts at, when the lexer context tracks a `position` field
+ * @param column     the column it starts at, when the lexer context tracks a `column` field
  */
 final case class LexerError(unexpected: String, line: Option[Int], column: Option[Int]):
   /** A readable description, e.g. `Unexpected character '@' at line 1, column 5`. */
@@ -297,7 +297,7 @@ object LexerError:
       case Result.Success(_, value) => value
       case Result.Failure(_, _, errors) => throw LexerException(errors)
 
-  /** An error for `unexpected`, positioned by `ctx`'s `line` and `position` fields when it has them. */
+  /** An error for `unexpected`, positioned by `ctx`'s `line` and `column` fields when it has them. */
   private[alpaca] def at(unexpected: String, ctx: LexerCtx): LexerError = {
     def field(name: String): Option[Int] =
       ctx.productElementNames.indexOf(name) match
@@ -306,7 +306,7 @@ object LexerError:
           ctx.productElement(i) match
             case n: Int => Some(n)
             case _ => None
-    LexerError(unexpected, field("line"), field("position"))
+    LexerError(unexpected, field("line"), field("column"))
   }
 
 /**

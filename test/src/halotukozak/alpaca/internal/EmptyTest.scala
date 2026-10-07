@@ -59,7 +59,7 @@ final class EmptyTest extends AnyFunSuite with Matchers with LoneElement:
       import scala.collection.mutable.ListBuffer
 
       final case class Ctx(
-        position: Column = Column.Start,
+        column: Column = Column.Start,
         line: Line = Line.Start,
         errors: ListBuffer[String],
       ) extends LexerCtx

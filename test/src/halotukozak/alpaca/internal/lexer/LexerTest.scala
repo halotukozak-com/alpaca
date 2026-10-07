@@ -20,15 +20,15 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       fields = lexeme.fieldNames.iterator.zip(lexeme.fieldValues.iterator).toMap + ("text" -> lexeme.text),
     )
 
-  private def fields(text: String, position: Int, line: Int): Map[String, Any] =
-    Map[String, Any]("text" -> text, "position" -> position, "line" -> line)
+  private def fields(text: String, column: Int, line: Int): Map[String, Any] =
+    Map[String, Any]("text" -> text, "column" -> column, "line" -> line)
 
   test("selectDynamic returns ctx fields and throws for missing keys") {
     val lexeme: Lexeme[?, ?] =
-      new Lexeme("IDENTIFIER", "hello", "hello", Array("position", "line"), Array(6, 1))
+      new Lexeme("IDENTIFIER", "hello", "hello", Array("column", "line"), Array(6, 1))
 
     lexeme.text shouldBe "hello"
-    lexeme.selectDynamic("position") shouldBe 6
+    lexeme.selectDynamic("column") shouldBe 6
     lexeme.selectDynamic("line") shouldBe 1
     intercept[NoSuchElementException](lexeme.selectDynamic("missing"))
   }
@@ -292,7 +292,7 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
     ).loneElement.message should startWith("""Invalid regex pattern for token "(\t": """)
   }
 
-  test("track line and position across newlines") {
+  test("track line and column across newlines") {
     val Lexer = lexer:
       case id @ "[a-zA-Z]+" => Token["IDENTIFIER"](id)
       case "\\s+" => Token.Ignored
@@ -307,7 +307,7 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       ),
     )
     lexed.ctx.line shouldBe 2
-    lexed.ctx.position shouldBe 4
+    lexed.ctx.column shouldBe 4
   }
 
   test("tokenize file") {

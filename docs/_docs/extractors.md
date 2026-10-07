@@ -218,14 +218,14 @@ object MixedEbnfParser extends Parser:
 
 ## Lexeme Bindings
 
-A terminal extractor binds a `Lexeme` (see [The Lexeme Structure](lexer.md#the-lexeme-structure)): its `value`, `name` and matched `text`, plus every field of the lexer context as it was right after the match -- `position` and `line` with `LexerCtx.Default`, or your own fields with a custom context (see [Context Snapshots in Lexemes](lexer-context.md#context-snapshots-in-lexemes)). The fields are typed, so `id.position` is an `Int`, and a field the context does not have is a compile error:
+A terminal extractor binds a `Lexeme` (see [The Lexeme Structure](lexer.md#the-lexeme-structure)): its `value`, `name` and matched `text`, plus every field of the lexer context as it was right after the match -- `column` and `line` with `LexerCtx.Default`, or your own fields with a custom context (see [Context Snapshots in Lexemes](lexer-context.md#context-snapshots-in-lexemes)). The fields are typed, so `id.column` is an `Int`, and a field the context does not have is a compile error:
 
 ```scala sc-compile-with:CalcLexerPreamble
 object FieldAccessParser extends Parser:
   val root: Rule[(String, Int, Int)] = rule:
-    case CalcLexer.ID(id) => (id.value, id.position, id.line)
+    case CalcLexer.ID(id) => (id.value, id.column, id.line)
 ```
 
-**Pitfall:** `position` is the column right *after* the token. For a token `"42"` starting at column 1, `position` is 3.
+**Pitfall:** `column` is the column right *after* the token. For a token `"42"` starting at column 1, `column` is 3.
 
 See [Parser](parser.md) for grammar rules and [Between Stages](on-token-match.md) for how lexemes are built.
