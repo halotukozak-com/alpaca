@@ -83,10 +83,9 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
 
   object Extractor:
     // `.List`, `.Option` and `.SeparatedBy` take the `ParserScope` as an argument
-    object WithoutScope:
-      def unapply(tree: Tree): Some[Tree] = tree match
-        case Apply(fn, List(scope)) if scope.tpe <:< TypeRepr.of[ParserScope] => Some(fn)
-        case other => Some(other)
+    val WithoutScope: PartialFunction[Tree, Tree] =
+      case Apply(fn, List(scope)) if scope.tpe <:< TypeRepr.of[ParserScope] => fn
+      case other => other
 
     private val Name: PartialFunction[Term, String] =
       case Select(_, name) => name

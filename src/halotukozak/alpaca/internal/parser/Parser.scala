@@ -45,7 +45,7 @@ abstract class Parser[Ctx <: ParserCtx](
    */
   val root: Rule[?]
 
-  protected final given ParserScope = ParserScope.instance
+  protected final given ParserScope = ParserScope.refl
 
   /**
    * Provides access to the parser context within rule definitions.

@@ -29,19 +29,18 @@ opaque type Resolutions[P <: parser.Parser[?]] = Set[ConflictResolution]
  * @tparam P the parser's singleton type
  */
 @implicitNotFound("`production`, `Production(...)`, `before` and `after` can only be used inside resolutions(...)")
-sealed trait ResolutionScope[P <: parser.Parser[?]]
+opaque type ResolutionScope[P <: parser.Parser[?]] = Unit
 object ResolutionScope:
-  private val reusable = new ResolutionScope[parser.Parser[?]] {}
-  private[alpaca] def refl[P <: parser.Parser[?]]: ResolutionScope[P] = reusable.asInstanceOf[ResolutionScope[P]]
+  private[alpaca] def refl[P <: parser.Parser[?]]: ResolutionScope[P] = ()
 
 /**
  * Evidence that code runs inside a parser definition, where `rule`, named productions, and token and rule extractors
  * are available. Every [[Parser]] provides one.
  */
 @implicitNotFound("`rule`, named productions, and token and rule extractors can only be used inside a parser definition")
-final class ParserScope private[alpaca] ()
+opaque type ParserScope = Unit
 object ParserScope:
-  private[alpaca] val instance: ParserScope = new ParserScope
+  private[alpaca] def refl: ParserScope = ()
 
 /**
  * Collects the conflict resolutions for the parser `P`, each written with `before` or `after` (see [[Resolutions]]).
@@ -58,7 +57,7 @@ def resolutions[P <: parser.Parser[?]](elements: (ResolutionScope[P] ?=> Conflic
  * This is compile-time only and can be used only inside [[resolutions]].
  */
 @compileTimeOnly(ConflictResolutionOnly)
-transparent inline def production[P <: parser.Parser[?]](using ResolutionScope[P]): ProductionSelector =
+transparent inline def production[P <: parser.Parser[?]: ResolutionScope]: ProductionSelector =
   ${ productionImpl[P] }
 
 /**
@@ -280,7 +279,7 @@ extension (first: Production | Token[?, ?, ?]) {
    * @return a conflict resolution rule
    */
   @compileTimeOnly(RuleOnly)
-  inline infix def after(@unused second: (Production | Token[?, ?, ?])*)(using ResolutionScope[?]): ConflictResolution =
+  inline infix def after[P <: parser.Parser[?]: ResolutionScope](@unused second: (Production | Token[?, ?, ?])*): ConflictResolution =
     null.asInstanceOf[ConflictResolution]
 
   /**
@@ -295,7 +294,7 @@ extension (first: Production | Token[?, ?, ?]) {
    * @return a conflict resolution rule
    */
   @compileTimeOnly(RuleOnly)
-  inline infix def before(@unused second: (Production | Token[?, ?, ?])*)(using ResolutionScope[?]): ConflictResolution =
+  inline infix def before[P <: parser.Parser[?]: ResolutionScope](@unused second: (Production | Token[?, ?, ?])*): ConflictResolution =
     null.asInstanceOf[ConflictResolution]
 }
 
@@ -311,7 +310,7 @@ object Production:
    * @return a production reference
    */
   @compileTimeOnly(ConflictResolutionOnly)
-  inline def apply(@unused symbols: (Rule[?] | Token[?, ?, ?])*)(using ResolutionScope[?]): Production = null.asInstanceOf[Production]
+  inline def apply[P <: parser.Parser[?]: ResolutionScope](@unused symbols: (Rule[?] | Token[?, ?, ?])*): Production = null.asInstanceOf[Production]
 
 object ParserCtx:
 

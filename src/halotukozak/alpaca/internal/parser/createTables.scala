@@ -232,9 +232,10 @@ object Tables:
             errorAndAbort(show"Production with name '$decodedName' not found", call.asTerm.pos),
           )
 
-        case '{ alpaca.Production(${ Varargs(rhs) }*)(using $_) } =>
-          // reported at `Production(...)` itself, not at the application of its scope
-          val pos = call.asTerm.runtimeChecked match
+        // `p` refers to the outer type: fresh type variables aren't inferred through opaque types (scala/scala3#21889)
+        case '{ alpaca.Production[`p`](${ Varargs(rhs) }*)(using $_) } =>
+          // the outer Apply is the using-scope application; report at `Production(...)` itself
+          def pos = call.asTerm.runtimeChecked match
             case Apply(production, _) => production.pos
           val args = rhs
             .map[parser.Symbol.NonEmpty]:
@@ -297,7 +298,7 @@ object Tables:
             case definition => unsupported(definition.pos)
 
           rhs.asExprOf[Resolutions[p]] match
-            case '{ resolutions[p & Parser[?]](${ Varargs(resolutionExprs) }*) } => resolutionExprs
+            case '{ resolutions[`p`](${ Varargs(resolutionExprs) }*) } => resolutionExprs
             case _ => unsupported(rhs.pos)
       }
 
@@ -309,21 +310,21 @@ object Tables:
       // kept in declaration order, so a cycle is searched from the first declared rule and reported at the one closing it
       val conflictResolutionTable = ConflictResolutionTable(
         resolutionExprs.iterator
-          .flatMap: resolution =>
-            // matched without the scope lambda, as the arguments may refer to its parameter
-            val body = resolution.asTerm match
+          // matched without the scope lambda, as the arguments may refer to its parameter
+          .map:
+            _.asTerm match
               case Lambda(List(_), body) => body.asExpr
               case other => other.asExpr
-            body match
-              case '{ ($after: Production | Token[?, ?, ?]).after(${ Varargs(befores) }*)(using $_) } =>
-                befores.map(before => (extractKey(before), extractKey(after), Source(before.asTerm.pos)))
-              case '{ ($before: Production | Token[?, ?, ?]).before(${ Varargs(afters) }*)(using $_) } =>
-                afters.map(after => (extractKey(before), extractKey(after), Source(after.asTerm.pos)))
-              case other =>
-                errorAndAbort(
-                  show"Each conflict resolution must be a direct `x.before(...)` or `x.after(...)` call",
-                  other.asTerm.pos,
-                )
+          .flatMap:
+            case '{ ($after: Production | Token[?, ?, ?]).after[`p`](${ Varargs(befores) }*)(using $_) } =>
+              befores.map(before => (extractKey(before), extractKey(after), Source(before.asTerm.pos)))
+            case '{ ($before: Production | Token[?, ?, ?]).before[`p`](${ Varargs(afters) }*)(using $_) } =>
+              afters.map(after => (extractKey(before), extractKey(after), Source(after.asTerm.pos)))
+            case other =>
+              errorAndAbort(
+                show"Each conflict resolution must be a direct `x.before(...)` or `x.after(...)` call",
+                other.asTerm.pos,
+              )
           .foldLeft(VectorMap.empty[ConflictKey, Map[ConflictKey, Source]]):
             case (table, (before, after, source)) =>
               table + (before -> (table.getOrElse(before, VectorMap.empty) + (after -> source))),
