@@ -46,9 +46,6 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     parse("d").ctx.seen shouldBe List("d")
   }
 
-  // Known API issues: each check fails today, and `pendingUntilFixed` fails the test once it passes.
-  private def knownIssue(check: => Any) = pendingUntilFixed(check: Unit)
-
   test("a lexer's token is named by its path") {
     assert(typeChecks("""val token: WordLexer.WORD = WordLexer.WORD"""))
   }

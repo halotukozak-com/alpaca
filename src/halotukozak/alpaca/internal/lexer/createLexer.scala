@@ -25,8 +25,6 @@ import scala.reflect.NameTransformer
 
   if cases.isEmpty then errorAndAbort(show"Lexer definition must contain at least one case", rules.asTerm.pos)
 
-  val scopeCtx = Symbol.requiredModule("halotukozak.alpaca.LexerScope").methodMember("ctx").head
-
   // A token compiled from one case, with the case's position for error reporting.
   type CompiledRule = (info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Option[Regex], pos: Position)
 
@@ -40,8 +38,8 @@ import scala.reflect.NameTransformer
         // `ctx` unwraps the scope, which is the context itself; use `newCtx` directly so `rewriteCtxMutations`
         // recognises it
         val unwrapScope = new TreeMap:
-          override def transformTerm(t: Term)(owner: Symbol): Term = t match
-            case Apply(fn, List(scope)) if fn.symbol == scopeCtx && scope.symbol == oldScope.symbol => newCtx
+          override def transformTerm(t: Term)(owner: Symbol): Term = Option.when(t.isExpr)(t.asExpr) match
+            case Some('{ ($scope: LexerScope).ctx }) if scope.asTerm.symbol == oldScope.symbol => newCtx
             case _ => super.transformTerm(t)(owner)
         new TreeMap:
           override def transformTerm(t: Term)(owner: Symbol): Term =

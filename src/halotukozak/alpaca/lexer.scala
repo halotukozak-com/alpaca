@@ -5,7 +5,7 @@ import alpaca.internal.*
 import alpaca.internal.lexer.{IgnoredToken as _, Token as _, *}
 
 import scala.NamedTuple.NamedTuple
-import scala.annotation.{compileTimeOnly, implicitNotFound, publicInBinary, unused}
+import scala.annotation.{compileTimeOnly, publicInBinary, unused}
 
 /**
  * Public re-exports of lexer types users are expected to reference directly
@@ -143,8 +143,7 @@ object Token:
 transparent inline def ctx[C <: LexerCtx: LexerScope.Of as scope]: C = ${ ctxImpl[C]('scope) }
 
 // $COVERAGE-OFF$
-@publicInBinary private[alpaca] def ctxImpl[C <: LexerCtx: Type](scope: Expr[LexerScope.Of[C]])(using quotes: Quotes)
-  : Expr[C] = {
+@publicInBinary private[alpaca] def ctxImpl[C <: LexerCtx: Type](scope: Expr[LexerScope.Of[C]])(using Quotes): Expr[C] = {
   import quotes.reflect.*
 
   val ctxTpe = TypeRepr.of[C].widen
