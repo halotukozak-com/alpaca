@@ -81,7 +81,7 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
   }
 
   private val outsideParser =
-    "`rule`, named productions, token and rule extractors and `ctx` can only be used inside a parser definition"
+    "`rule`, named productions, and token and rule extractors can only be used inside a parser definition"
   private val outsideResolutions =
     "`production`, `Production(...)`, `before` and `after` can only be used inside resolutions(...)"
 

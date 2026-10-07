@@ -35,10 +35,10 @@ object ResolutionScope:
   private[alpaca] def refl[P <: parser.Parser[?]]: ResolutionScope[P] = reusable.asInstanceOf[ResolutionScope[P]]
 
 /**
- * Evidence that code runs inside a parser definition, where `rule`, named productions, token and rule extractors and
- * `ctx` are available. Every [[Parser]] provides one.
+ * Evidence that code runs inside a parser definition, where `rule`, named productions, and token and rule extractors
+ * are available. Every [[Parser]] provides one.
  */
-@implicitNotFound("`rule`, named productions, token and rule extractors and `ctx` can only be used inside a parser definition")
+@implicitNotFound("`rule`, named productions, and token and rule extractors can only be used inside a parser definition")
 final class ParserScope private[alpaca] ()
 object ParserScope:
   private[alpaca] val instance: ParserScope = new ParserScope

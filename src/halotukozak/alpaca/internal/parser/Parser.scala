@@ -53,7 +53,7 @@ abstract class Parser[Ctx <: ParserCtx](
    * This is compile-time only and can only be used inside parser rule definitions.
    */
   @compileTimeOnly(RuleOnly)
-  inline protected final def ctx(using ParserScope): Ctx = null.asInstanceOf[Ctx]
+  inline protected final def ctx: Ctx = null.asInstanceOf[Ctx]
 
   /**
    * Parses a list of lexemes using the defined grammar.
