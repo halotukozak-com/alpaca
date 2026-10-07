@@ -216,8 +216,15 @@ object Tables:
         case '{ alpaca.Production(${ Varargs(rhs) }*) } =>
           val args = rhs
             .map[parser.Symbol.NonEmpty]:
-              case '{ type ruleType <: Rule[?]; $_ : ruleType } =>
+              case '{ type ruleType <: Rule[?]; $_ : ruleType }
+                  if TypeRepr.of[ruleType].termSymbol.maybeOwner == parserTpe.typeSymbol =>
                 NonTerminal(Printable(TypeRepr.of[ruleType].termSymbol.name))
+              case arg @ '{ type ruleType <: Rule[?]; $_ : ruleType } if TypeRepr.of[ruleType].termSymbol.exists =>
+                val rule = TypeRepr.of[ruleType].termSymbol
+                errorAndAbort(
+                  show"Rule ${Printable(rule.name)} belongs to another parser, ${Printable(declaredName(rule.owner))}; `Production(...)` in the resolutions of $parserName can only refer to $parserName's rules",
+                  arg.asTerm.pos,
+                )
               case '{ type name <: ValidName; $_ : Token[name, ?, ?] } => Terminal(Printable(ValidName.from[name]))
               case other =>
                 errorAndAbort(
