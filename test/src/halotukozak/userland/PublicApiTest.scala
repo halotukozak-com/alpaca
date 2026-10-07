@@ -26,6 +26,8 @@ object CollectingParser extends Parser[CollectingCtx]:
       w.value
   val root: Rule[Int] = rule { case Word.List(words) => words.size }
 
+final case class MyCtx() extends LexerCtx
+
 final class PublicApiTest extends AnyFunSuite with Matchers:
 
   test("an empty input parses when the root rule accepts no tokens") {
@@ -72,8 +74,28 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
   test("Token is a compile error outside a lexer rule") {
     typeCheckErrors("""Token["X"]""").map(_.message) shouldBe
       List("`ctx` and `Token` can only be used inside a lexer rule")
-    assert(!typeChecks("""val scope: LexerScope[LexerCtx.Default] = LexerCtx.Default()"""))
+    assert(!typeChecks("""val scope: LexerScope.Of[LexerCtx.Default] = LexerCtx.Default()"""))
     assert(!typeChecks("""LexerScope.refl(LexerCtx.Default())"""))
+  }
+
+  test("Token carries the lexer's context type, and only a lexer rule provides it") {
+    typeCheckErrors("""
+      lexer[MyCtx]:
+        case "x" =>
+          val _: Token["X", MyCtx, Unit] = Token["X"]
+          Token["X"]
+    """).map(_.message) shouldBe Nil
+    assert(!typeChecks("""
+      lexer[MyCtx]:
+        case "x" =>
+          val _: Token["X", LexerCtx.Empty, Unit] = Token["X"]
+          Token["X"]
+    """))
+    assert(!typeChecks("""
+      object Fake { type Ctx = MyCtx }
+      given Fake.type = Fake
+      Token["X"]
+    """))
   }
 
   test("the lexer DSL's marker types cannot be created or extended from user code") {

@@ -38,7 +38,7 @@ export alpaca.internal.lexer.{Column, LazyReader, Lexeme, Lexer, Line, Tracking}
 transparent inline def lexer[Ctx <: LexerCtx](
   using Ctx withDefault LexerCtx.Default,
 )(
-  inline rules: LexerScope[Ctx] ?=> LexerDefinition[Ctx],
+  inline rules: LexerScope.Of[Ctx] ?=> LexerDefinition[Ctx],
 )(using
   m: Mirror.ProductOf[Ctx],
   errorHandling: ErrorHandling[Ctx, LexerError],
@@ -86,7 +86,7 @@ object Token:
    * @return a token that will be ignored
    */
   @compileTimeOnly("Should never be called outside the lexer definition")
-  def Ignored(using LexerScope[LexerCtx]): IgnoredToken[Nothing] = new IgnoredToken
+  def Ignored(using s: LexerScope): IgnoredToken[s.Ctx] = new IgnoredToken
 
   /**
    * Creates a token whose lexemes carry no value (`()`). To carry the matched text or anything computed from it, bind
@@ -98,8 +98,8 @@ object Token:
    * @return a token definition
    */
   @compileTimeOnly("Should never be called outside the lexer definition")
-  def apply[Name <: ValidName](using LexerScope[LexerCtx]): Token[Name, Nothing, Unit] =
-    new Token[Name, Nothing, Unit]
+  def apply[Name <: ValidName](using s: LexerScope): Token[Name, s.Ctx, Unit] =
+    new Token[Name, s.Ctx, Unit]
 
   /**
    * Creates a token whose lexemes carry `value`, typically computed from the bound match.
@@ -111,8 +111,8 @@ object Token:
    * @return a token definition
    */
   @compileTimeOnly("Should never be called outside the lexer definition")
-  def apply[Name <: ValidName](value: Any)(using LexerScope[LexerCtx]): Token[Name, Nothing, value.type] =
-    new Token[Name, Nothing, value.type]
+  def apply[Name <: ValidName](value: Any)(using s: LexerScope): Token[Name, s.Ctx, value.type] =
+    new Token[Name, s.Ctx, value.type]
 
 // The returned type is the concrete context type `C` refined with a getter
 // and a setter for every case field that doesn't already have a real setter,
@@ -140,10 +140,10 @@ object Token:
  * The lexer context inside a `lexer` rule body. Read its fields, or assign them (`ctx.count += 1`) to change the
  * context for the tokens that follow: the assignment is rewritten into a `copy`, so the fields can stay `val`s.
  */
-transparent inline def ctx[C <: LexerCtx: LexerScope as scope]: C = ${ ctxImpl[C]('scope) }
+transparent inline def ctx[C <: LexerCtx: LexerScope.Of as scope]: C = ${ ctxImpl[C]('scope) }
 
 // $COVERAGE-OFF$
-@publicInBinary private[alpaca] def ctxImpl[C <: LexerCtx: Type](scope: Expr[LexerScope[C]])(using quotes: Quotes)
+@publicInBinary private[alpaca] def ctxImpl[C <: LexerCtx: Type](scope: Expr[LexerScope.Of[C]])(using quotes: Quotes)
   : Expr[C] = {
   import quotes.reflect.*
 
