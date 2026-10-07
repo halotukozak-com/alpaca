@@ -13,6 +13,7 @@ final class LexerMacroErrorsTest extends AnyFunSuite with Matchers with LoneElem
     "A lexer rule must end with `Token[\"NAME\"]`, `Token[\"NAME\"](value)` or `Token.Ignored`, written directly as its last expression"
   private val NotARegex =
     "A lexer rule must match a regex string literal or alternatives of them, as in `case \"[0-9]+\"` or `case \"a\" | \"b\"`"
+  private val NotALiteral = "Each alternative of a lexer rule must be a regex string literal"
   private val NotAName =
     "A token name must be a string literal, as in `Token[\"NAME\"]`, or the type of the bound match, as in `case x @ \"regex\" => Token[x.type]`"
 
@@ -71,4 +72,19 @@ final class LexerMacroErrorsTest extends AnyFunSuite with Matchers with LoneElem
       val root: Rule[String] = rule:
         case L.IDENT(name) => name.value
     """).loneElement.message shouldBe NotARegex
+  }
+
+  test("a rule with a non-literal alternative contributes none of its alternatives") {
+    val error: Error = typeCheckErrors("""
+    val L = lexer:
+      case x @ ("a" | _) => Token[x.type]
+      case "a" => Token["a"]
+      case name @ "[b-z]+" => Token["IDENT"](name)
+
+    object P extends Parser:
+      val root: Rule[String] = rule:
+        case L.IDENT(name) => name.value
+    """).loneElement
+    error.message shouldBe NotALiteral
+    error.lineContent.trim shouldBe "case x @ (\"a\" | _) => Token[x.type]"
   }
