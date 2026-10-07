@@ -93,8 +93,9 @@ private[parser] object ParseTable:
    * @param productions the grammar productions
    * @return the constructed parse table
    */
-  def apply(
-    using quotes: Quotes,
+  def apply(using
+    quotes: Quotes,
+    diagnostics: Diagnostics,
   )(
     productions: List[Production],
     conflictResolutionTable: ConflictResolutionTable,
@@ -104,7 +105,7 @@ private[parser] object ParseTable:
     // $COVERAGE-OFF$
     def raiseReduceReduceConflict(red1: Reduction, red2: Reduction, path: List[Symbol]): Unit =
       if reported.add(Set(red1.production, red2.production)) then
-        error(
+        diagnostics.error(
           show"""
                 |Reduce $red1 vs Reduce $red2
                 |In situation like:
@@ -117,7 +118,7 @@ private[parser] object ParseTable:
 
     def raiseShiftReduceConflict(symbol: Symbol, red: Reduction, path: List[Symbol]): Unit =
       if reported.add((symbol, red.production)) then
-        error(
+        diagnostics.error(
           show"""
                 |Shift "$symbol" vs Reduce $red
                 |In situation like:

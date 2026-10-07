@@ -64,8 +64,9 @@ private[lexer] object TokenInfo:
    *         callers don't have to parse it again, or `None` if the pattern is invalid
    */
 // $COVERAGE-OFF$
-  def apply(
-    using quotes: Quotes,
+  def apply(using
+    quotes: Quotes,
+    diagnostics: Diagnostics,
   )(
     name: String,
     alternatives: List[String],
@@ -76,7 +77,7 @@ private[lexer] object TokenInfo:
     ValidName.check(name, pos)
     val pattern = alternatives.mkString("|")
     def reportInvalid(err: RegexParseError): Unit =
-      error(show"""Invalid regex pattern for token "${Printable(name)}": $err""", pos)
+      diagnostics.error(show"""Invalid regex pattern for token "${Printable(name)}": $err""", pos)
     // An alternative can be invalid on its own and still parse once joined, e.g. "(" | ")".
     val invalidAlternatives = alternatives match
       case _ :: Nil => Nil

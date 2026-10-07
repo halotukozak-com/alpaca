@@ -19,10 +19,11 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
 )(using quotes: Quotes,
 ): Expr[Tokenization[Ctx] { type LexemeFields = lexemeFields }] = {
   import quotes.reflect.*
+  given diagnostics: Diagnostics = Diagnostics()
 
   val Lambda(oldCtx :: Nil, Lambda(_, Match(_, cases: List[CaseDef]))) = rules.asTerm.underlying.runtimeChecked
 
-  if cases.isEmpty then errorAndAbort(show"Lexer definition must contain at least one case", rules.asTerm.pos)
+  if cases.isEmpty then diagnostics.abort(show"Lexer definition must contain at least one case", rules.asTerm.pos)
 
   val tokens = cases.foldLeft(
     List.empty[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], pos: Position, regex: Option[Regex])],
@@ -132,7 +133,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
 
       acc ::: pairs.map((info, expr, regex) => (info = info, expr = expr, pos = tree.pos, regex = regex))
 
-    case (_, CaseDef(_, Some(guard), _)) => errorAndAbort(show"Guards are not supported yet", guard.pos)
+    case (_, CaseDef(_, Some(guard), _)) => diagnostics.abort(show"Guards are not supported yet", guard.pos)
 
   // A token name in quotes, readable even when it holds a tab or another non-printable character.
   def quote(name: Printable): Shown = show"\"$name\""
@@ -147,7 +148,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
     .filter(_._2.sizeIs > 1)
     .foreach: (name, duplicates) =>
       val alternatives = duplicates.map(token => literal(token.info)).mkShow(" | ")
-      errorAndAbort(
+      diagnostics.abort(
         show"Token name ${quote(name)} is defined ${duplicates.size} times. Combine the patterns into a single case using alternatives: case $alternatives => ...",
         duplicates(1).pos,
       )
@@ -172,7 +173,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
       case _ =>
         val coveringAll = quoted.mkShow(" and ")
         show"""${quote(first)} is redundant: remove it, or narrow $coveringAll so they no longer cover it."""
-    error(
+    diagnostics.error(
       show"""Token ${quote(first)} can never match: every input it matches is also matched by $covering,
            |$which defined earlier, so $wins.
            |$advice""".trimMargin,
@@ -181,8 +182,9 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
 
   // Symbol.spliceOwner is a synthetic "macro" method dotty introduces to host the transparent
   // inline def's expansion; the val this `lexer{...}` call is actually bound to is one owner hop
-  // further up.
-  if shadowing.isEmpty && parsed.sizeIs == tokens.size then
+  // further up. Errors above are reported without aborting, so the lexer stays typed from all of its cases
+  // and doesn't cascade; they only keep a partial grammar from being exported.
+  if !diagnostics.hasErrors then
     JsonExport.maybeWrite(exportId(declaredName(Symbol.spliceOwner.owner)), "tokens", tokens.map(_.info))
 
   val fields = tokens.map(t => (t.info.name.raw, t.expr.asTerm.tpe))

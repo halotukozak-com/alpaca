@@ -25,6 +25,7 @@ private[lexer] type CompiledPattern = (Type[? <: ValidName], TokenInfo, Option[R
 
 private[lexer] def compileNameAndPattern[T: Type](
   using quotes: Quotes,
+  diagnostics: Diagnostics,
 )(
   pattern: quotes.reflect.Tree,
 ): List[CompiledPattern] = {

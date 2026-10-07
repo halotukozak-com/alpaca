@@ -37,21 +37,22 @@ private[parser] object DefinitionRhs:
  * extracting the grammar symbol it matches (terminal or non-terminal) together
  * with any EBNF desugaring (`Option`, `List`, `SeparatedBy`) it requires.
  */
-private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using quotes: Quotes): PartialFunction[
-  quotes.reflect.Tree,
-  (
-    symbol: parser.Symbol.NonEmpty,
-    bind: Option[quotes.reflect.Bind],
-    others: List[(production: Production, action: Expr[Action[Ctx]])],
-  ),
-] = {
+private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using quotes: Quotes, diagnostics: Diagnostics)
+  : PartialFunction[
+    quotes.reflect.Tree,
+    (
+      symbol: parser.Symbol.NonEmpty,
+      bind: Option[quotes.reflect.Bind],
+      others: List[(production: Production, action: Expr[Action[Ctx]])],
+    ),
+  ] = {
   import quotes.reflect.*
 
   def symbolFromType(separator: TypeTree): parser.Symbol.NonEmpty = separator.tpe.dealias.widen.asType match
     case '[type name <: ValidName; Token[name, ?, ?]] => Terminal(Printable(ValidName.from[name]))
     case '[Rule[?]] => NonTerminal(Printable(NameTransformer.decode(separator.tpe.termSymbol.name)))
     case _ =>
-      errorAndAbort(
+      diagnostics.abort(
         show"SeparatedBy separator must be a Token or Rule type, but got: ${separator.tpe.show.showRaw}",
         separator.pos,
       )
