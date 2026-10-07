@@ -86,7 +86,7 @@ object Tables:
               val replacements = (find = ctxSymbol, replace = ctx) ::
                 binds.iterator.zipWithIndex
                   .collect:
-                    case (Some(bind), idx) => ((bind.symbol, bind.symbol.typeRef.asType), Expr(idx))
+                    case (Some(bind), idx) => ((bind.symbol, bind.symbol.termRef.widen.asType), Expr(idx))
                   .flatMap:
                     case ((bind, '[t]), idx) =>
                       Some((find = bind, replace = '{ $paramExpr($idx).asInstanceOf[t] }.asTerm))

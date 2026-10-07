@@ -69,3 +69,34 @@ final class ParserActionTest extends AnyFunSuite:
     val result = LambdaActionBug.parse(lexemes).getOrThrow
     assert(result == "T")
   }
+
+  // compiled with -Wall -Werror in CI, where a spurious -Wtostring-interpolated fails the build (#673)
+  test("string interpolation of bound values in an action") {
+    val InterpLexer = lexer:
+      case "\\s+" => Token.Ignored
+      case x @ "[a-z]+" => Token["ID"](x)
+      case x @ "[0-9]+" => Token["NUM"](x.toInt)
+      case "=" => Token["EQ"]
+      case ":" => Token["COLON"]
+
+    object LexemeInterp extends Parser:
+      override val root: Rule[String] = rule(
+        { case (InterpLexer.ID(l), InterpLexer.EQ(_), InterpLexer.ID(r)) => s"${l.value}=${r.value}" },
+        { case (InterpLexer.ID(l), InterpLexer.COLON(_), InterpLexer.NUM(r)) => s"${l.text}:${r.text}" },
+      )
+
+    object RuleInterp extends Parser:
+      val Name: Rule[String] = rule:
+        case InterpLexer.ID(l) => l.value
+      val Num: Rule[Int] = rule:
+        case InterpLexer.NUM(n) => n.value
+      override val root: Rule[String] = rule(
+        { case (Name(l), InterpLexer.EQ(_), Name(r)) => s"$l=$r" },
+        { case (Name(l), InterpLexer.COLON(_), Num(r)) => s"$l:$r" },
+      )
+
+    assert(LexemeInterp.parse(InterpLexer.tokenize("a = b").getOrThrow).getOrThrow == "a=b")
+    assert(LexemeInterp.parse(InterpLexer.tokenize("a : 42").getOrThrow).getOrThrow == "a:42")
+    assert(RuleInterp.parse(InterpLexer.tokenize("a = b").getOrThrow).getOrThrow == "a=b")
+    assert(RuleInterp.parse(InterpLexer.tokenize("a : 42").getOrThrow).getOrThrow == "a:42")
+  }
