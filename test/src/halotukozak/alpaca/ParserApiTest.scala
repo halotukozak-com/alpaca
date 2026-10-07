@@ -7,7 +7,6 @@ import halotukozak.alpaca.{ctx, lexer, resolutions, rule, ParserCtx, Production,
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
-import scala.annotation.unused
 import scala.collection.mutable
 
 final class ParserApiTest extends AnyFunSuite with Matchers:
@@ -183,11 +182,9 @@ final class ParserApiTest extends AnyFunSuite with Matchers:
   }
 
   test("parse error") {
-    @unused
-    val lexemes = CalcLexer.tokenize("a 123 4 + 5").getOrThrow
-
-    // todo https://github.com/halotukozak/alpaca/pull/65
-    // todo https://github.com/halotukozak/alpaca/pull/51
-    // CalcParser.parse[R](lexemes) should matchPattern:
-    //   case (ctx: CalcContext, Some(9)) if ctx.errors.toList == Seq(("NUMBER", 123)) =>
+    CalcApiParser.parse(CalcLexer.tokenize("a 123 4 + 5").getOrThrow) match
+      case Result.Failure(_, None, ParserError(unexpected, expected) :: Nil) =>
+        (unexpected.name, unexpected.value) shouldBe ("NUMBER", 123)
+        expected shouldBe List("$", "ASSIGN", "DIVIDE", "MINUS", "PLUS", "TIMES", "\\(")
+      case _ => fail("expected a single parse error")
   }
