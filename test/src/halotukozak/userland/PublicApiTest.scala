@@ -60,13 +60,19 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     typeCheckErrors("""
       given CountingCtx = CountingCtx()
       ctx.count
-    """).map(_.message) shouldBe List("`ctx` can only be used inside a lexer rule")
+    """).map(_.message) shouldBe List("`ctx` and `Token` can only be used inside a lexer rule")
     typeCheckErrors("""
       def bump(using CountingCtx) = ctx.count += 1
-    """).map(_.message) shouldBe List("`ctx` can only be used inside a lexer rule")
+    """).map(_.message) shouldBe List("`ctx` and `Token` can only be used inside a lexer rule")
     typeCheckErrors("""
       CountingCtx().applyDynamic("count_=")(1)
     """).map(_.message) shouldBe List("Lexer context fields can only be assigned inside a lexer rule")
+  }
+
+  test("Token is a compile error outside a lexer rule") {
+    typeCheckErrors("""Token["X"]""").map(_.message) shouldBe
+      List("`ctx` and `Token` can only be used inside a lexer rule")
+    assert(!typeChecks("""new LexerScope(LexerCtx.Default())"""))
   }
 
   test("the lexer DSL's marker types cannot be created or extended from user code") {

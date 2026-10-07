@@ -142,15 +142,4 @@ private[lexer] def rewriteCtxMutations(
   rewriter.transformTerm(body)(owner)
 }
 
-/** Aborts unless `ctx` is used inside a lexer rule. */
-private[alpaca] def requireLexerRule(using quotes: Quotes)(ctx: quotes.reflect.Term): Unit = {
-  import quotes.reflect.*
-
-  val param = ctx.underlyingArgument.symbol
-  val inRule = param.flags.is(Flags.Param) && param.owner.isAnonymousFunction && param.owner.termRef.widen.match
-    case MethodType(_, _, result) => result <:< TypeRepr.of[PartialFunction[String, alpaca.Token[?, ?, ?]]]
-    case _ => false
-  if !inRule then errorAndAbort(show"`ctx` can only be used inside a lexer rule", Position.ofMacroExpansion)
-}
-
 // $COVERAGE-ON$

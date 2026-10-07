@@ -5,7 +5,7 @@ import alpaca.internal.*
 import alpaca.internal.lexer.{IgnoredToken as _, Token as _, *}
 
 import scala.NamedTuple.NamedTuple
-import scala.annotation.{compileTimeOnly, publicInBinary, unused}
+import scala.annotation.{compileTimeOnly, implicitNotFound, publicInBinary, unused}
 
 /**
  * Public re-exports of lexer types users are expected to reference directly
@@ -38,7 +38,7 @@ export alpaca.internal.lexer.{Column, LazyReader, Lexeme, Lexer, Line, Tracking}
 transparent inline def lexer[Ctx <: LexerCtx](
   using Ctx withDefault LexerCtx.Default,
 )(
-  inline rules: Ctx ?=> LexerDefinition[Ctx],
+  inline rules: LexerScope[Ctx] ?=> LexerDefinition[Ctx],
 )(using
   m: Mirror.ProductOf[Ctx],
   errorHandling: ErrorHandling[Ctx, LexerError],
@@ -83,11 +83,11 @@ object Token:
    *
    * This is compile-time only and should only be used inside lexer definitions.
    *
-   * @param ctx the lexer context
+   * @param scope the enclosing lexer rule
    * @return a token that will be ignored
    */
   @compileTimeOnly("Should never be called outside the lexer definition")
-  def Ignored(using ctx: LexerCtx): IgnoredToken[ctx.type] = new IgnoredToken[ctx.type]
+  def Ignored(using scope: LexerScope[?]): IgnoredToken[scope.Ctx] = new IgnoredToken[scope.Ctx]
 
   /**
    * Creates a token whose lexemes carry no value (`()`). To carry the matched text or anything computed from it, bind
@@ -96,12 +96,12 @@ object Token:
    * This is compile-time only and should only be used inside lexer definitions.
    *
    * @tparam Name the token name
-   * @param ctx the lexer context
+   * @param scope the enclosing lexer rule
    * @return a token definition
    */
   @compileTimeOnly("Should never be called outside the lexer definition")
-  def apply[Name <: ValidName](using ctx: LexerCtx): Token[Name, ctx.type, Unit] =
-    new Token[Name, ctx.type, Unit]
+  def apply[Name <: ValidName](using scope: LexerScope[?]): Token[Name, scope.Ctx, Unit] =
+    new Token[Name, scope.Ctx, Unit]
 
   /**
    * Creates a token whose lexemes carry `value`, typically computed from the bound match.
@@ -110,12 +110,12 @@ object Token:
    *
    * @tparam Name the token name
    * @param value the value its lexemes carry
-   * @param ctx   the lexer context
+   * @param scope the enclosing lexer rule
    * @return a token definition
    */
   @compileTimeOnly("Should never be called outside the lexer definition")
-  def apply[Name <: ValidName](value: Any)(using ctx: LexerCtx): Token[Name, ctx.type, value.type] =
-    new Token[Name, ctx.type, value.type]
+  def apply[Name <: ValidName](value: Any)(using scope: LexerScope[?]): Token[Name, scope.Ctx, value.type] =
+    new Token[Name, scope.Ctx, value.type]
 
 // The returned type is the concrete context type `C` refined with a getter
 // and a setter for every case field that doesn't already have a real setter,
@@ -133,7 +133,7 @@ object Token:
 // refinement member in the first place.
 //
 // `C` is inferred as a fresh, unbound type parameter from whatever context
-// function currently binds `c` — deliberately *not* `c.type`: refining the
+// function currently binds the `LexerScope` — deliberately *not* `scope.ctx.type`: refining the
 // singleton type of the specific enclosing lambda parameter, rather than the
 // nominal class `C`, is what a `lexer` rule's own macro (which tears the
 // rule apart and rebuilds its pieces as fresh lambdas — see `createLexer.scala`)
@@ -143,13 +143,12 @@ object Token:
  * The lexer context inside a `lexer` rule body. Read its fields, or assign them (`ctx.count += 1`) to change the
  * context for the tokens that follow: the assignment is rewritten into a `copy`, so the fields can stay `val`s.
  */
-transparent inline def ctx[C <: LexerCtx](using c: C): C = ${ ctxImpl[C]('c) }
+transparent inline def ctx[C <: LexerCtx](using scope: LexerScope[C]): C = ${ ctxImpl[C]('scope) }
 
 // $COVERAGE-OFF$
-@publicInBinary private[alpaca] def ctxImpl[C <: LexerCtx: Type](c: Expr[C])(using quotes: Quotes): Expr[C] = {
+@publicInBinary private[alpaca] def ctxImpl[C <: LexerCtx: Type](scope: Expr[LexerScope[C]])(using quotes: Quotes)
+  : Expr[C] = {
   import quotes.reflect.*
-
-  requireLexerRule(c.asTerm)
 
   val ctxTpe = TypeRepr.of[C].widen
 
@@ -163,10 +162,21 @@ transparent inline def ctx[C <: LexerCtx](using c: C): C = ${ ctxImpl[C]('c) }
       Refinement(withGetter, s"${name}_=", MethodType(List("v"))(_ => List(tpe), _ => TypeRepr.of[Unit]))
 
   refined.asType match
-    case '[type r <: C; r] => '{ $c.asInstanceOf[r] }
+    case '[type r <: C; r] => '{ $scope.ctx.asInstanceOf[r] }
 }
 
 // $COVERAGE-ON$
+
+/**
+ * Evidence that code runs inside a `lexer` rule, where `ctx` and `Token[...]` are available. Only the `lexer` macro
+ * creates one.
+ *
+ * @tparam C the lexer context type
+ */
+@implicitNotFound("`ctx` and `Token` can only be used inside a lexer rule")
+final class LexerScope[C <: LexerCtx] @publicInBinary private[alpaca] (@publicInBinary private[alpaca] val ctx: C):
+  /** The lexer context type. */
+  type Ctx = C
 
 /**
  * Trait for the global context used during tokenization.

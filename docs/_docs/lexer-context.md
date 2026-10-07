@@ -114,7 +114,7 @@ val lexemes = lexed.getOrThrow
 
 ## Accessing Context in Patterns
 
-Inside a `lexer[Ctx]:` block, the name `ctx` is implicitly available and refers to the current context object. You can read any field and assign to it -- the assignment is rewritten to a `copy`:
+Inside a `lexer[Ctx]:` block, the name `ctx` is implicitly available and refers to the current context object. You can read any field and assign to it -- the assignment is rewritten to a `copy`. Outside a lexer rule, `ctx` and `Token[...]` do not compile:
 
 ```scala sc-compile-with:lc-brainlex
 val ExampleLexer = lexer[BrainLexContext]:
