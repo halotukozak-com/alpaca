@@ -33,7 +33,7 @@ private[parser] object ParseTable:
     def apply(state: Int, symbol: Symbol): ParseAction = table(state).get(symbol) match
       case Some(action) => action
       case None =>
-        val expected = table(state).keysIterator.toList.sortBy(_.displayName).mkShow(", ")
+        val expected = table(state).keysIterator.toList.sortBy(_.show).mkShow(", ")
         throw AlgorithmError(show"Unexpected symbol '$symbol' in state $state. Expected one of: $expected")
 
     /** The parse action for a given state and symbol, or `null` if the grammar accepts no such symbol there. */
@@ -245,11 +245,19 @@ private[parser] object ParseTable:
     }
 
   // No constructor for a raw ParseTable outside the algorithm above, hence write-only below.
+  // The export carries the parser's own symbol names, so a consumer need not hardcode them.
   given MCodec[Production] => MCodec[ParseTable] =
-    given MCodec[(symbol: Symbol, action: ParseAction)] = MCodec.derived
-    MCodec[List[List[(symbol: Symbol, action: ParseAction)]]].transform(
-      onWrite =
-        table => table.rows.toList.map(_.iterator.map((symbol, action) => (symbol = symbol, action = action)).toList),
+    type Cell = (symbol: Symbol, action: ParseAction)
+    type Export = (endOfInput: String, start: String, states: List[List[Cell]])
+    given MCodec[Cell] = MCodec.derived
+    given MCodec[Export] = MCodec.derived
+    MCodec[Export].transform(
+      onWrite = table =>
+        (
+          endOfInput = Symbol.EOF.name.raw,
+          start = Symbol.Start.name.raw,
+          states = table.rows.toList.map(_.iterator.map((symbol, action) => (symbol = symbol, action = action)).toList),
+        ),
       onRead = _ => throw UnsupportedOperationException("ParseTable's export codec is write-only"),
     )
 // $COVERAGE-ON$

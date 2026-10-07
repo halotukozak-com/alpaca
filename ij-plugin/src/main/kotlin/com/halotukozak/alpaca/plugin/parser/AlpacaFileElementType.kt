@@ -29,9 +29,7 @@ object AlpacaFileElementType : IFileElementType(AlpacaLanguage) {
         val builder = PsiBuilderFactory.getInstance().createBuilder(project, chameleon, lexer, AlpacaLanguage, chameleon.chars)
 
         val rootMarker = builder.mark()
-        if (parserGrammar != null) {
-            AlpacaLrDriver.forTable(parserGrammar.table).parse(AlpacaPsiTreeBuilder(builder, lexerId, tokens))
-        }
+        parserGrammar?.table?.let { AlpacaLrDriver.forTable(it).parse(AlpacaPsiTreeBuilder(builder, lexerId, tokens)) }
         // Safety net: make sure the whole chameleon ends up under rootMarker either way, whether the
         // driver ran to EOF or there was no parser grammar to drive at all.
         while (!builder.eof()) builder.advanceLexer()

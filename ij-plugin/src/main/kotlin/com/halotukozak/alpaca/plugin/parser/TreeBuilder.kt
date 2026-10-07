@@ -1,9 +1,5 @@
 package com.halotukozak.alpaca.plugin.parser
 
-/** The end-of-input terminal name Alpaca's parser tables use (matches `Symbol.EOF` on the Scala side), kept apart
- *  from a token named `$`. */
-const val EOF_TERMINAL_NAME = "\$\$\$synthetic\$\$"
-
 /**
  * The minimal tree-building surface [AlpacaLrDriver] needs: a real [com.intellij.lang.PsiBuilder]
  * adapter in production, an in-memory fake in tests.
@@ -16,8 +12,8 @@ const val EOF_TERMINAL_NAME = "\$\$\$synthetic\$\$"
  * node" after the span has already been consumed.
  */
 interface TreeBuilder<M> {
-    /** The current lookahead token's terminal name, as it appears in the exported grammar, or [EOF_TERMINAL_NAME]. */
-    fun currentTerminal(): String
+    /** The current lookahead token's terminal name, as it appears in the exported grammar, or null at end of input. */
+    fun currentTerminal(): String?
 
     /** The current lookahead token's raw source text, or `"<eof>"` at end of input. Distinct from
      *  [currentTerminal] because that's often a token's *pattern* (e.g. `\)`), not user-facing text. */

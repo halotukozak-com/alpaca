@@ -107,7 +107,7 @@ object Terminal:
      * The name as the user wrote it: unencoded (`+`, not `$plus`), without the synthetic suffix (`$`, `ε`, `S'`),
      * and EBNF-synthesized non-terminals without their uniqueness suffix (`Operation.List`).
      */
-    def displayName: String =
+    private[parser] def displayName: String =
       val name = symbol.name.raw
       if name.endsWith(SyntheticInfix) then name.dropRight(SyntheticInfix.length)
       else

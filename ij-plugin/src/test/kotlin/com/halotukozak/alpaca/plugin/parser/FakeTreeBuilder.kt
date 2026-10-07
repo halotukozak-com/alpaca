@@ -44,7 +44,7 @@ class FakeTreeBuilder(
         val rec: Rec,
     )
 
-    override fun currentTerminal(): String = tokens.getOrNull(pos)?.first ?: EOF_TERMINAL_NAME
+    override fun currentTerminal(): String? = tokens.getOrNull(pos)?.first
 
     override fun currentTokenText(): String = tokens.getOrNull(pos)?.second ?: "<eof>"
 
