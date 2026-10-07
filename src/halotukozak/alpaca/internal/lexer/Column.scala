@@ -9,14 +9,14 @@ package lexer
  *
  * Use it as a field of a lexer context:
  * {{{
- * case class MyCtx(position: Column = Column.Start) extends LexerCtx
+ * case class MyCtx(column: Column = Column.Start) extends LexerCtx
  * }}}
  *
  * [[Tracking.materialize]] finds the `given Tracking[Column]` below and applies
  * it to that field after every match, threading a functional `copy` -- so
- * `position` stays an immutable `val`. `Column <: Int`, so `ctx.position`
+ * `column` stays an immutable `val`. `Column <: Int`, so `ctx.column`
  * reads as a plain `Int` everywhere; assigning it inside a rule body
- * (`ctx.position = Column(...)`) is rewritten to a `copy` too.
+ * (`ctx.column = Column(...)`) is rewritten to a `copy` too.
  *
  * (Named `Column`, not `Position`, to avoid shadowing the unrelated source
  * `Position` type used throughout this library's own error reporting.)

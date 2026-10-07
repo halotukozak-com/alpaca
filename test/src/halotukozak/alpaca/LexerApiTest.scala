@@ -122,7 +122,7 @@ final class LexerApiTest extends AnyFunSuite with Matchers {
 
     val finalCtx = Lexer.tokenize("ab\ncde").ctx
     finalCtx.line shouldBe 2
-    finalCtx.position shouldBe 4
+    finalCtx.column shouldBe 4
   }
 }
 

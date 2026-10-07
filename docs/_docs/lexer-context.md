@@ -2,7 +2,7 @@
 
 Every Alpaca lexer carries a **context** object that evolves as the input is processed. Context lets you do stateful lexing: counting brackets, tracking indentation, recording whether you are inside a string literal, or anything else that depends on the tokens seen so far.
 
-By default, the lexer uses `LexerCtx.Default`, which gives you position and line tracking with no extra setup.
+By default, the lexer uses `LexerCtx.Default`, which gives you column and line tracking with no extra setup.
 
 <details>
 <summary>Under the hood: how tracking fields update</summary>
@@ -19,17 +19,17 @@ When you write a `lexer:` block without a type parameter, the lexer uses `LexerC
 import halotukozak.alpaca.*
 
 final case class Default(
-  position: Column = Column.Start,
+  column: Column = Column.Start,
   line: Line = Line.Start,
 ) extends LexerCtx
 ```
 
-- `position` -- 1-based column within the current line, incremented by the matched length and reset to 1 when a token matches exactly `"\n"`
+- `column` -- 1-based column within the current line, incremented by the matched length and reset to 1 when a token matches exactly `"\n"`
 - `line` -- 1-based line number, incremented when a token matches exactly `"\n"`
 
 > **Note:** the built-in trackers look at the whole matched text, not at individual characters. A token that matches `"\n"` together with other characters (e.g. `case "\\s+" => Token.Ignored` matching `" \n  "`) does not advance `line`. If you need line numbers, give newlines their own pattern -- `case "\n" => Token.Ignored` -- before any broader whitespace pattern, and keep that pattern from matching `\n` (e.g. `"[ \t]+"`).
 
-`Column` and `Line` are opaque subtypes of `Int`, so `ctx.position` and `ctx.line` read as plain `Int`s everywhere. Each carries a `given Tracking` that the lexer macro finds and applies after every match.
+`Column` and `Line` are opaque subtypes of `Int`, so `ctx.column` and `ctx.line` read as plain `Int`s everywhere. Each carries a `given Tracking` that the lexer macro finds and applies after every match.
 
 ```scala
 import halotukozak.alpaca.*
@@ -43,13 +43,13 @@ val lexed = BrainLexer.tokenize("+ - +")
 
 
 val lexemes = lexed.getOrThrow
-// lexed.ctx.position == 6
-// lexed.ctx.line     == 1
+// lexed.ctx.column == 6
+// lexed.ctx.line   == 1
 //
 // Each lexeme carries a snapshot of context fields at match time:
-// inc: text="+", position=2, line=1
-// dec: text="-", position=4, line=1
-// inc: text="+", position=6, line=1
+// inc: text="+", column=2, line=1
+// dec: text="-", column=4, line=1
+// inc: text="+", column=6, line=1
 ```
 
 Position advances by the matched length after each token. The snapshot captures values *after* the token was consumed, not before.
@@ -173,18 +173,18 @@ import halotukozak.alpaca.*
 
 case class BrainLexContext(
   squareBrackets: Int = 0,
-  position: Column = Column.Start,
+  column: Column = Column.Start,
   line: Line = Line.Start,
 ) extends LexerCtx
 ```
 
-With this context, every lexeme carries `squareBrackets`, `position`, and `line`. `squareBrackets` changes only where a rule body assigns it; `position` and `line` advance automatically after every match.
+With this context, every lexeme carries `squareBrackets`, `column`, and `line`. `squareBrackets` changes only where a rule body assigns it; `column` and `line` advance automatically after every match.
 
 ## The Post-Match Update
 
 After every successful token match -- once the text cursor has already advanced past the matched text -- the lexer:
 
-1. applies each tracked field's `Tracking` update (`position`, `line`, and any custom fragments),
+1. applies each tracked field's `Tracking` update (`column`, `line`, and any custom fragments),
 2. applies the rule body's own context changes,
 3. records the lexeme snapshot.
 
@@ -225,7 +225,7 @@ No inheritance, no trait companion, no composition macro: a fragment is just a f
 
 ## LexerCtx.Empty
 
-For cases where you need no tracking at all -- no position, no line counter, no custom fields -- use `LexerCtx.Empty`:
+For cases where you need no tracking at all -- no column, no line counter, no custom fields -- use `LexerCtx.Empty`:
 
 ```scala
 import halotukozak.alpaca.*
@@ -235,7 +235,7 @@ val Lexer = lexer[LexerCtx.Empty]:
   case "." => Token.Ignored
 
 val lexemes = Lexer.tokenize("+ +").getOrThrow
-// lexemes(0).text == "+"  -- the only snapshot field: no position, no line
+// lexemes(0).text == "+"  -- the only snapshot field: no column, no line
 ```
 
 See [Between Stages](on-token-match.md) to learn how context snapshots in lexemes flow into the parser.

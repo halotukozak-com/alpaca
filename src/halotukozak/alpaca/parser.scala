@@ -227,11 +227,11 @@ final case class ParserError(unexpected: Lexeme[?, ?], expected: List[String]):
     val what =
       if unexpected.name == "$" then describe(unexpected.name)
       else show"""${describe(unexpected.name)} "${Printable(unexpected.text)}""""
-    // `position` is recorded after the match, so the token itself starts `text.length` earlier.
-    val where = (field("line"), field("position")) match
-      case (Some(line), Some(position)) => show" at line $line, column ${position - unexpected.text.length}"
+    // `column` is recorded after the match, so the token itself starts `text.length` earlier.
+    val where = (field("line"), field("column")) match
+      case (Some(line), Some(column)) => show" at line $line, column ${column - unexpected.text.length}"
       case (Some(line), None) => show" at line $line"
-      case (None, Some(position)) => show" at column ${position - unexpected.text.length}"
+      case (None, Some(column)) => show" at column ${column - unexpected.text.length}"
       case (None, None) => show""
     show"Unexpected $what$where. Expected one of: ${expected.map(describe).mkShow(", ")}"
   }
