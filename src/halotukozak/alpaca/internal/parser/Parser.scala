@@ -151,13 +151,8 @@ abstract class Parser[Ctx <: ParserCtx](
 def productionImpl[P <: Parser[?]: Type](using quotes: Quotes): Expr[ProductionSelector] = {
   import quotes.reflect.*
   given Diagnostics = Diagnostics()
-  val rules = TypeRepr
-    .of[P]
-    .typeSymbol
-    .declarations
-    .iterator
-    .collect:
-      case decl if decl.typeRef <:< TypeRepr.of[Rule[?]] => decl.tree
+  // `def` rules are reported by the parser's own expansion (createTablesImpl)
+  val rules = ruleDeclarations(TypeRepr.of[P].typeSymbol).iterator.filterNot(_.isDefDef).map(_.tree)
 
   val extractName: PartialFunction[Expr[Rule[?]], Seq[String]] =
     case '{ rule(${ Varargs(cases) }*)(using $_) } =>
@@ -167,7 +162,6 @@ def productionImpl[P <: Parser[?]: Type](using quotes: Quotes): Expr[ProductionS
 
   val fields = rules
     .flatMap:
-      // todo: def rules, or error? https://github.com/halotukozak/alpaca/issues/230
       case DefinitionRhs(_, rhs) => extractName.applyOrElse(rhs.asExprOf[Rule[?]], _ => Nil)
       case _ =>
         error(show"Define resolutions as the last field of the parser.", Position.ofMacroExpansion)

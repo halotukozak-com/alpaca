@@ -159,12 +159,13 @@ object Tables:
             .toList
       }
 
-      val rules = parserTpe.typeSymbol.declarations.iterator.collect:
-        case decl if decl.typeRef <:< TypeRepr.of[Rule[?]] => decl.tree // todo: can we avoid .tree?
+      val rules = ruleDeclarations(parserTpe.typeSymbol)
+      reportDefRules(rules)
+      abortOnErrors()
 
-      val table = rules
+      val table = rules.iterator
+        .map(_.tree) // todo: can we avoid .tree?
         .flatMap:
-          // todo: def rules, or error? https://github.com/halotukozak/alpaca/issues/230
           case DefinitionRhs(ruleName, rhs) =>
             extractEBNF(ruleName).applyOrElse(
               rhs.asExprOf[Rule[?]],
