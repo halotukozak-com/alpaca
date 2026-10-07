@@ -71,13 +71,22 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
 
     private val underlying: SymbolExtractor =
       case skipTypedOrTest(
-            Unapply(Select(Extractor.Unpack(term, name, extractor), Names.Unapply), Nil, List(Extractor.Bind(bind))),
+            Unapply(
+              Select(Extractor.WithoutScope(Extractor.Unpack(term, name, extractor)), Names.Unapply),
+              _,
+              List(Extractor.Bind(bind)),
+            ),
           ) if term.tpe <:< TypeRepr.of[T] =>
         (NameTransformer.decode(name), bind, extractor)
     override def isDefinedAt(x: Tree): Boolean = underlying.isDefinedAt(x)
     override def apply(x: Tree): (name: String, bind: Option[Bind], extractor: String | Null) = underlying.apply(x)
 
   object Extractor:
+    // `.List`, `.Option` and `.SeparatedBy` take the `ParserScope` as an argument
+    val WithoutScope: PartialFunction[Tree, Tree] =
+      case Apply(fn, List(scope)) if scope.tpe <:< TypeRepr.of[ParserScope] => fn
+      case other => other
+
     private val Name: PartialFunction[Term, String] =
       case Select(_, name) => name
       case Ident(name) => name
@@ -112,7 +121,11 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
   // helper productions desugared from EBNF are sourced at the pattern they come from
   {
     case pattern @ skipTypedOrTest(
-          Unapply(Select(Extractor.SeparatedBy(element, separator), Names.Unapply), Nil, List(Extractor.Bind(bind))),
+          Unapply(
+            Select(Extractor.WithoutScope(Extractor.SeparatedBy(element, separator)), Names.Unapply),
+            _,
+            List(Extractor.Bind(bind)),
+          ),
         ) =>
       val source = Source(pattern.pos)
       val fresh = NonTerminal.fresh(element, "SeparatedBy")

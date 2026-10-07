@@ -80,6 +80,23 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     """).map(_.message) shouldBe List("A production name must be a string literal, as in `\"plus\" { case ... }`")
   }
 
+  private val outsideParser =
+    "`rule`, named productions, and token and rule extractors can only be used inside a parser definition"
+  private val outsideResolutions =
+    "`production`, `Production(...)`, `before` and `after` can only be used inside resolutions(...)"
+
+  // the compiler appends import suggestions, and a failed extractor is also reported as malformed
+  inline private def errors(inline code: String) = typeCheckErrors(code).map(_.message.linesIterator.next())
+
+  test("the parser DSL outside a parser is reported") {
+    errors("""val r: Rule[Int] = rule { case WordLexer.WORD(_) => 1 }""") should contain(outsideParser)
+    errors("""(null: Any) match { case WordLexer.WORD(_) => () }""") should contain(outsideParser)
+  }
+
+  test("the resolutions DSL outside resolutions is reported") {
+    errors("""val p = Production(WordLexer.WORD)""") shouldBe List(outsideResolutions)
+  }
+
   test("KNOWN ISSUE: the remaining text handed to ErrorHandling keeps its content after the callback") {
     var seen: CharSequence | Null = null
     case class RecordingCtx(n: Int = 0) extends LexerCtx

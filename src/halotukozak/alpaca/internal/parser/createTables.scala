@@ -86,7 +86,7 @@ object Tables:
           None
 
       def extractEBNF(ruleName: String): PartialFunction[Expr[Rule[?]], Seq[ProductionWithAction[Ctx]]] = {
-        case '{ rule(${ Varargs(cases) }*) } =>
+        case '{ rule(${ Varargs(cases) }*)(using $_) } =>
           def createAction(binds: Seq[Option[Bind]], rhs: Term) = createLambda[Action[Ctx]]:
             case (methSym, (ctx: Term) :: (param: Term) :: Nil) =>
               val paramExpr = param.asExprOf[RevertedArray[Any]]
@@ -103,7 +103,7 @@ object Tables:
               replaceRefs(replacements*).transformTerm(rhs)(methSym)
 
           val extractProductionName: Function[Expr[ProductionDefinition[?]], (Tree, ValidName | Null)] =
-            case '{ ($name: String).apply($production: ProductionDefinition[?]) } =>
+            case '{ ($name: String).apply($production: ProductionDefinition[?])(using $_) } =>
               production.asTerm -> name.value.fold[ValidName | Null] {
                 error(show"A production name must be a string literal, as in `\"plus\" { case ... }`", name.asTerm.pos)
                 null
@@ -232,7 +232,11 @@ object Tables:
             errorAndAbort(show"Production with name '$decodedName' not found", call.asTerm.pos),
           )
 
-        case '{ alpaca.Production(${ Varargs(rhs) }*) } =>
+        // `p` refers to the outer type: fresh type variables aren't inferred through opaque types (scala/scala3#21889)
+        case '{ alpaca.Production[`p`](${ Varargs(rhs) }*)(using $_) } =>
+          // the outer Apply is the using-scope application; report at `Production(...)` itself
+          def pos = call.asTerm.runtimeChecked match
+            case Apply(production, _) => production.pos
           val args = rhs
             .map[parser.Symbol.NonEmpty]:
               case '{ type ruleType <: Rule[?]; $_ : ruleType }
@@ -254,13 +258,13 @@ object Tables:
 
           productionsByRhs.getOrElse(NEL.unsafe(args), Nil) match
             case production :: Nil => production
-            case Nil => errorAndAbort(show"Production with RHS '${args.mkShow(" ")}' not found", call.asTerm.pos)
+            case Nil => errorAndAbort(show"Production with RHS '${args.mkShow(" ")}' not found", pos)
             case candidates =>
               errorAndAbort(
                 show"""Production with RHS '${args.mkShow(" ")}' is ambiguous, it matches:
                       |${candidates.mkShow("  ", "\n  ", "")}
                       |Name the production you mean and refer to it with `production.<name>`""".trimMargin,
-                call.asTerm.pos,
+                pos,
               )
 
         case definition =>
@@ -294,7 +298,7 @@ object Tables:
             case definition => unsupported(definition.pos)
 
           rhs.asExprOf[Resolutions[p]] match
-            case '{ resolutions[p & Parser[?]](${ Varargs(resolutionExprs) }*) } => resolutionExprs
+            case '{ resolutions[`p`](${ Varargs(resolutionExprs) }*) } => resolutionExprs
             case _ => unsupported(rhs.pos)
       }
 
@@ -306,12 +310,15 @@ object Tables:
       // kept in declaration order, so a cycle is searched from the first declared rule and reported at the one closing it
       val conflictResolutionTable = ConflictResolutionTable(
         resolutionExprs.iterator
+          // matched without the scope lambda, as the arguments may refer to its parameter
+          .map(_.asTerm)
+          .map:
+            case Lambda(List(_), body) => body.asExpr
+            case other => other.asExpr
           .flatMap:
-            case '{ (ctx: ResolutionCtx[p]) ?=> ($after: Production | Token[?, ?, ?]).after(${ Varargs(befores) }*) } =>
+            case '{ ($after: Production | Token[?, ?, ?]).after[`p`](${ Varargs(befores) }*)(using $_) } =>
               befores.map(before => (extractKey(before), extractKey(after), Source(before.asTerm.pos)))
-            case '{ (ctx: ResolutionCtx[p]) ?=>
-                  ($before: Production | Token[?, ?, ?]).before(${ Varargs(afters) }*)
-                } =>
+            case '{ ($before: Production | Token[?, ?, ?]).before[`p`](${ Varargs(afters) }*)(using $_) } =>
               afters.map(after => (extractKey(before), extractKey(after), Source(after.asTerm.pos)))
             case other =>
               errorAndAbort(

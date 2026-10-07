@@ -146,13 +146,15 @@ private[alpaca] final case class DefinedToken[
 ) extends Token[Name, Ctx, Value]:
 
   @compileTimeOnly(RuleOnly)
-  inline def unapply(@unused x: Any): Option[LexemeTpe] = null.asInstanceOf[Option[LexemeTpe]]
+  inline def unapply(@unused x: Any)(using ParserScope): Option[LexemeTpe] = null.asInstanceOf[Option[LexemeTpe]]
   @compileTimeOnly(RuleOnly)
-  inline def List: PartialFunction[Any, List[LexemeTpe]] = null.asInstanceOf[PartialFunction[Any, List[LexemeTpe]]]
+  inline def List(using ParserScope): PartialFunction[Any, List[LexemeTpe]] =
+    null.asInstanceOf[PartialFunction[Any, List[LexemeTpe]]]
   @compileTimeOnly(RuleOnly)
-  inline def Option: PartialFunction[Any, Option[LexemeTpe]] = null.asInstanceOf[PartialFunction[Any, Option[LexemeTpe]]]
+  inline def Option(using ParserScope): PartialFunction[Any, Option[LexemeTpe]] =
+    null.asInstanceOf[PartialFunction[Any, Option[LexemeTpe]]]
   @compileTimeOnly(RuleOnly)
-  inline def SeparatedBy[Separator]: PartialFunction[Any, List[LexemeTpe | SepValue[Separator]]] =
+  inline def SeparatedBy[Separator](using ParserScope): PartialFunction[Any, List[LexemeTpe | SepValue[Separator]]] =
     null.asInstanceOf[PartialFunction[Any, List[LexemeTpe | SepValue[Separator]]]]
 
 /**

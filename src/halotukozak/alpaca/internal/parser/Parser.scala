@@ -45,6 +45,8 @@ abstract class Parser[Ctx <: ParserCtx](
    */
   val root: Rule[?]
 
+  protected final given ParserScope = ParserScope.refl
+
   /**
    * Provides access to the parser context within rule definitions.
    *
@@ -158,9 +160,9 @@ def productionImpl[P <: Parser[?]: Type](using quotes: Quotes): Expr[ProductionS
       case decl if decl.typeRef <:< TypeRepr.of[Rule[?]] => decl.tree
 
   val extractName: PartialFunction[Expr[Rule[?]], Seq[String]] =
-    case '{ rule(${ Varargs(cases) }*) } =>
+    case '{ rule(${ Varargs(cases) }*)(using $_) } =>
       cases.flatMap:
-        case '{ ($name: ValidName).apply($_ : ProductionDefinition[?]) } => name.value
+        case '{ ($name: ValidName).apply($_ : ProductionDefinition[?])(using $_) } => name.value
         case _ => None
 
   val fields = rules
