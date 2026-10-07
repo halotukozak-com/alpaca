@@ -39,6 +39,12 @@ private[parser] type ProductionWithAction[Ctx <: ParserCtx] = (
   action: Expr[Action[Ctx]],
 )
 
+/** How a pattern's bound value reaches the action; generic in `B` since `Bind` is path-dependent on `Quotes`. */
+private[parser] enum Binding[+B]:
+  def bind: B
+  case Plain(bind: B) // used as is
+  case Reversed(bind: B) // a `.List` accumulated in reverse; reversed once where it is bound
+
 /**
  * Analyzes a single pattern from a parser rule definition during macro expansion,
  * extracting the grammar symbol it matches (terminal or non-terminal) together
@@ -48,8 +54,7 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
   quotes.reflect.Tree,
   (
     symbol: parser.Symbol.NonEmpty,
-    bind: Option[quotes.reflect.Bind],
-    reversed: Boolean,
+    binding: Option[Binding[quotes.reflect.Bind]],
     others: List[ProductionWithAction[Ctx]],
   ),
 ] = {
@@ -133,8 +138,7 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
       val nonEmpty = NonTerminal.fresh(element, "SeparatedBy.nonEmpty")
       (
         symbol = fresh,
-        bind = bind,
-        reversed = false,
+        binding = bind.map(Binding.Plain(_)),
         others = List(
           (
             production = Production.Empty(fresh),
@@ -160,18 +164,17 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
       )
 
     case Extractor.NonTerminal(name, bind, null) =>
-      (symbol = NonTerminal(Printable(name)), bind = bind, reversed = false, others = Nil)
+      (symbol = NonTerminal(Printable(name)), binding = bind.map(Binding.Plain(_)), others = Nil)
 
     case Extractor.Terminal(name, bind, null) =>
-      (symbol = Terminal(Printable(name)), bind = bind, reversed = false, others = Nil)
+      (symbol = Terminal(Printable(name)), binding = bind.map(Binding.Plain(_)), others = Nil)
 
     case pattern @ Extractor.Symbol(symbol, bind, Names.Option) =>
       val source = Source(pattern.pos)
       val fresh = NonTerminal.fresh(symbol, "Option")
       (
         symbol = fresh,
-        bind = bind,
-        reversed = false,
+        binding = bind.map(Binding.Plain(_)),
         others = List(
           (production = Production.Empty(fresh), source = source, action = '{ noneAction }),
           (
@@ -185,11 +188,9 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
     case pattern @ Extractor.Symbol(symbol, bind, Names.List) =>
       val source = Source(pattern.pos)
       val fresh = NonTerminal.fresh(symbol, "List")
-      // accumulated in reverse, reversed once where it is bound
       (
         symbol = fresh,
-        bind = bind,
-        reversed = true,
+        binding = bind.map(Binding.Reversed(_)),
         others = List(
           (production = Production.Empty(fresh), source = source, action = '{ emptyRepeatedAction }),
           (

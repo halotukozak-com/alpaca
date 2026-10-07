@@ -87,25 +87,26 @@ object Tables:
 
       def extractEBNF(ruleName: String): PartialFunction[Expr[Rule[?]], Seq[ProductionWithAction[Ctx]]] = {
         case '{ rule(${ Varargs(cases) }*)(using $_) } =>
-          def createAction(binds: Seq[(bind: Option[Bind], reversed: Boolean)], rhs: Term) = createLambda[Action[Ctx]]:
+          def createAction(bindings: Seq[Option[Binding[Bind]]], rhs: Term) = createLambda[Action[Ctx]]:
             case (methSym, (ctx: Term) :: (param: Term) :: Nil) =>
               val paramExpr = param.asExprOf[RevertedArray[Any]]
-              val bound = binds.iterator.zipWithIndex
+              val bound = bindings.iterator.zipWithIndex
                 .collect:
-                  case ((Some(bind), reversed), idx) =>
-                    (bind.symbol, bind.symbol.termRef.widen.asType, reversed, Expr(idx))
+                  case (Some(binding), idx) => (binding, binding.bind.symbol.termRef.widen.asType, Expr(idx))
                 .toList
               // a `.List` arrives accumulated in reverse; reversed once, before the action body
               val reversedLists = bound
                 .collect:
-                  case (bind, '[t], true, idx) =>
+                  case (Binding.Reversed(bind), '[t], idx) =>
                     val list = Symbol.newVal(methSym, bind.name, TypeRepr.of[t], Flags.EmptyFlags, Symbol.noSymbol)
                     val reversed = '{ $paramExpr($idx).asInstanceOf[List[?]].reverse.asInstanceOf[t] }.asTerm
-                    bind -> ValDef(list, Some(reversed.changeOwner(list)))
+                    bind.symbol -> ValDef(list, Some(reversed.changeOwner(list)))
                 .toMap
               val replacements = (find = ctxSymbol, replace = ctx) :: bound.map:
-                case (bind, _, true, _) => (find = bind, replace = Ref(reversedLists(bind).symbol))
-                case (bind, '[t], false, idx) => (find = bind, replace = '{ $paramExpr($idx).asInstanceOf[t] }.asTerm)
+                case (Binding.Reversed(bind), _, _) =>
+                  (find = bind.symbol, replace = Ref(reversedLists(bind.symbol).symbol))
+                case (Binding.Plain(bind), '[t], idx) =>
+                  (find = bind.symbol, replace = '{ $paramExpr($idx).asInstanceOf[t] }.asTerm)
                 case other => raiseShouldNeverBeCalled(other)
 
               val body = replaceRefs(replacements*).transformTerm(rhs)(methSym)
@@ -141,28 +142,25 @@ object Tables:
                 None
               // Tuple1
               case (c @ CaseDef(skipTypedOrTest(pattern @ Unapply(_, _, List(_))), None, rhs), name) =>
-                symbolOf(pattern).toList.flatMap: (symbol, bind, reversed, others) =>
+                symbolOf(pattern).toList.flatMap: (symbol, binding, others) =>
                   val production =
                     Production.NonEmpty(NonTerminal(Printable(ruleName)), NEL(symbol), Printable.nullable(name))
-                  (production = production, source = Source(c.pos), action = createAction(List((bind, reversed)), rhs)) ::
-                    others
+                  (production = production, source = Source(c.pos), action = createAction(List(binding), rhs)) :: others
 
               // TupleN, N > 1
               case (c @ CaseDef(skipTypedOrTest(Unapply(_, _, patterns)), None, rhs), name) =>
                 val elements = patterns.map(symbolOf)
                 if elements.contains(None) then Nil
                 else
-                  val extracted = elements.flatten
-                  val symbols = extracted.map(_.symbol)
-                  val binds = extracted.map(e => (e.bind, e.reversed))
-                  val others = extracted.map(_.others)
+                  val (symbols, bindings, others) = elements.flatten.unzip3(using _.toTuple)
                   val production =
                     Production.NonEmpty(
                       NonTerminal(Printable(ruleName)),
                       NEL(symbols.head, symbols.tail*),
                       Printable.nullable(name),
                     )
-                  (production = production, source = Source(c.pos), action = createAction(binds, rhs)) :: others.flatten
+                  (production = production, source = Source(c.pos), action = createAction(bindings, rhs)) ::
+                    others.flatten
               case (c, _) =>
                 error(
                   show"A production must match a token or rule extractor, or a tuple of them, as in `case (Expr(a), MyLexer.PLUS(_), Expr(b))`",
