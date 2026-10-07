@@ -26,6 +26,16 @@ private[internal] object JsonExport:
    */
   private[internal] val ExportFormatVersion: Int = 2
 
+  /**
+   * Shape of a `.table.json` export, mirrored by the IntelliJ plugin's `ParseTableSpec`; changing it means bumping
+   *  [[ExportFormatVersion]]. Generic because `Symbol` and `ParseAction` are private to the `parser` package.
+   */
+  private[internal] type TableFormat[Symbol, Action] =
+    (endOfInput: String, start: String, states: List[List[TableFormat.Cell[Symbol, Action]]])
+
+  private[internal] object TableFormat:
+    type Cell[Symbol, Action] = (symbol: Symbol, action: Action)
+
 // $COVERAGE-OFF$
   /**
    * Writes `value`, wrapped in a `{"version": ..., "context": ...}` envelope, to

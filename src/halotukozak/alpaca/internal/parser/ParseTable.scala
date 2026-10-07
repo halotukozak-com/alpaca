@@ -247,11 +247,10 @@ private[parser] object ParseTable:
   // No constructor for a raw ParseTable outside the algorithm above, hence write-only below.
   // The export carries the parser's own symbol names, so a consumer need not hardcode them.
   given MCodec[Production] => MCodec[ParseTable] =
-    type Cell = (symbol: Symbol, action: ParseAction)
-    type Export = (endOfInput: String, start: String, states: List[List[Cell]])
-    given MCodec[Cell] = MCodec.derived
-    given MCodec[Export] = MCodec.derived
-    MCodec[Export].transform(
+    import JsonExport.TableFormat
+    given MCodec[TableFormat.Cell[Symbol, ParseAction]] = MCodec.derived
+    given MCodec[TableFormat[Symbol, ParseAction]] = MCodec.derived
+    MCodec[TableFormat[Symbol, ParseAction]].transform(
       onWrite = table =>
         (
           endOfInput = Symbol.EOF.name.raw,
