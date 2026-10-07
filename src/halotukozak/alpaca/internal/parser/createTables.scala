@@ -85,8 +85,7 @@ object Tables:
           )
           None
 
-      def extractEBNF(ruleName: String)
-        : PartialFunction[Expr[Rule[?]], Seq[(production: Production, source: Source, action: Expr[Action[Ctx]])]] = {
+      def extractEBNF(ruleName: String): PartialFunction[Expr[Rule[?]], Seq[ProductionWithAction[Ctx]]] = {
         case '{ rule(${ Varargs(cases) }*) } =>
           def createAction(binds: Seq[Option[Bind]], rhs: Term) = createLambda[Action[Ctx]]:
             case (methSym, (ctx: Term) :: (param: Term) :: Nil) =>

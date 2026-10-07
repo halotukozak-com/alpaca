@@ -60,7 +60,7 @@ private[lexer] object TokenInfo:
    * @param ignored whether matches of this token are dropped from the lexeme stream
    * @param quotes the Quotes instance
    * @return a TokenInfo expression, together with the pattern's already-parsed [[Regex]] so
-   *         callers don't have to parse it again, or `None` if the pattern is invalid, and where the token is defined
+   *         callers don't have to parse it again, or `None` if the pattern is invalid
    */
 // $COVERAGE-OFF$
   def apply(using
@@ -91,7 +91,6 @@ private[lexer] object TokenInfo:
       tokenType = ConstantType(StringConstant(name)).asType.asInstanceOf[Type[? <: ValidName]],
       info = TokenInfo(Printable(name), nextRegexGroupName(), Printable(pattern), ignored),
       regex = regex,
-      source = Source(pos),
     )
 
   /**

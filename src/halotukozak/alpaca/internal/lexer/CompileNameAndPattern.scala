@@ -10,13 +10,8 @@ import scala.annotation.tailrec
 
 // $COVERAGE-OFF$
 
-/** A token compiled from one lexer pattern: its name type, info, parsed regex (`None` if invalid) and source. */
-private[lexer] type CompiledPattern = (
-  tokenType: Type[? <: ValidName],
-  info: TokenInfo,
-  regex: Option[Regex],
-  source: Source,
-)
+/** A token compiled from one lexer pattern: its name type, info and parsed regex (`None` if invalid). */
+private[lexer] type CompiledPattern = (tokenType: Type[? <: ValidName], info: TokenInfo, regex: Option[Regex])
 
 /**
  * Compiles a pattern tree into token information during macro expansion.
