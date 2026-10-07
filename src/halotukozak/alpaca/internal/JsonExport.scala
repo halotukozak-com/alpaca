@@ -20,9 +20,8 @@ private[internal] object JsonExport:
   /**
    * Bumped only when the *shape* of an exported `.tokens.json`/`.productions.json`/`.table.json`
    *  file, or the meaning of its contents, changes -- not the library's own release version, which
-   *  changes on every release regardless of whether the export did. Version 2: the end of the input
-   *  is the terminal `$$$synthetic$$` and the augmented start symbol `S'$$synthetic$$`, so that `$`
-   *  and `S'` can be ordinary token and rule names. A consumer (e.g. the IntelliJ plugin) reads this
+   *  changes on every release regardless of whether the export did. Version 2: synthetic names for the
+   *  end of the input and the start symbol. A consumer (e.g. the IntelliJ plugin) reads this
    *  back to detect whether it understands the payload before parsing it.
    */
   private[internal] val ExportFormatVersion: Int = 2

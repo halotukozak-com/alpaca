@@ -98,9 +98,8 @@ intellijPlatform {
 }
 
 tasks.compileTestKotlin {
-    // Kotlin's classpath snapshot does not see changes to the main classes here (not even a changed
-    // `const` that the tests inline), so the build cache replayed test classes compiled against the
-    // old ones. Fingerprinting the main classes in full keeps the cache key honest.
+    // Kotlin's classpath snapshot misses main-class changes (e.g. a `const` the tests inline),
+    // so the build cache replayed stale test classes.
     inputs
         .files(sourceSets.main.map { it.output.classesDirs })
         .withNormalizer(ClasspathNormalizer::class)
