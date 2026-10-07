@@ -87,7 +87,7 @@ object Token:
    * @return a token that will be ignored
    */
   @compileTimeOnly("Should never be called outside the lexer definition")
-  def Ignored(using scope: LexerScope[?]): IgnoredToken[scope.Ctx] = new IgnoredToken[scope.Ctx]
+  def Ignored(using scope: LexerScope[LexerCtx]): IgnoredToken[Nothing] = new IgnoredToken
 
   /**
    * Creates a token whose lexemes carry no value (`()`). To carry the matched text or anything computed from it, bind
@@ -100,8 +100,8 @@ object Token:
    * @return a token definition
    */
   @compileTimeOnly("Should never be called outside the lexer definition")
-  def apply[Name <: ValidName](using scope: LexerScope[?]): Token[Name, scope.Ctx, Unit] =
-    new Token[Name, scope.Ctx, Unit]
+  def apply[Name <: ValidName](using scope: LexerScope[LexerCtx]): Token[Name, Nothing, Unit] =
+    new Token[Name, Nothing, Unit]
 
   /**
    * Creates a token whose lexemes carry `value`, typically computed from the bound match.
@@ -114,8 +114,8 @@ object Token:
    * @return a token definition
    */
   @compileTimeOnly("Should never be called outside the lexer definition")
-  def apply[Name <: ValidName](value: Any)(using scope: LexerScope[?]): Token[Name, scope.Ctx, value.type] =
-    new Token[Name, scope.Ctx, value.type]
+  def apply[Name <: ValidName](value: Any)(using scope: LexerScope[LexerCtx]): Token[Name, Nothing, value.type] =
+    new Token[Name, Nothing, value.type]
 
 // The returned type is the concrete context type `C` refined with a getter
 // and a setter for every case field that doesn't already have a real setter,
@@ -162,21 +162,10 @@ transparent inline def ctx[C <: LexerCtx](using scope: LexerScope[C]): C = ${ ct
       Refinement(withGetter, s"${name}_=", MethodType(List("v"))(_ => List(tpe), _ => TypeRepr.of[Unit]))
 
   refined.asType match
-    case '[type r <: C; r] => '{ $scope.ctx.asInstanceOf[r] }
+    case '[type r <: C; r] => '{ LexerScope.ctx($scope).asInstanceOf[r] }
 }
 
 // $COVERAGE-ON$
-
-/**
- * Evidence that code runs inside a `lexer` rule, where `ctx` and `Token[...]` are available. Only the `lexer` macro
- * creates one.
- *
- * @tparam C the lexer context type
- */
-@implicitNotFound("`ctx` and `Token` can only be used inside a lexer rule")
-final class LexerScope[C <: LexerCtx] @publicInBinary private[alpaca] (@publicInBinary private[alpaca] val ctx: C):
-  /** The lexer context type. */
-  type Ctx = C
 
 /**
  * Trait for the global context used during tokenization.

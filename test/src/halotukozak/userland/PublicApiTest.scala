@@ -72,7 +72,8 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
   test("Token is a compile error outside a lexer rule") {
     typeCheckErrors("""Token["X"]""").map(_.message) shouldBe
       List("`ctx` and `Token` can only be used inside a lexer rule")
-    assert(!typeChecks("""new LexerScope(LexerCtx.Default())"""))
+    assert(!typeChecks("""val scope: LexerScope[LexerCtx.Default] = LexerCtx.Default()"""))
+    assert(!typeChecks("""LexerScope.refl(LexerCtx.Default())"""))
   }
 
   test("the lexer DSL's marker types cannot be created or extended from user code") {
