@@ -34,15 +34,26 @@ private[lexer] def compileNameAndPattern[T: Type](
   // branches below); every other call site passes the token's own name as T.
   val ignored = TypeRepr.of[T] =:= TypeRepr.of[Nothing]
 
+  // reported without aborting, like an invalid regex, so the lexer stays typed from its other cases;
+  // a rule with any rejected alternative contributes no patterns at all
+  def literals(alternatives: List[Tree]): List[String] =
+    alternatives.partitionMap {
+      case Literal(StringConstant(str)) => Right(str)
+      case other => Left(other)
+    } match
+      case (Nil, literals) => literals
+      case (nonLiterals, _) =>
+        nonLiterals.foreach: alternative =>
+          error(show"Each alternative of a lexer rule must be a regex string literal", alternative.pos)
+        Nil
+
   @tailrec def loop(tpe: TypeRepr, pattern: Tree): List[CompiledPattern] = (tpe, pattern) match {
     // case x @ "regex" => Token[x.type]
     case (TermRef(_, name), Bind(bind, Literal(StringConstant(regex)))) if name == bind =>
       TokenInfo(regex, regex :: Nil, ignored, pattern.pos) :: Nil
     // case x @ ("regex" | "regex2") => Token[x.type]
     case (TermRef(_, name), Bind(bind, Alternatives(alternatives))) if name == bind =>
-      alternatives.map:
-        case Literal(StringConstant(str)) => TokenInfo(str, str :: Nil, ignored, pattern.pos)
-        case other => raiseShouldNeverBeCalled(other)
+      literals(alternatives).map(str => TokenInfo(str, str :: Nil, ignored, pattern.pos))
     // case x @ <?> => Token[<?>]
     case (tpe, Bind(_, tree)) =>
       loop(tpe, tree)
@@ -51,23 +62,30 @@ private[lexer] def compileNameAndPattern[T: Type](
       TokenInfo(str, str :: Nil, ignored, pattern.pos) :: Nil
     // case x : ("regex" | "regex2") => Token.Ignored
     case (tpe, Alternatives(alternatives)) if tpe =:= TypeRepr.of[Nothing] =>
-      alternatives.map:
-        case Literal(StringConstant(str)) => TokenInfo(str, str :: Nil, ignored, pattern.pos)
-        case other => raiseShouldNeverBeCalled(other)
+      literals(alternatives).map(str => TokenInfo(str, str :: Nil, ignored, pattern.pos))
     // case x : "regex" => Token["name"]
     case (ConstantType(StringConstant(name)), Literal(StringConstant(regex))) =>
       TokenInfo(name, regex :: Nil, ignored, pattern.pos) :: Nil
     // case x : ("regex" | "regex2") => Token["name"]
     case (ConstantType(StringConstant(str)), Alternatives(alternatives)) =>
-      val patterns = alternatives.map:
-        case Literal(StringConstant(str)) => str
-        case other => raiseShouldNeverBeCalled[String](other)
+      val patterns = literals(alternatives)
       // Alternatives are merged into a single regex and matched via longest-match, not
       // priority order, so unlike cross-case shadowing (Lexer.scala) there's no "earlier wins"
       // relationship to check here: one alternative being a prefix of another (e.g. ">" and ">=")
       // is normal and both remain reachable.
-      TokenInfo(str, patterns, ignored, pattern.pos) :: Nil
-    case x => raiseShouldNeverBeCalled[List[CompiledPattern]](x.toString)
+      if patterns.isEmpty then Nil else TokenInfo(str, patterns, ignored, pattern.pos) :: Nil
+    case (_, Literal(StringConstant(_)) | Alternatives(_)) =>
+      error(
+        show"""A token name must be a string literal, as in `Token["NAME"]`, or the type of the bound match, as in `case x @ "regex" => Token[x.type]`""",
+        pattern.pos,
+      )
+      Nil
+    case _ =>
+      error(
+        show"""A lexer rule must match a regex string literal or alternatives of them, as in `case "[0-9]+"` or `case "a" | "b"`""",
+        pattern.pos,
+      )
+      Nil
   }
 
   loop(TypeRepr.of[T], pattern)
