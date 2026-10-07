@@ -87,30 +87,25 @@ object Tables:
 
       def extractEBNF(ruleName: String): PartialFunction[Expr[Rule[?]], Seq[ProductionWithAction[Ctx]]] = {
         case '{ rule(${ Varargs(cases) }*)(using $_) } =>
-          def createAction(bindings: Seq[Option[Binding[Bind]]], rhs: Term) = createLambda[Action[Ctx]]:
+          def createAction(bindings: Seq[Binding[Bind]], rhs: Term) = createLambda[Action[Ctx]]:
             case (methSym, (ctx: Term) :: (param: Term) :: Nil) =>
               val paramExpr = param.asExprOf[RevertedArray[Any]]
-              val bound = bindings.iterator.zipWithIndex
+              // each bound value is adapted once, before the action body
+              val locals = bindings.iterator.zipWithIndex
                 .collect:
-                  case (Some(binding), idx) => (binding, binding.bind.symbol.termRef.widen.asType, Expr(idx))
+                  case ((Some(bind), adapt), idx) => (bind, adapt, bind.symbol.termRef.widen.asType, Expr(idx))
+                .collect:
+                  case (bind, adapt, '[t], idx) =>
+                    val local = Symbol.newVal(methSym, bind.name, TypeRepr.of[t], Flags.EmptyFlags, Symbol.noSymbol)
+                    val adapted = adapt('{ $paramExpr($idx) })
+                    val value = '{ $adapted.asInstanceOf[t] }.asTerm
+                    (bind = bind.symbol, local = ValDef(local, Some(value.changeOwner(local))))
                 .toList
-              // a `.List` arrives accumulated in reverse; reversed once, before the action body
-              val reversedLists = bound
-                .collect:
-                  case (Binding.Reversed(bind), '[t], idx) =>
-                    val list = Symbol.newVal(methSym, bind.name, TypeRepr.of[t], Flags.EmptyFlags, Symbol.noSymbol)
-                    val reversed = '{ $paramExpr($idx).asInstanceOf[List[?]].reverse.asInstanceOf[t] }.asTerm
-                    bind.symbol -> ValDef(list, Some(reversed.changeOwner(list)))
-                .toMap
-              val replacements = (find = ctxSymbol, replace = ctx) :: bound.map:
-                case (Binding.Reversed(bind), _, _) =>
-                  (find = bind.symbol, replace = Ref(reversedLists(bind.symbol).symbol))
-                case (Binding.Plain(bind), '[t], idx) =>
-                  (find = bind.symbol, replace = '{ $paramExpr($idx).asInstanceOf[t] }.asTerm)
-                case other => raiseShouldNeverBeCalled(other)
+              val replacements = (find = ctxSymbol, replace = ctx) :: locals.map: (bind, local) =>
+                (find = bind, replace = Ref(local.symbol))
 
               val body = replaceRefs(replacements*).transformTerm(rhs)(methSym)
-              if reversedLists.isEmpty then body else Block(reversedLists.values.toList, body)
+              if locals.isEmpty then body else Block(locals.map(_.local), body)
 
           val extractProductionName: Function[Expr[ProductionDefinition[?]], (Tree, ValidName | Null)] =
             case '{ ($name: String).apply($production: ProductionDefinition[?])(using $_) } =>
