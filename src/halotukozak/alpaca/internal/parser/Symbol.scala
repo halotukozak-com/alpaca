@@ -107,19 +107,19 @@ object Terminal:
      * The name as the user wrote it: unencoded (`+`, not `$plus`), without the synthetic suffix (`$`, `ε`, `S'`),
      * and EBNF-synthesized non-terminals without their uniqueness suffix (`Operation.List`).
      */
-    private[parser] def displayName: String =
+    private[parser] def displayName: Printable =
       val name = symbol.name.raw
-      if name.endsWith(SyntheticInfix) then name.dropRight(SyntheticInfix.length)
+      if name.endsWith(SyntheticInfix) then Printable(name.dropRight(SyntheticInfix.length))
       else
         name.indexOf(s"_${SyntheticInfix}_") match
-          case -1 => name
-          case end => name.substring(0, end)
+          case -1 => symbol.name
+          case end => Printable(name.substring(0, end))
 
   /**
    * Symbols are shown by their [[displayName]], with characters that would not show up in a message escaped (see
    * [[Printable]]).
    */
-  given Showable[Symbol] = symbol => Printable(symbol.displayName).show
+  given Showable[Symbol] = _.displayName.show
 
   // $COVERAGE-OFF$
   given [S <: Symbol] => ToExpr[S]:

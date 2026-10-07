@@ -50,7 +50,7 @@ private[parser] object ParseTable:
         .collect { case terminal: Terminal if terminal != Symbol.Dummy && terminal != Symbol.Empty => terminal }
         .toList
         .sortBy(terminal => (terminal.displayName, terminal != Symbol.EOF))
-        .map(_.displayName)
+        .map(_.displayName.raw)
 
     private def allSymbols: List[Symbol] =
       table.iterator.flatMap(_.keysIterator).distinct.toList
