@@ -2,17 +2,19 @@ package halotukozak
 package alpaca
 package internal
 
+import scala.annotation.publicInBinary
+
 /**
- * A type-level marker used to provide default type parameters.
+ * Emulates a default type argument, which Scala 3 doesn't have.
  *
- * This class is used internally for type inference to allow optional type parameters
- * with defaults in the lexer and parser APIs.
+ * `lexer` and `Parser` take a `using Ctx withDefault D` clause, so `lexer { ... }` and `extends Parser` without a type
+ * argument infer `Ctx = D`, while an explicit `[MyCtx]` keeps `MyCtx`. The given is always found by the compiler;
+ * this is an implementation detail and never needs to be written or provided by users.
  *
  * @tparam T the provided type
  * @tparam Q the default type
  */
-//todo: better name
-infix class withDefault[T, Q]
+infix final class withDefault[T, Q] @publicInBinary private[alpaca] ()
 
 trait withDefaultLowImplicitPriority:
 
