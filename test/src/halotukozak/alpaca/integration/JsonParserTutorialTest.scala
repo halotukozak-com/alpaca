@@ -6,8 +6,6 @@ import halotukozak.alpaca.internal.parser.Parser
 import halotukozak.alpaca.{lexer, rule, Rule, Token}
 import org.scalatest.funsuite.AnyFunSuite
 
-import annotation.nowarn
-
 /** Validates the json-parser tutorial code compiles and runs correctly. */
 final class JsonParserTutorialTest extends AnyFunSuite:
   // === Section 1: Lexer (from tutorial) ===
@@ -25,7 +23,7 @@ final class JsonParserTutorialTest extends AnyFunSuite:
 
     // Literals
     case x @ ("false" | "true") => Token["Bool"](x.toBoolean)
-    case "null" => Token["Null"](null: @nowarn("msg=unused explicit parameter"))
+    case "null" => Token["Null"](null)
 
     // Numbers and strings
     case x @ """[-+]?\d+(\.\d+)?""" => Token["Number"](x.toDouble)

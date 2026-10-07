@@ -33,6 +33,14 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
         (find = tree.symbol, replace = '{ ${ newCtx.asExprOf[Ctx] }.lastRawMatched }.asTerm),
       )
 
+      // whether `term` refers to the context or to the bound match, i.e. whether its remapping needs the new context
+      def readsCtx(term: Term): Boolean =
+        val syms = Set(oldCtx.symbol, tree.symbol).filterNot(_.isNoSymbol)
+        new TreeAccumulator[Boolean]:
+          def foldTree(found: Boolean, t: Tree)(owner: Symbol): Boolean =
+            found || syms.contains(t.symbol) || foldOverTree(found, t)(owner)
+        .foldTree(false, term)(Symbol.spliceOwner)
+
       def extractSimple(ctxManipulation: Expr[CtxManipulation[Ctx]]): PartialFunction[
         Expr[TokenDef[ValidName, Ctx, Any]],
         List[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Option[Regex])],
@@ -88,10 +96,15 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
               // we need to widen here to avoid weird types
               TypeRepr.of[value].widen.asType match
                 case '[result] =>
-                  val remapping = createLambda[Ctx => result]:
-                    case (methSym, (newCtx: Term) :: Nil) =>
-                      val withNewCtx = replaceWithNewCtx(newCtx).transformTerm(value.asTerm)(methSym)
-                      rewriteCtxMutations(newCtx.symbol)(withNewCtx)(methSym)
+                  val remapping =
+                    if readsCtx(value.asTerm) then
+                      createLambda[Ctx => result]:
+                        case (methSym, (newCtx: Term) :: Nil) =>
+                          val withNewCtx = replaceWithNewCtx(newCtx).transformTerm(value.asTerm)(methSym)
+                          rewriteCtxMutations(newCtx.symbol)(withNewCtx)(methSym)
+                    // a value that ignores the context, e.g. `Token["Null"](null)`, gets a wildcard parameter,
+                    // otherwise -Wunused:explicits reports the unused one at the user's call site
+                    else '{ (_: Ctx) => ${ value.asTerm.changeOwner(Symbol.spliceOwner).asExprOf[result] } }
                   (
                     info = tokenInfo,
                     expr = '{

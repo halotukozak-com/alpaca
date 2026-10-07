@@ -17,6 +17,21 @@ final class CtxRemappingTest extends AnyFunSuite with Matchers with LoneElement:
     res.map(_.value) shouldBe List[Any](12, "ABC", 7)
   }
 
+  // compiles without "unused explicit parameter" under -Werror (#679)
+  test("remapping to a value that ignores the context") {
+    val L = lexer:
+      case "\\s+" => Token.Ignored
+      case "null" => Token["null"](null)
+      case "one" => Token["one"](1)
+      case "pair" =>
+        Token["pair"]:
+          val half = 2
+          half -> half
+
+    val res = L.tokenize("null one pair").getOrThrow
+    res.map(_.value) shouldBe List[Any](null, 1, 2 -> 2)
+  }
+
   test("ctx manipulation influences error position after ignored token") {
     val L = lexer:
       case "a" => Token["a"]
