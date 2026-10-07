@@ -102,7 +102,7 @@ private[parser] object ConflictResolutionTable:
               val (cycle, key) =
                 import ConflictKey.given
                 (path.reverse.dropWhile(_ != node).mkShow(" before "), node.show)
-              diagnostics.abort(
+              errorAndAbort(
                 show"""
                       |Inconsistent conflict resolution detected:
                       |$cycle before $key

@@ -52,7 +52,7 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using quotes: Q
     case '[type name <: ValidName; Token[name, ?, ?]] => Terminal(Printable(ValidName.from[name]))
     case '[Rule[?]] => NonTerminal(Printable(NameTransformer.decode(separator.tpe.termSymbol.name)))
     case _ =>
-      diagnostics.abort(
+      errorAndAbort(
         show"SeparatedBy separator must be a Token or Rule type, but got: ${separator.tpe.show.showRaw}",
         separator.pos,
       )

@@ -78,7 +78,7 @@ object Tables:
       def symbolOf(pattern: Tree) = symbolExtractor
         .lift(pattern)
         .orElse:
-          diagnostics.error(
+          error(
             show"Each element of a production's pattern must be a token or rule extractor, as in `MyLexer.NUM(n)`, `MyLexer.PLUS(_)`, `Expr(e)` or `Expr.List(es)`",
             pattern.pos,
           )
@@ -105,10 +105,7 @@ object Tables:
           val extractProductionName: Function[Expr[ProductionDefinition[?]], (Tree, ValidName | Null)] =
             case '{ ($name: String).apply($production: ProductionDefinition[?]) } =>
               production.asTerm -> name.value.fold[ValidName | Null] {
-                diagnostics.error(
-                  show"A production name must be a string literal, as in `\"plus\" { case ... }`",
-                  name.asTerm.pos,
-                )
+                error(show"A production name must be a string literal, as in `\"plus\" { case ... }`", name.asTerm.pos)
                 null
               }(_.asInstanceOf[ValidName])
             case other =>
@@ -119,7 +116,7 @@ object Tables:
             .map:
               case (Lambda(_, Match(_, List(caseDef))), name) => (caseDef, name)
               case (l @ Lambda(_, Match(_, _)), _) =>
-                diagnostics.abort(
+                errorAndAbort(
                   show"""Each production must have exactly one case. Split multiple cases into separate productions:
                     |  rule(
                     |    { case (a(x)) => ... },
@@ -128,10 +125,10 @@ object Tables:
                   l.pos,
                 )
               case (other, _) =>
-                diagnostics.abort(show"Unexpected production definition: $other", other.pos)
+                errorAndAbort(show"Unexpected production definition: $other", other.pos)
             .flatMap:
               case (c @ CaseDef(_, Some(_), _), _) =>
-                diagnostics.error(show"Guards are not supported yet", c.pos)
+                error(show"Guards are not supported yet", c.pos)
                 None
               // Tuple1
               case (c @ CaseDef(skipTypedOrTest(pattern @ Unapply(_, _, List(_))), None, rhs), name) =>
@@ -157,7 +154,7 @@ object Tables:
                     )
                   (production = production, action = createAction(binds, rhs)) :: others.flatten
               case (c, _) =>
-                diagnostics.error(
+                error(
                   show"A production must match a token or rule extractor, or a tuple of them, as in `case (Expr(a), MyLexer.PLUS(_), Expr(b))`",
                   c.pattern.pos,
                 )
@@ -175,14 +172,14 @@ object Tables:
             extractEBNF(ruleName).applyOrElse(
               rhs.asExprOf[Rule[?]],
               _ =>
-                diagnostics.error(
+                error(
                   show"Cannot read the productions of rule ${Printable(ruleName)}: define it with a `rule(...)` call.",
                   rhs.pos,
                 )
                 Nil,
             )
           case other: ValOrDefDef =>
-            diagnostics.abort(
+            errorAndAbort(
               show"Cannot read the definition of rule ${Printable(other.name)}. Enable -Yretain-trees compiler flag",
               other.pos,
             )
@@ -207,7 +204,7 @@ object Tables:
         case first :: others <- productions.filter(_.name != null).groupBy(_.name).values.toList
         duplicate <- others
       do
-        diagnostics.error(
+        error(
           show"Production name '${duplicate.name.nn}' is already used by $first; give each production its own name",
           duplicate.source.toPosition.getOrElse(Position.ofMacroExpansion),
         )
@@ -229,7 +226,7 @@ object Tables:
           val decodedName = Printable(NameTransformer.decode(name))
           productionsByName.getOrElse(
             decodedName,
-            diagnostics.abort(show"Production with name '$decodedName' not found", call.asTerm.pos),
+            errorAndAbort(show"Production with name '$decodedName' not found", call.asTerm.pos),
           )
 
         case '{ alpaca.Production(${ Varargs(rhs) }*) } =>
@@ -240,13 +237,13 @@ object Tables:
                 NonTerminal(Printable(TypeRepr.of[ruleType].termSymbol.name))
               case arg @ '{ type ruleType <: Rule[?]; $_ : ruleType } if TypeRepr.of[ruleType].termSymbol.exists =>
                 val rule = TypeRepr.of[ruleType].termSymbol
-                diagnostics.abort(
+                errorAndAbort(
                   show"Rule ${Printable(rule.name)} belongs to another parser, ${Printable(declaredName(rule.owner))}; `Production(...)` in the resolutions of $parserName can only refer to $parserName's rules",
                   arg.asTerm.pos,
                 )
               case '{ type name <: ValidName; $_ : Token[name, ?, ?] } => Terminal(Printable(ValidName.from[name]))
               case other =>
-                diagnostics.abort(
+                errorAndAbort(
                   show"Arguments of `Production(...)` must be rules or tokens of this parser",
                   other.asTerm.pos,
                 )
@@ -254,9 +251,9 @@ object Tables:
 
           productionsByRhs.getOrElse(NEL.unsafe(args), Nil) match
             case production :: Nil => production
-            case Nil => diagnostics.abort(show"Production with RHS '${args.mkShow(" ")}' not found", call.asTerm.pos)
+            case Nil => errorAndAbort(show"Production with RHS '${args.mkShow(" ")}' not found", call.asTerm.pos)
             case candidates =>
-              diagnostics.abort(
+              errorAndAbort(
                 show"""Production with RHS '${args.mkShow(" ")}' is ambiguous, it matches:
                       |${candidates.mkShow("  ", "\n  ", "")}
                       |Name the production you mean and refer to it with `production.<name>`""".trimMargin,
@@ -264,7 +261,7 @@ object Tables:
               )
 
         case definition =>
-          diagnostics.abort(
+          errorAndAbort(
             show"Refer to a production with `production.<name>` or `Production(<symbols>...)`",
             definition.asTerm.pos,
           )
@@ -272,7 +269,7 @@ object Tables:
 
       val givenResolutions: Option[Term] = Implicits.search(TypeRepr.of[Resolutions[p]]) match
         case _: NoMatchingImplicits => None
-        case failure: ImplicitSearchFailure => diagnostics.abort(failure.explanation.showRaw, Position.ofMacroExpansion)
+        case failure: ImplicitSearchFailure => errorAndAbort(failure.explanation.showRaw, Position.ofMacroExpansion)
         case success: ImplicitSearchSuccess => Some(success.tree)
 
       // a missing given just means no resolutions; any other failure to read them is reported where they're defined,
@@ -282,7 +279,7 @@ object Tables:
         case Some(givenRef) =>
           val givenSymbol = givenRef.symbol
 
-          def unsupported(pos: Position): Nothing = diagnostics.abort(
+          def unsupported(pos: Position): Nothing = errorAndAbort(
             show"""Cannot read the conflict resolutions of $parserName.
                   |Define them directly with a call to `resolutions`, e.g.:
                   |  given Resolutions[$parserName.type] = resolutions(...)""".trimMargin,
@@ -314,7 +311,7 @@ object Tables:
                 } =>
               afters.map(after => (extractKey(before), extractKey(after), Source(after.asTerm.pos)))
             case other =>
-              diagnostics.abort(
+              errorAndAbort(
                 show"Each conflict resolution must be a direct `x.before(...)` or `x.after(...)` call",
                 other.asTerm.pos,
               )
@@ -330,7 +327,7 @@ object Tables:
         .collectFirst:
           case (p @ Production.NonEmpty(lhs, _, _, _), _) if lhs == NonTerminal(Printable("root")) => p
         .getOrElse:
-          diagnostics.abort(
+          errorAndAbort(
             show"No root rule defined in $parserName. Define a root rule: val root: Rule[Any] = rule { ... }",
             // the parser declaration itself, which is where the root rule is missing
             Position.ofMacroExpansion,

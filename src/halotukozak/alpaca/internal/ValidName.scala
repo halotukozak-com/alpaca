@@ -31,6 +31,6 @@ private[alpaca] object ValidName:
   private[internal] def check(using quotes: Quotes, diagnostics: Diagnostics)(name: String, pos: quotes.reflect.Position)
     : Unit =
     name match
-      case invalid @ "_" => diagnostics.abort(show"Invalid token name: ${Printable(invalid)}", pos)
+      case invalid @ "_" => errorAndAbort(show"Invalid token name: ${Printable(invalid)}", pos)
       case _ =>
 // $COVERAGE-ON$

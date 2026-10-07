@@ -77,7 +77,7 @@ private[lexer] object TokenInfo:
     ValidName.check(name, pos)
     val pattern = alternatives.mkString("|")
     def reportInvalid(err: RegexParseError): Unit =
-      diagnostics.error(show"""Invalid regex pattern for token "${Printable(name)}": $err""", pos)
+      error(show"""Invalid regex pattern for token "${Printable(name)}": $err""", pos)
     // An alternative can be invalid on its own and still parse once joined, e.g. "(" | ")".
     val invalidAlternatives = alternatives match
       case _ :: Nil => Nil

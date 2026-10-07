@@ -105,7 +105,7 @@ private[parser] object ParseTable:
     // $COVERAGE-OFF$
     def raiseReduceReduceConflict(red1: Reduction, red2: Reduction, path: List[Symbol]): Unit =
       if reported.add(Set(red1.production, red2.production)) then
-        diagnostics.error(
+        error(
           show"""
                 |Reduce $red1 vs Reduce $red2
                 |In situation like:
@@ -118,7 +118,7 @@ private[parser] object ParseTable:
 
     def raiseShiftReduceConflict(symbol: Symbol, red: Reduction, path: List[Symbol]): Unit =
       if reported.add((symbol, red.production)) then
-        diagnostics.error(
+        error(
           show"""
                 |Shift "$symbol" vs Reduce $red
                 |In situation like:

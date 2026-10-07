@@ -148,7 +148,7 @@ abstract class Parser[Ctx <: ParserCtx](
 // $COVERAGE-OFF$
 def productionImpl[P <: Parser[?]: Type](using quotes: Quotes): Expr[ProductionSelector] = {
   import quotes.reflect.*
-  val diagnostics = Diagnostics()
+  given Diagnostics = Diagnostics()
   val rules = TypeRepr
     .of[P]
     .typeSymbol
@@ -168,7 +168,7 @@ def productionImpl[P <: Parser[?]: Type](using quotes: Quotes): Expr[ProductionS
       // todo: def rules, or error? https://github.com/halotukozak/alpaca/issues/230
       case DefinitionRhs(_, rhs) => extractName.applyOrElse(rhs.asExprOf[Rule[?]], _ => Nil)
       case _ =>
-        diagnostics.error(show"Define resolutions as the last field of the parser.", Position.ofMacroExpansion)
+        error(show"Define resolutions as the last field of the parser.", Position.ofMacroExpansion)
         Nil
     .map(name => (name, TypeRepr.of[Production]))
     .toList

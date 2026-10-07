@@ -9,14 +9,14 @@ import java.nio.file.{Files, Path, Paths}
 import scala.jdk.CollectionConverters.*
 
 /**
- * Guards the rule that macro errors go through [[Diagnostics]] from `errors.scala`, whose position argument is
- * mandatory, so no error can silently land on the macro expansion site.
+ * Guards the rule that macro errors go through [[error]] / [[errorAndAbort]] from `errors.scala`, whose position
+ * argument is mandatory, so no error can silently land on the macro expansion site.
  */
 final class ErrorReportingTest extends AnyFunSuite with Matchers:
 
   private val sources: Path = Paths.get(sys.env("MILL_WORKSPACE_ROOT"), "src")
 
-  test("macro errors are reported only through Diagnostics") {
+  test("macro errors are reported only through internal error/errorAndAbort") {
     val direct = """report\s*\.\s*(error|errorAndAbort)\b""".r
 
     val offenders = Files
@@ -33,7 +33,7 @@ final class ErrorReportingTest extends AnyFunSuite with Matchers:
             case (line, index) if direct.findFirstIn(line).isDefined => show"${sources.relativize(path)}:${index + 1}"
       .toList
 
-    withClue("use halotukozak.alpaca.internal.Diagnostics, which requires a position:\n") {
+    withClue("use halotukozak.alpaca.internal.error / errorAndAbort, which require a position:\n") {
       offenders shouldBe empty
     }
   }
