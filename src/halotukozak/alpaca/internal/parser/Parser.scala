@@ -45,13 +45,15 @@ abstract class Parser[Ctx <: ParserCtx](
    */
   val root: Rule[?]
 
+  protected final given ParserScope = ParserScope.instance
+
   /**
    * Provides access to the parser context within rule definitions.
    *
    * This is compile-time only and can only be used inside parser rule definitions.
    */
   @compileTimeOnly(RuleOnly)
-  inline protected final def ctx: Ctx = null.asInstanceOf[Ctx]
+  inline protected final def ctx(using ParserScope): Ctx = null.asInstanceOf[Ctx]
 
   /**
    * Parses a list of lexemes using the defined grammar.
@@ -158,9 +160,9 @@ def productionImpl[P <: Parser[?]: Type](using quotes: Quotes): Expr[ProductionS
       case decl if decl.typeRef <:< TypeRepr.of[Rule[?]] => decl.tree
 
   val extractName: PartialFunction[Expr[Rule[?]], Seq[String]] =
-    case '{ rule(${ Varargs(cases) }*) } =>
+    case '{ rule(${ Varargs(cases) }*)(using $_) } =>
       cases.flatMap:
-        case '{ ($name: ValidName).apply($_ : ProductionDefinition[?]) } => name.value
+        case '{ ($name: ValidName).apply($_ : ProductionDefinition[?])(using $_) } => name.value
         case _ => None
 
   val fields = rules
