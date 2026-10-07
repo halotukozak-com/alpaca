@@ -88,10 +88,10 @@ private[lexer] object TokenInfo:
         case Right(regex) => Some(regex)
         case Left(err) => reportInvalid(err); None
     (
-      ConstantType(StringConstant(name)).asType.asInstanceOf[Type[? <: ValidName]],
-      TokenInfo(Printable(name), nextRegexGroupName(), Printable(pattern), ignored),
-      regex,
-      Source(pos),
+      tokenType = ConstantType(StringConstant(name)).asType.asInstanceOf[Type[? <: ValidName]],
+      info = TokenInfo(Printable(name), nextRegexGroupName(), Printable(pattern), ignored),
+      regex = regex,
+      source = Source(pos),
     )
 
   /**

@@ -56,7 +56,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
                 source = source,
               )
             case other =>
-              raiseShouldNeverBeCalled(other)
+              raiseShouldNeverBeCalled(other.toTuple)
 
         case '{ type name <: ValidName; Token[name](using $_) } =>
           compileNameAndPattern[name](tree).map:
@@ -74,7 +74,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
                 source = source,
               )
             case other =>
-              raiseShouldNeverBeCalled(other)
+              raiseShouldNeverBeCalled(other.toTuple)
 
         case '{ type name <: ValidName; Token[name]($value: String)(using $_) } if value.asTerm.symbol == tree.symbol =>
           compileNameAndPattern[name](tree).map:
@@ -92,7 +92,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
                 source = source,
               )
             case other =>
-              raiseShouldNeverBeCalled(other)
+              raiseShouldNeverBeCalled(other.toTuple)
 
         case '{ type name <: ValidName; Token[name]($value: value)(using $_) } =>
           compileNameAndPattern[name](tree).map:
