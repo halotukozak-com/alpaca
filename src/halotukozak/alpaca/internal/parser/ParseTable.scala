@@ -90,6 +90,7 @@ private[parser] object ParseTable:
    * automaton's already-computed goto transitions.
    *
    * @param productions the grammar productions
+   * @param sources where each of `productions` is defined, for conflict messages
    * @return the constructed parse table
    */
   def apply(using
@@ -97,6 +98,7 @@ private[parser] object ParseTable:
     Diagnostics,
   )(
     productions: List[Production],
+    sources: Map[Production, Source],
     conflictResolutionTable: ConflictResolutionTable,
   ): ParseTable = {
     val reported = mutable.HashSet.empty[Set[Production] | (Symbol, Production)]
@@ -109,10 +111,10 @@ private[parser] object ParseTable:
                 |Reduce $red1 vs Reduce $red2
                 |In situation like:
                 |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
-                |Conflicting production: ${red1.production} (line ${red1.production.source.line + 1})
+                |Conflicting production: ${red1.production} (line ${sources(red1.production).line + 1})
                 |Consider marking one of the productions to be before or after the other
                 |""".trimMargin,
-          red2.production.source,
+          sources(red2.production),
         )
 
     def raiseShiftReduceConflict(symbol: Symbol, red: Reduction, path: List[Symbol]): Unit =
@@ -124,7 +126,7 @@ private[parser] object ParseTable:
                 |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
                 |Consider marking production $red to be before or after "$symbol"
                 |""".trimMargin,
-          red.production.source,
+          sources(red.production),
         )
     // $COVERAGE-ON$
 
@@ -240,7 +242,7 @@ private[parser] object ParseTable:
     }
 
   // No constructor for a raw ParseTable outside the algorithm above, hence write-only below.
-  given MCodec[ParseTable] =
+  given MCodec[Production] => MCodec[ParseTable] =
     given MCodec[(symbol: Symbol, action: ParseAction)] = MCodec.derived
     MCodec[List[List[(symbol: Symbol, action: ParseAction)]]].transform(
       onWrite =

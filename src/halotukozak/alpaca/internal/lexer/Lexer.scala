@@ -25,9 +25,10 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
 
   if cases.isEmpty then errorAndAbort(show"Lexer definition must contain at least one case", rules.asTerm.pos)
 
-  val tokens = cases.foldLeft(
-    List.empty[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], pos: Position, regex: Option[Regex])],
-  ):
+  // A token compiled from one case, with the case's position for error reporting.
+  type CompiledRule = (info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Option[Regex], pos: Position)
+
+  val tokens = cases.foldLeft(List.empty[CompiledRule]):
     case (acc, CaseDef(tree, None, body)) =>
       def replaceWithNewCtx(newCtx: Term) = replaceRefs(
         (find = oldCtx.symbol, replace = newCtx),
@@ -44,7 +45,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
 
       def extractSimple(ctxManipulation: Expr[CtxManipulation[Ctx]]): PartialFunction[
         Expr[TokenDef[ValidName, Ctx, Any]],
-        List[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Option[Regex])],
+        List[CompiledRule],
       ] = {
         case '{ Token.Ignored(using $_) } =>
           compileNameAndPattern[Nothing](tree).map:
@@ -53,9 +54,10 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
                 info = tokenInfo,
                 expr = '{ IgnoredToken[name, Ctx](${ Expr(tokenInfo) }, $ctxManipulation) },
                 regex = regex,
+                pos = tree.pos,
               )
             case other =>
-              raiseShouldNeverBeCalled(other)
+              raiseShouldNeverBeCalled(other.toTuple)
 
         case '{ type name <: ValidName; Token[name](using $_) } =>
           compileNameAndPattern[name](tree).map:
@@ -70,9 +72,10 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
                   )
                 },
                 regex = regex,
+                pos = tree.pos,
               )
             case other =>
-              raiseShouldNeverBeCalled(other)
+              raiseShouldNeverBeCalled(other.toTuple)
 
         case '{ type name <: ValidName; Token[name]($value: String)(using $_) } if value.asTerm.symbol == tree.symbol =>
           compileNameAndPattern[name](tree).map:
@@ -87,9 +90,10 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
                   )
                 },
                 regex = regex,
+                pos = tree.pos,
               )
             case other =>
-              raiseShouldNeverBeCalled(other)
+              raiseShouldNeverBeCalled(other.toTuple)
 
         case '{ type name <: ValidName; Token[name]($value: value)(using $_) } =>
           compileNameAndPattern[name](tree).map:
@@ -116,11 +120,10 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
                       )
                     },
                     regex = regex,
+                    pos = tree.pos,
                   )
             case (_, tokenInfo, _) =>
-              raiseShouldNeverBeCalled[(info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Option[Regex])](
-                tokenInfo,
-              )
+              raiseShouldNeverBeCalled[CompiledRule](tokenInfo)
       }
 
       val pairs = extractSimple('{ (c: Ctx) => c })
@@ -147,7 +150,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
           )
           Nil
 
-      acc ::: pairs.map((info, expr, regex) => (info = info, expr = expr, pos = tree.pos, regex = regex))
+      acc ::: pairs
 
     case (_, CaseDef(_, Some(guard), _)) => errorAndAbort(show"Guards are not supported yet", guard.pos)
 
@@ -201,7 +204,11 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
   // further up. Errors above are reported without aborting, so the lexer stays typed from all of its cases
   // and doesn't cascade; they only keep a partial grammar from being exported.
   if !diagnostics.hasErrors then
-    JsonExport.maybeWrite(exportId(declaredName(Symbol.spliceOwner.owner)), "tokens", tokens.map(_.info))
+    JsonExport.maybeWrite(
+      exportId(declaredName(Symbol.spliceOwner.owner)),
+      "tokens",
+      tokens.map(t => (info = t.info, source = Source(t.pos))),
+    )
 
   val fields = tokens.map(t => (t.info.name.raw, t.expr.asTerm.tpe))
   val types = fields.foldLeft(TypeRepr.of[Any]):

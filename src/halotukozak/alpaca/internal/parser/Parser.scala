@@ -105,7 +105,7 @@ abstract class Parser[Ctx <: ParserCtx](
             nodeStack += Node.Token(current)
             loop(if remaining.isEmpty then Nil else remaining.tail)
 
-          case ParseAction.Reduction(prod @ Production.NonEmpty(lhs, rhs, name, _)) =>
+          case ParseAction.Reduction(prod @ Production.NonEmpty(lhs, rhs, name)) =>
             val n = rhs.size
             val newStateIdx = stateStack(stateStack.size - 1 - n)
 
@@ -123,10 +123,10 @@ abstract class Parser[Ctx <: ParserCtx](
               loop(remaining)
             }
 
-          case ParseAction.Reduction(Production.Empty(Symbol.Start, name, _)) if stateStack.last == 0 =>
+          case ParseAction.Reduction(Production.Empty(Symbol.Start, name)) if stateStack.last == 0 =>
             Some(nodeStack.last)
 
-          case ParseAction.Reduction(prod @ Production.Empty(lhs, name, _)) =>
+          case ParseAction.Reduction(prod @ Production.Empty(lhs, name)) =>
             val ParseAction.Shift(gotoState) = tables.parseTable(stateStack.last, lhs).runtimeChecked
             val result = tables.actionTable(prod)(ctx, RevertedArray.empty)
             stateStack += gotoState

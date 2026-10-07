@@ -32,6 +32,13 @@ private[parser] object DefinitionRhs:
       case definition: ValOrDefDef => definition.rhs.map((definition.name, _))
       case _ => None
 
+/** A production with where it is defined and the action it runs on reduction. */
+private[parser] type ProductionWithAction[Ctx <: ParserCtx] = (
+  production: Production,
+  source: Source,
+  action: Expr[Action[Ctx]],
+)
+
 /**
  * Analyzes a single pattern from a parser rule definition during macro expansion,
  * extracting the grammar symbol it matches (terminal or non-terminal) together
@@ -42,7 +49,7 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
   (
     symbol: parser.Symbol.NonEmpty,
     bind: Option[quotes.reflect.Bind],
-    others: List[(production: Production, action: Expr[Action[Ctx]])],
+    others: List[ProductionWithAction[Ctx]],
   ),
 ] = {
   import quotes.reflect.*
@@ -115,19 +122,23 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
         bind = bind,
         others = List(
           (
-            production = Production.Empty(fresh, source = source),
+            production = Production.Empty(fresh),
+            source = source,
             action = '{ emptyRepeatedAction },
           ),
           (
-            production = Production.NonEmpty(fresh, NEL(nonEmpty), source = source),
+            production = Production.NonEmpty(fresh, NEL(nonEmpty)),
+            source = source,
             action = '{ identityAction },
           ),
           (
-            production = Production.NonEmpty(nonEmpty, NEL(element), source = source),
+            production = Production.NonEmpty(nonEmpty, NEL(element)),
+            source = source,
             action = '{ headAction },
           ),
           (
-            production = Production.NonEmpty(nonEmpty, NEL(nonEmpty, separator, element), source = source),
+            production = Production.NonEmpty(nonEmpty, NEL(nonEmpty, separator, element)),
+            source = source,
             action = '{ separatedByAction },
           ),
         ),
@@ -146,9 +157,10 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
         symbol = fresh,
         bind = bind,
         others = List(
-          (production = Production.Empty(fresh, source = source), action = '{ noneAction }),
+          (production = Production.Empty(fresh), source = source, action = '{ noneAction }),
           (
-            production = Production.NonEmpty(fresh, NEL(symbol), source = source),
+            production = Production.NonEmpty(fresh, NEL(symbol)),
+            source = source,
             action = '{ someAction },
           ),
         ),
@@ -161,9 +173,10 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
         symbol = fresh,
         bind = bind,
         others = List(
-          (production = Production.Empty(fresh, source = source), action = '{ emptyRepeatedAction }),
+          (production = Production.Empty(fresh), source = source, action = '{ emptyRepeatedAction }),
           (
-            production = Production.NonEmpty(fresh, NEL(fresh, symbol), source = source),
+            production = Production.NonEmpty(fresh, NEL(fresh, symbol)),
+            source = source,
             action = '{ repeatedAction },
           ),
         ),

@@ -25,9 +25,6 @@ private[alpaca] enum Production(val rhs: NEL[Symbol.NonEmpty] | Symbol.Empty.typ
   /** An optional name for the production. */
   val name: Printable | Null
 
-  /** Where the production is defined; desugared and synthetic productions point at what they stand for. */
-  val source: Source
-
   /**
    * Caches the case-class-derived hash instead of recomputing it on every call. `rhs` is a
    * `Vector`-backed sequence, so the default (non-cached) hashCode would rehash it from scratch
@@ -54,36 +51,37 @@ private[alpaca] enum Production(val rhs: NEL[Symbol.NonEmpty] | Symbol.Empty.typ
     lhs: NonTerminal & Symbol.NonEmpty,
     override val rhs: NEL[Symbol.NonEmpty],
     name: Printable | Null = null,
-    source: Source,
   ) extends Production(rhs)
 
   case Empty(
     lhs: NonTerminal,
     name: Printable | Null = null,
-    source: Source,
   ) extends Production(Symbol.Empty)
 
 private[alpaca] object Production:
 
   /** Showable instance for displaying productions in human-readable form. */
   given Showable[Production] =
-    case NonEmpty(lhs, rhs, null, _) => show"$lhs -> ${rhs.mkShow(" ")}"
-    case NonEmpty(lhs, rhs, name, _) => show"$lhs -> ${rhs.mkShow(" ")} (${name.nn})"
-    case Empty(lhs, null, _) => show"$lhs -> ${Symbol.Empty}"
-    case Empty(lhs, name, _) => show"$lhs -> ${Symbol.Empty} (${name.nn})"
+    case NonEmpty(lhs, rhs, null) => show"$lhs -> ${rhs.mkShow(" ")}"
+    case NonEmpty(lhs, rhs, name) => show"$lhs -> ${rhs.mkShow(" ")} (${name.nn})"
+    case Empty(lhs, null) => show"$lhs -> ${Symbol.Empty}"
+    case Empty(lhs, name) => show"$lhs -> ${Symbol.Empty} (${name.nn})"
 
   given Ordering[Production] = Ordering.by(_.hashCode)
 
   // $COVERAGE-OFF$
   private given MCodec[Printable | Null] = MCodec[Printable].nullable
 
-  // NonEmpty/Empty share one flat shape rather than a tagged union; rhs.isEmpty distinguishes them.
-  given MCodec[Production] = MCodec
+  /**
+   * The export codec, taking each production's source from `sources`, which has every production of the grammar.
+   * NonEmpty/Empty share one flat shape rather than a tagged union; rhs.isEmpty distinguishes them.
+   */
+  def exportCodec(sources: Map[Production, Source]): MCodec[Production] = MCodec
     .derived[(lhs: Printable, rhs: List[Symbol], name: Printable | Null, source: Source)]
     .transform(
       onWrite = {
-        case NonEmpty(lhs, rhs, name, source) => (lhs = lhs.name, rhs = rhs.toList, name = name, source = source)
-        case Empty(lhs, name, source) => (lhs = lhs.name, rhs = Nil, name = name, source = source)
+        case p @ NonEmpty(lhs, rhs, name) => (lhs = lhs.name, rhs = rhs.toList, name = name, source = sources(p))
+        case p @ Empty(lhs, name) => (lhs = lhs.name, rhs = Nil, name = name, source = sources(p))
       },
       onRead = _ => throw UnsupportedOperationException("Production's export codec is write-only"),
     )

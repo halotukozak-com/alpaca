@@ -26,7 +26,7 @@ private[parser] final case class Core(production: Production, dotPosition: Int):
    * depends on the production kind, not part of this method's contract).
    */
   def nextSymbol: Symbol = production match
-    case Production.NonEmpty(_, rhs, _, _) => rhs(dotPosition)
+    case Production.NonEmpty(_, rhs, _) => rhs(dotPosition)
     case _: Production.Empty => throw AlgorithmError(show"$this is the last item, has no next symbol")
 
   /** The core with the dot advanced by one position. Callers must guard with `!isLastItem`. */
@@ -34,7 +34,7 @@ private[parser] final case class Core(production: Production, dotPosition: Int):
 
   /** Whether the dot is at the end of the production. */
   val isLastItem: Boolean = production match
-    case Production.NonEmpty(_, rhs, _, _) => rhs.sizeIs == dotPosition
+    case Production.NonEmpty(_, rhs, _) => rhs.sizeIs == dotPosition
     case _: Production.Empty => true
 
 private[parser] object Core:
@@ -44,8 +44,8 @@ private[parser] object Core:
   given Ordering[Core] = Ordering.by[Core, Int](_.production.hashCode).orElseBy(_.dotPosition)
 
   given Showable[Core] =
-    case Core(Production.NonEmpty(lhs, rhs, name, _), dotPosition) =>
+    case Core(Production.NonEmpty(lhs, rhs, name), dotPosition) =>
       val (left, right) = rhs.splitAt(dotPosition)
       show"$lhs -> ${left.mkShow}•${right.mkShow}"
-    case Core(Production.Empty(lhs, name, _), _) =>
+    case Core(Production.Empty(lhs, name), _) =>
       show"$lhs -> •${Symbol.Empty}"

@@ -24,7 +24,7 @@ private[parser] final case class Item(
 )(using DebugSettings,
 ):
   production match
-    case Production.NonEmpty(_, rhs, name, _) =>
+    case Production.NonEmpty(_, rhs, name) =>
       if dotPosition < 0 || rhs.sizeIs < dotPosition then
         throw AlgorithmError(show"dotPosition $dotPosition out of bounds for production $production")
     case _: Production.Empty =>
@@ -39,7 +39,7 @@ private[parser] final case class Item(
    * depends on the production kind, not part of this method's contract).
    */
   def nextSymbol: Symbol = production match
-    case Production.NonEmpty(_, rhs, name, _) => rhs(dotPosition)
+    case Production.NonEmpty(_, rhs, name) => rhs(dotPosition)
     case _: Production.Empty => throw AlgorithmError(show"$this is the last item, has no next symbol")
 
   /**
@@ -53,7 +53,7 @@ private[parser] final case class Item(
 
   /** Whether the dot is at the end of the production. */
   val isLastItem: Boolean = production match
-    case Production.NonEmpty(_, rhs, name, _) => rhs.sizeIs == dotPosition
+    case Production.NonEmpty(_, rhs, name) => rhs.sizeIs == dotPosition
     case _: Production.Empty => true
 
   /**
@@ -63,7 +63,7 @@ private[parser] final case class Item(
    * @return the set of terminals that could appear next
    */
   def nextTerminals(firstSet: FirstSet): Set[Terminal] = production match
-    case Production.NonEmpty(lhs, rhs, name, _) =>
+    case Production.NonEmpty(lhs, rhs, name) =>
       rhs.lift(dotPosition + 1) match
         case Some(symbol: Symbol) => firstSet.first(symbol)
         case None => Set(lookAhead)
@@ -71,8 +71,8 @@ private[parser] final case class Item(
 
 private[parser] object Item:
   given Showable[Item] =
-    case Item(Production.NonEmpty(lhs, rhs, name, _), dotPosition, lookAhead) =>
+    case Item(Production.NonEmpty(lhs, rhs, name), dotPosition, lookAhead) =>
       val (left, right) = rhs.splitAt(dotPosition)
       show"$lhs -> ${left.mkShow}•${right.mkShow}, $lookAhead"
-    case Item(Production.Empty(lhs, name, _), _, lookAhead) =>
+    case Item(Production.Empty(lhs, name), _, lookAhead) =>
       show"$lhs -> •${Symbol.Empty}, $lookAhead"

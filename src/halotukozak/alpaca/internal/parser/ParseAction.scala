@@ -43,18 +43,20 @@ private[parser] sealed trait ParseAction extends Any
 
   // Local tagging enum instead of `derives MCodec` on ParseAction itself, which stays AnyVal.
   @flatten("type")
-  private enum ActionExport derives MCodec:
+  private enum ActionExport:
     @name("shift") case Shift(state: Int)
     @name("reduce") case Reduce(production: Production)
 
-  given MCodec[ParseAction] = MCodec[ActionExport].transform(
-    onWrite = {
-      case Shift(state) => ActionExport.Shift(state)
-      case Reduction(production) => ActionExport.Reduce(production)
-    },
-    onRead = {
-      case ActionExport.Shift(state) => Shift(state)
-      case ActionExport.Reduce(production) => Reduction(production)
-    },
-  )
+  given MCodec[Production] => MCodec[ParseAction] = MCodec
+    .derived[ActionExport]
+    .transform(
+      onWrite = {
+        case Shift(state) => ActionExport.Shift(state)
+        case Reduction(production) => ActionExport.Reduce(production)
+      },
+      onRead = {
+        case ActionExport.Shift(state) => Shift(state)
+        case ActionExport.Reduce(production) => Reduction(production)
+      },
+    )
 // $COVERAGE-ON$

@@ -2,8 +2,6 @@ package halotukozak.alpaca.internal
 
 import halotukozak.mcodec.MCodec
 
-import scala.quoted.ToExprFactory
-
 /**
  * Where a lexer or parser rule is defined in the grammar's source.
  *
@@ -12,7 +10,7 @@ import scala.quoted.ToExprFactory
  * @param start the offset of the definition's first character in `file`
  * @param end   the offset just past the definition's last character in `file`
  */
-case class Source(line: Int, file: String, start: Int, end: Int) derives MCodec, ToExprFactory:
+case class Source(line: Int, file: String, start: Int, end: Int) derives MCodec:
 
   /**
    * The definition's position, for reporting compile errors at it.
