@@ -11,7 +11,7 @@ import scala.annotation.{publicInBinary, switch}
 import scala.reflect.NameTransformer
 
 // $COVERAGE-OFF$
-def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
+def createLexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
   rules: Expr[Ctx ?=> LexerDefinition[Ctx]],
   onTokenMatch: Expr[(Token[?, Ctx, ?], String, Ctx) => Ctx],
   errorHandling: Expr[ErrorHandling[Ctx, LexerError]],
