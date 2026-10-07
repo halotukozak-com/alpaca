@@ -64,8 +64,9 @@ private[lexer] object TokenInfo:
    *         callers don't have to parse it again, or `None` if the pattern is invalid
    */
 // $COVERAGE-OFF$
-  def apply(
-    using quotes: Quotes,
+  def apply(using
+    Quotes,
+    Diagnostics,
   )(
     name: String,
     alternatives: List[String],

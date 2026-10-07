@@ -24,7 +24,8 @@ import scala.annotation.tailrec
 private[lexer] type CompiledPattern = (Type[? <: ValidName], TokenInfo, Option[Regex])
 
 private[lexer] def compileNameAndPattern[T: Type](
-  using quotes: Quotes,
+  using Quotes,
+  Diagnostics,
 )(
   pattern: quotes.reflect.Tree,
 ): List[CompiledPattern] = {

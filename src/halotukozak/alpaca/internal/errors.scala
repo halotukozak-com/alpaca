@@ -31,16 +31,28 @@ private[alpaca] final val RuleOnly = "Should never be called outside the rule de
 private[alpaca] final val ConflictResolutionOnly = "Should never be called outside the conflict resolution definition"
 
 /**
+ * Whether a macro expansion has reported any compile error, e.g. to skip side effects, such as the grammar export, that
+ * need a valid definition. Create one per expansion, as a `given` for [[error]] and [[errorAndAbort]].
+ */
+private[internal] final class Diagnostics:
+  private var reported = false
+
+  def hasErrors: Boolean = reported
+
+  private[internal] def markError(): Unit = reported = true
+
+/**
  * Reports a compile error at `pos`.
  *
  * Use this instead of `quotes.reflect.report.error`: the position is mandatory, so an error can't silently land on
  * the macro expansion site. Pass `Position.ofMacroExpansion` explicitly when that really is the right place.
  */
-private[internal] def error(using quotes: Quotes)(message: Shown, pos: quotes.reflect.Position): Unit =
+private[internal] def error(using Quotes, Diagnostics)(message: Shown, pos: quotes.reflect.Position): Unit =
+  summon[Diagnostics].markError()
   quotes.reflect.report.error(message, pos)
-private[internal] def error(using quotes: Quotes)(message: Shown, source: Source): Unit =
+private[internal] def error(using Quotes, Diagnostics)(message: Shown, source: Source): Unit =
   val (located, pos) = locate(message, source)
-  quotes.reflect.report.error(located, pos)
+  error(located, pos)
 
 /**
  * Reports a compile error at `pos` and aborts the macro expansion.
@@ -48,11 +60,19 @@ private[internal] def error(using quotes: Quotes)(message: Shown, source: Source
  * Use this instead of `quotes.reflect.report.errorAndAbort`: the position is mandatory, so an error can't silently
  * land on the macro expansion site. Pass `Position.ofMacroExpansion` explicitly when that really is the right place.
  */
-private[internal] def errorAndAbort(using quotes: Quotes)(message: Shown, pos: quotes.reflect.Position): Nothing =
+private[internal] def errorAndAbort(using Quotes, Diagnostics)(message: Shown, pos: quotes.reflect.Position): Nothing =
+  summon[Diagnostics].markError()
   quotes.reflect.report.errorAndAbort(message, pos)
-private[internal] def errorAndAbort(using quotes: Quotes)(message: Shown, source: Source): Nothing =
+private[internal] def errorAndAbort(using Quotes, Diagnostics)(message: Shown, source: Source): Nothing =
   val (located, pos) = locate(message, source)
-  quotes.reflect.report.errorAndAbort(located, pos)
+  errorAndAbort(located, pos)
+
+/**
+ * Aborts the macro expansion if any error has been reported, without reporting another one: each error is already at
+ * its own position.
+ */
+private[internal] def abortOnErrors()(using Diagnostics): Unit =
+  if summon[Diagnostics].hasErrors then throw new scala.quoted.runtime.StopMacroExpansion
 
 /**
  * Reports at `source` when it's in the macro expansion's file; otherwise, since its position can't be rebuilt there,

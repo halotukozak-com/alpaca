@@ -64,6 +64,7 @@ object Tables:
   using quotes: Quotes,
 ): Expr[(parseTable: ParseTable, actionTable: ActionTable[Ctx])] = {
   import quotes.reflect.*
+  given Diagnostics = Diagnostics()
   val parserSymbol = Symbol.spliceOwner.owner.owner
   val parserTpe = parserSymbol.typeRef
 
@@ -73,10 +74,6 @@ object Tables:
       val parserName = Printable(declaredName(parserSymbol))
       val exportName = exportId(parserName.raw)
 
-      // set when a rule is reported as unreadable, so the expansion stops before the errors that would only follow
-      // from its productions missing (e.g. "No root rule defined")
-      var unreadable = false
-
       val symbolExtractor = extractEBNFAndAction[Ctx]
       def symbolOf(pattern: Tree) = symbolExtractor
         .lift(pattern)
@@ -85,7 +82,6 @@ object Tables:
             show"Each element of a production's pattern must be a token or rule extractor, as in `MyLexer.NUM(n)`, `MyLexer.PLUS(_)`, `Expr(e)` or `Expr.List(es)`",
             pattern.pos,
           )
-          unreadable = true
           None
 
       def extractEBNF(ruleName: String)
@@ -110,7 +106,6 @@ object Tables:
             case '{ ($name: String).apply($production: ProductionDefinition[?]) } =>
               production.asTerm -> name.value.fold[ValidName | Null] {
                 error(show"A production name must be a string literal, as in `\"plus\" { case ... }`", name.asTerm.pos)
-                unreadable = true
                 null
               }(_.asInstanceOf[ValidName])
             case other =>
@@ -134,7 +129,6 @@ object Tables:
             .flatMap:
               case (c @ CaseDef(_, Some(_), _), _) =>
                 error(show"Guards are not supported yet", c.pos)
-                unreadable = true
                 None
               // Tuple1
               case (c @ CaseDef(skipTypedOrTest(pattern @ Unapply(_, _, List(_))), None, rhs), name) =>
@@ -164,7 +158,6 @@ object Tables:
                   show"A production must match a token or rule extractor, or a tuple of them, as in `case (Expr(a), MyLexer.PLUS(_), Expr(b))`",
                   c.pattern.pos,
                 )
-                unreadable = true
                 None
             .toList
       }
@@ -183,7 +176,6 @@ object Tables:
                   show"Cannot read the productions of rule ${Printable(ruleName)}: define it with a `rule(...)` call.",
                   rhs.pos,
                 )
-                unreadable = true
                 Nil,
             )
           case other: ValOrDefDef =>
@@ -194,7 +186,9 @@ object Tables:
           case other => raiseShouldNeverBeCalled(other)
         .toList
         .tap: _ =>
-          if unreadable then throw new scala.quoted.runtime.StopMacroExpansion
+          // a rule reported as unreadable stops the expansion before the errors that would only follow from its
+          // productions missing (e.g. "No root rule defined")
+          abortOnErrors()
         .tap: table =>
           // csv may be not the best format for this due to the commas
           logger.toFile(s"${parserName.raw}/actionTable.dbg.csv", true)(table.toCsv)
@@ -206,14 +200,15 @@ object Tables:
         .tap(JsonExport.maybeWrite(exportName, "productions", _))
 
       // a name has to pick out a single production whether or not the resolutions refer to it
-      val duplicateNames = for
+      for
         case first :: others <- productions.filter(_.name != null).groupBy(_.name).values.toList
         duplicate <- others
-      yield error(
-        show"Production name '${duplicate.name.nn}' is already used by $first; give each production its own name",
-        duplicate.source.toPosition.getOrElse(Position.ofMacroExpansion),
-      )
-      if duplicateNames.nonEmpty then throw new scala.quoted.runtime.StopMacroExpansion
+      do
+        error(
+          show"Production name '${duplicate.name.nn}' is already used by $first; give each production its own name",
+          duplicate.source.toPosition.getOrElse(Position.ofMacroExpansion),
+        )
+      abortOnErrors()
 
       // Built once and reused by every findProduction call below, instead of once per call --
       // findProduction runs once per `.after`/`.before` reference in the grammar's conflict

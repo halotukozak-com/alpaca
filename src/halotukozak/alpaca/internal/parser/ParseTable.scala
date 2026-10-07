@@ -9,7 +9,6 @@ import halotukozak.mcodec.MCodec
 import scala.annotation.tailrec
 import scala.collection.immutable.SortedSet
 import scala.collection.mutable
-import scala.quoted.runtime.StopMacroExpansion
 
 /**
  * An opaque type representing the LR parse table.
@@ -93,8 +92,9 @@ private[parser] object ParseTable:
    * @param productions the grammar productions
    * @return the constructed parse table
    */
-  def apply(
-    using quotes: Quotes,
+  def apply(using
+    Quotes,
+    Diagnostics,
   )(
     productions: List[Production],
     conflictResolutionTable: ConflictResolutionTable,
@@ -183,7 +183,7 @@ private[parser] object ParseTable:
 
     // $COVERAGE-OFF$
     // every conflict is already reported at its own production; abort without an extra error at the call site
-    if reported.nonEmpty then throw StopMacroExpansion()
+    abortOnErrors()
     // $COVERAGE-ON$
 
     Array.better.tabulate(tableRows.length)(tableRows(_).toMap)

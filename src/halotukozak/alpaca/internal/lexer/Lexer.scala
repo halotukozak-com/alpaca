@@ -19,6 +19,7 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
 )(using quotes: Quotes,
 ): Expr[Tokenization[Ctx] { type LexemeFields = lexemeFields }] = {
   import quotes.reflect.*
+  given diagnostics: Diagnostics = Diagnostics()
 
   val Lambda(oldCtx :: Nil, Lambda(_, Match(_, cases: List[CaseDef]))) = rules.asTerm.underlying.runtimeChecked
 
@@ -181,8 +182,9 @@ def lexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
 
   // Symbol.spliceOwner is a synthetic "macro" method dotty introduces to host the transparent
   // inline def's expansion; the val this `lexer{...}` call is actually bound to is one owner hop
-  // further up.
-  if shadowing.isEmpty && parsed.sizeIs == tokens.size then
+  // further up. Errors above are reported without aborting, so the lexer stays typed from all of its cases
+  // and doesn't cascade; they only keep a partial grammar from being exported.
+  if !diagnostics.hasErrors then
     JsonExport.maybeWrite(exportId(declaredName(Symbol.spliceOwner.owner)), "tokens", tokens.map(_.info))
 
   val fields = tokens.map(t => (t.info.name.raw, t.expr.asTerm.tpe))
