@@ -49,6 +49,7 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
   (
     symbol: parser.Symbol.NonEmpty,
     bind: Option[quotes.reflect.Bind],
+    reversed: Boolean,
     others: List[ProductionWithAction[Ctx]],
   ),
 ] = {
@@ -133,6 +134,7 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
       (
         symbol = fresh,
         bind = bind,
+        reversed = false,
         others = List(
           (
             production = Production.Empty(fresh),
@@ -142,7 +144,7 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
           (
             production = Production.NonEmpty(fresh, NEL(nonEmpty)),
             source = source,
-            action = '{ identityAction },
+            action = '{ reverseAction },
           ),
           (
             production = Production.NonEmpty(nonEmpty, NEL(element)),
@@ -158,10 +160,10 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
       )
 
     case Extractor.NonTerminal(name, bind, null) =>
-      (symbol = NonTerminal(Printable(name)), bind = bind, others = Nil)
+      (symbol = NonTerminal(Printable(name)), bind = bind, reversed = false, others = Nil)
 
     case Extractor.Terminal(name, bind, null) =>
-      (symbol = Terminal(Printable(name)), bind = bind, others = Nil)
+      (symbol = Terminal(Printable(name)), bind = bind, reversed = false, others = Nil)
 
     case pattern @ Extractor.Symbol(symbol, bind, Names.Option) =>
       val source = Source(pattern.pos)
@@ -169,6 +171,7 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
       (
         symbol = fresh,
         bind = bind,
+        reversed = false,
         others = List(
           (production = Production.Empty(fresh), source = source, action = '{ noneAction }),
           (
@@ -182,9 +185,11 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
     case pattern @ Extractor.Symbol(symbol, bind, Names.List) =>
       val source = Source(pattern.pos)
       val fresh = NonTerminal.fresh(symbol, "List")
+      // accumulated in reverse, reversed once where it is bound
       (
         symbol = fresh,
         bind = bind,
+        reversed = true,
         others = List(
           (production = Production.Empty(fresh), source = source, action = '{ emptyRepeatedAction }),
           (
@@ -210,15 +215,17 @@ private object ParserExtractors:
 
   val repeatedAction: Action[ParserCtx] = (_, args) =>
     val RevertedArray(newElem, currList: List[?]) = args.runtimeChecked
-    currList.appended(newElem)
+    newElem :: currList
 
   val headAction: Action[ParserCtx] = (_, args) => List(args.head)
 
-  val identityAction: Action[ParserCtx] = (_, args) => args.head
+  val reverseAction: Action[ParserCtx] = (_, args) =>
+    val RevertedArray(reversed: List[?]) = args.runtimeChecked
+    reversed.reverse
 
   val separatedByAction: Action[ParserCtx] = (_, args) =>
     val RevertedArray(newElem, separator, currList: List[?]) = args.runtimeChecked
-    currList.appendedAll(List(separator, newElem))
+    newElem :: separator :: currList
 
   val emptyRepeatedAction: Action[ParserCtx] = (_, _) => Nil
 

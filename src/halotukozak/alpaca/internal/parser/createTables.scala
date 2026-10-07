@@ -87,20 +87,29 @@ object Tables:
 
       def extractEBNF(ruleName: String): PartialFunction[Expr[Rule[?]], Seq[ProductionWithAction[Ctx]]] = {
         case '{ rule(${ Varargs(cases) }*)(using $_) } =>
-          def createAction(binds: Seq[Option[Bind]], rhs: Term) = createLambda[Action[Ctx]]:
+          def createAction(binds: Seq[(bind: Option[Bind], reversed: Boolean)], rhs: Term) = createLambda[Action[Ctx]]:
             case (methSym, (ctx: Term) :: (param: Term) :: Nil) =>
               val paramExpr = param.asExprOf[RevertedArray[Any]]
-              val replacements = (find = ctxSymbol, replace = ctx) ::
-                binds.iterator.zipWithIndex
-                  .collect:
-                    case (Some(bind), idx) => ((bind.symbol, bind.symbol.termRef.widen.asType), Expr(idx))
-                  .flatMap:
-                    case ((bind, '[t]), idx) =>
-                      Some((find = bind, replace = '{ $paramExpr($idx).asInstanceOf[t] }.asTerm))
-                    case other => raiseShouldNeverBeCalled(other)
-                  .toList
+              val bound = binds.iterator.zipWithIndex
+                .collect:
+                  case ((Some(bind), reversed), idx) =>
+                    (bind.symbol, bind.symbol.termRef.widen.asType, reversed, Expr(idx))
+                .toList
+              // a `.List` arrives accumulated in reverse; reversed once, before the action body
+              val reversedLists = bound
+                .collect:
+                  case (bind, '[t], true, idx) =>
+                    val list = Symbol.newVal(methSym, bind.name, TypeRepr.of[t], Flags.EmptyFlags, Symbol.noSymbol)
+                    val reversed = '{ $paramExpr($idx).asInstanceOf[List[?]].reverse.asInstanceOf[t] }.asTerm
+                    bind -> ValDef(list, Some(reversed.changeOwner(list)))
+                .toMap
+              val replacements = (find = ctxSymbol, replace = ctx) :: bound.map:
+                case (bind, _, true, _) => (find = bind, replace = Ref(reversedLists(bind).symbol))
+                case (bind, '[t], false, idx) => (find = bind, replace = '{ $paramExpr($idx).asInstanceOf[t] }.asTerm)
+                case other => raiseShouldNeverBeCalled(other)
 
-              replaceRefs(replacements*).transformTerm(rhs)(methSym)
+              val body = replaceRefs(replacements*).transformTerm(rhs)(methSym)
+              if reversedLists.isEmpty then body else Block(reversedLists.values.toList, body)
 
           val extractProductionName: Function[Expr[ProductionDefinition[?]], (Tree, ValidName | Null)] =
             case '{ ($name: String).apply($production: ProductionDefinition[?])(using $_) } =>
@@ -132,17 +141,21 @@ object Tables:
                 None
               // Tuple1
               case (c @ CaseDef(skipTypedOrTest(pattern @ Unapply(_, _, List(_))), None, rhs), name) =>
-                symbolOf(pattern).toList.flatMap: (symbol, bind, others) =>
+                symbolOf(pattern).toList.flatMap: (symbol, bind, reversed, others) =>
                   val production =
                     Production.NonEmpty(NonTerminal(Printable(ruleName)), NEL(symbol), Printable.nullable(name))
-                  (production = production, source = Source(c.pos), action = createAction(List(bind), rhs)) :: others
+                  (production = production, source = Source(c.pos), action = createAction(List((bind, reversed)), rhs)) ::
+                    others
 
               // TupleN, N > 1
               case (c @ CaseDef(skipTypedOrTest(Unapply(_, _, patterns)), None, rhs), name) =>
                 val elements = patterns.map(symbolOf)
                 if elements.contains(None) then Nil
                 else
-                  val (symbols, binds, others) = elements.flatten.unzip3(using _.toTuple)
+                  val extracted = elements.flatten
+                  val symbols = extracted.map(_.symbol)
+                  val binds = extracted.map(e => (e.bind, e.reversed))
+                  val others = extracted.map(_.others)
                   val production =
                     Production.NonEmpty(
                       NonTerminal(Printable(ruleName)),

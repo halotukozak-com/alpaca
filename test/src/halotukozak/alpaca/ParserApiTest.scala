@@ -149,6 +149,77 @@ final class ParserApiTest extends AnyFunSuite with Matchers:
       case Result.Success(_, List(1, 2, 3)) =>
   }
 
+  test("ebnf List keeps source order") {
+    object ListOrderParser extends Parser[CalcContext]:
+      val Num = rule:
+        case CalcLexer.NUMBER(n) => n.value
+
+      val root: Rule[List[Int]] = rule:
+        case Num.List(numbers) => numbers
+
+    for input <- List("", "1", "1 2", "1 2 3 4 5") do
+      ListOrderParser.parse(CalcLexer.tokenize(input).getOrThrow).toOption shouldBe
+        Some(input.split(' ').filter(_.nonEmpty).map(_.toInt).toList)
+  }
+
+  test("ebnf List on a token as the whole pattern") {
+    object LoneTokenListParser extends Parser[CalcContext]:
+      val root = rule:
+        case CalcLexer.NUMBER.List(numbers) => numbers.map(_.value)
+
+    LoneTokenListParser.parse(CalcLexer.tokenize("").getOrThrow) should matchPattern:
+      case Result.Success(_, Nil) =>
+
+    LoneTokenListParser.parse(CalcLexer.tokenize("7").getOrThrow) should matchPattern:
+      case Result.Success(_, List(7)) =>
+
+    LoneTokenListParser.parse(CalcLexer.tokenize("3 1 2").getOrThrow) should matchPattern:
+      case Result.Success(_, List(3, 1, 2)) =>
+  }
+
+  test("ebnf Lists nested in tuples and in each other keep source order") {
+    object NestedListParser extends Parser[CalcContext]:
+      val Group: Rule[List[Int]] = rule:
+        case (CalcLexer.`\\(`(_), CalcLexer.NUMBER.List(numbers), CalcLexer.`\\)`(_)) => numbers.map(_.value)
+
+      val root = rule:
+        case (CalcLexer.NUMBER.List(before), CalcLexer.ID(_), Group.List(groups), CalcLexer.ID(_), Group.List(after)) =>
+          (before.map(_.value), groups, after)
+
+    NestedListParser.parse(CalcLexer.tokenize("a b").getOrThrow) should matchPattern:
+      case Result.Success(_, (Nil, Nil, Nil)) =>
+
+    NestedListParser.parse(CalcLexer.tokenize("1 2 a (3 4) () (5) b (6 7 8)").getOrThrow) should matchPattern:
+      case Result.Success(_, (List(1, 2), List(List(3, 4), Nil, List(5)), List(List(6, 7, 8)))) =>
+  }
+
+  test("ebnf SeparatedBy keeps elements and separators in source order") {
+    object SeparatedOrderParser extends Parser[CalcContext]:
+      val Num = rule:
+        case CalcLexer.NUMBER(n) => n.value
+
+      val root = rule:
+        case (
+              Num.SeparatedBy[CalcLexer.COMMA](items),
+              CalcLexer.ID(_),
+              CalcLexer.NUMBER.SeparatedBy[CalcLexer.PLUS](tokens),
+            ) =>
+          def show(item: Any) = item match
+            case lexeme: Lexeme[?, ?] if lexeme.name == "NUMBER" => lexeme.value.toString
+            case lexeme: Lexeme[?, ?] => lexeme.name
+            case other => other.toString
+          (items.map(show), tokens.map(show))
+
+    SeparatedOrderParser.parse(CalcLexer.tokenize("a").getOrThrow) should matchPattern:
+      case Result.Success(_, (Nil, Nil)) =>
+
+    SeparatedOrderParser.parse(CalcLexer.tokenize("1 a 2").getOrThrow) should matchPattern:
+      case Result.Success(_, (List("1"), List("2"))) =>
+
+    SeparatedOrderParser.parse(CalcLexer.tokenize("1, 2, 3 a 4 + 5").getOrThrow) should matchPattern:
+      case Result.Success(_, (List("1", "COMMA", "2", "COMMA", "3"), List("4", "PLUS", "5"))) =>
+  }
+
   test("api") {
     object ApiParser extends Parser[CalcContext]:
       val Num = rule:
