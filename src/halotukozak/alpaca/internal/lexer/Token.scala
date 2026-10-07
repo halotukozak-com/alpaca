@@ -73,8 +73,7 @@ private[lexer] object TokenInfo:
     pos: quotes.reflect.Position,
   ): Option[CompiledPattern] =
     import quotes.reflect.*
-    ValidName
-      .validate(name, pos)
+    ValidName(name, pos)
       .map: validName =>
         val pattern = alternatives.mkString("|")
         def reportInvalid(err: RegexParseError): Unit =

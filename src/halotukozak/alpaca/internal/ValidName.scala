@@ -10,7 +10,7 @@ package alpaca.internal
 
 // ValidName is only ever used as a compile-time bound on type parameters (Name <: ValidName),
 // never as the type of an actual value, so opaque type would hide nothing (see #223).
-// The banned names are enforced separately, at macro time, by ValidName.validate.
+// The banned names are enforced separately, at macro time, by ValidName.apply.
 type ValidName = String & Singleton
 
 private[alpaca] object ValidName:
@@ -28,7 +28,7 @@ private[alpaca] object ValidName:
    * @param name the token name to validate
    * @return the name if it is valid, `None` once it has been reported
    */
-  private[internal] def validate(using Quotes, Diagnostics)(name: String, pos: quotes.reflect.Position)
+  private[internal] def apply(using Quotes, Diagnostics)(name: String, pos: quotes.reflect.Position)
     : Option[ValidName] =
     name match
       case "" => error(show"Invalid token name: it is empty", pos); None
