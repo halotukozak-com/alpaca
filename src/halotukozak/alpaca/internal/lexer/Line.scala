@@ -17,9 +17,8 @@ package lexer
  * everywhere; assigning it inside a rule body (`ctx.line = Line(...)`) is
  * rewritten to a `copy` too.
  *
- * The field is found by its type, so it can have any name. In the context it
- * is the line after the last match; in a lexeme, the line its token starts on.
- * [[LexerError]] and [[ParserError]] take their line from it.
+ * Found by type, so the field can have any name. In a lexeme it is the line
+ * the token starts on; [[LexerError]] and [[ParserError]] report it.
  */
 opaque type Line <: Int = Int
 

@@ -66,7 +66,7 @@ object Tracking:
             (index = index, update = tracking) :: rest
           case _ => rest
 
-  /** The index of the first case field of type `F`, or -1: positions are found by type, whatever the field's name. */
+  /** The index of the first case field of type `F`, or -1. */
   inline private def indexOfType[Elems <: Tuple, F](index: Int): Int =
     inline erasedValue[Elems] match
       case _: EmptyTuple => -1
@@ -92,9 +92,7 @@ object Tracking:
    * of how many fields are tracked, rather than one per field. Contexts with
    * no tracked fields (`steps.isEmpty`) skip the snapshot/rebuild entirely.
    *
-   * A lexeme snapshots the context after the rule body, except for its
-   * [[Line]] and [[Column]] fields, which keep their values from before the
-   * match: a lexeme is positioned where its token starts.
+   * A lexeme keeps the pre-match [[Line]]/[[Column]], so it points at its token's start.
    *
    * @param lineIndex   the index of the context's [[Line]] field, or -1
    * @param columnIndex the index of the context's [[Column]] field, or -1

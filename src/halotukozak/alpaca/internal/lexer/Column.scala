@@ -19,9 +19,8 @@ package lexer
  * reads as a plain `Int` everywhere; assigning it inside a rule body
  * (`ctx.column = Column(...)`) is rewritten to a `copy` too.
  *
- * The field is found by its type, so it can have any name. In the context it
- * is the column after the last match; in a lexeme, the column its token starts
- * at. [[LexerError]] and [[ParserError]] take their column from it.
+ * Found by type, so the field can have any name. In a lexeme it is the column
+ * the token starts at; [[LexerError]] and [[ParserError]] report it.
  *
  * (Named `Column`, not `Position`, to avoid shadowing the unrelated source
  * `Position` type used throughout this library's own error reporting.)
