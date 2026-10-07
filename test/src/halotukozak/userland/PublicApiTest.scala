@@ -67,9 +67,23 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
       assert(!typeChecks("""new Rule[Int] {}"""))
   }
 
-  test("KNOWN ISSUE: a lexer's type can be named") {
-    knownIssue:
-      assert(typeChecks("""def lexemes(lexer: Tokenization[LexerCtx.Default]) = lexer.tokenize("")"""))
+  test("a lexer's type can be named") {
+    def lexemes(lexer: Lexer[LexerCtx.Default]) = lexer.tokenize("ab c").getOrThrow
+    lexemes(WordLexer).map(_.text) shouldBe List("ab", "c")
+  }
+
+  test("a lexeme's type can be named") {
+    def texts(lexemes: List[Lexeme[?, ?]]) = lexemes.map(l => (l.name, l.text))
+    texts(WordLexer.tokenize("ab c").getOrThrow) shouldBe List(("WORD", "ab"), ("WORD", "c"))
+  }
+
+  test("lexers and lexemes cannot be constructed from user code") {
+    def inaccessible(errors: List[scala.compiletime.testing.Error]) =
+      errors.map(_.message) should matchPattern { case List(m: String) if m.contains("cannot be accessed") => }
+
+    inaccessible(typeCheckErrors("""new Lexeme["A", Int]("A", 1, "a", Array.empty[String], Array.empty[Any])"""))
+    inaccessible(typeCheckErrors("""abstract class MyLexer extends Lexer[LexerCtx.Default]((_, _, ctx) => ctx)"""))
+    assert(!typeChecks("""Lexeme.EOF"""))
   }
 
   test("a production name that is not a string literal is reported") {

@@ -40,7 +40,7 @@ val BrainLexer = lexer:
   case "\n" => Token.Ignored
 ```
 
-The result is a `Tokenization` object. It can tokenize input strings, provides typed accessors for each defined token (e.g., `BrainLexer.inc`), and exposes a `.tokens` list for introspection (`BrainLexer.tokens` returns all defined tokens including ignored ones).
+The result is a `Lexer[LexerCtx.Default]`, the type to use when a lexer appears in your own signatures. It can tokenize input strings and provides typed accessors for each defined token (e.g., `BrainLexer.inc`).
 
 This is the BrainFuck lexer from [Getting Started](getting-started.md), reduced to the eight standard commands; everything else is a comment, which the `"."` catch-all ignores. Later pages extend it with [custom context](lexer-context.md) (bracket counting) and [error recovery](lexer-error-recovery.md).
 

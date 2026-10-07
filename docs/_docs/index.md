@@ -193,7 +193,7 @@ Contributions are welcome. Please feel free to submit a Pull Request.
 The `halotukozak.alpaca.internal` package is not user API, but it is part of the binary contract. The lexer and parser
 macros expand into code that lives in users' binaries and calls `internal` symbols directly:
 
-- the `Tokenization` constructor (the class every generated lexer extends), `DefinedToken`/`IgnoredToken`,
+- the `Lexer` constructor (the class every generated lexer extends), `DefinedToken`/`IgnoredToken`,
   `TokenInfo` and `Printable.apply`;
 - `Production`, `NEL` and the grammar symbols, `ParseAction`, the `ParseTable` encoding, `ActionTable`,
   `RevertedArray`, the `ParserExtractors` actions and the `Parser` constructor;

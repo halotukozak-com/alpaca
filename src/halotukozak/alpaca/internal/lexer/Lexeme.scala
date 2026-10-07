@@ -26,7 +26,7 @@ import scala.util.boundary.break
  * @param name the token name
  * @param value the extracted value
  */
-private[alpaca] final class Lexeme[+Name <: ValidName, +Value](
+final class Lexeme[+Name <: ValidName, +Value] private[alpaca] (
   val name: Name,
   val value: Value,
   val text: String,
@@ -46,4 +46,4 @@ private[alpaca] object Lexeme:
    *
    * This is used internally by the parser to detect when all input has been consumed.
    */
-  val EOF: Lexeme["$", String] = Lexeme("$", "", "", Array.empty, Array.empty)
+  private[alpaca] val EOF: Lexeme["$", String] = Lexeme("$", "", "", Array.empty, Array.empty)

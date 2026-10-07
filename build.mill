@@ -47,15 +47,15 @@ object `package` extends Module:
         // bisecting the dev/CI scalacOptions split (#518) after it broke `jvm.test.compile`
         // locally -- keep this in `common` even though every other check here is CI-only.
         "-Wsafe-init",
-        // Scala 3.9 generates larger trees for lexerImpl/createTablesImpl than 3.8 did, pushing
+        // Scala 3.9 generates larger trees for createLexerImpl/createTablesImpl than 3.8 did, pushing
         // them past the compiler's hardcoded 3000-node coverage-instrumentation threshold
         // (dotty.tools.dotc.transform.InstrumentCoverage.MaxInstrumentableTreeNodes - not
         // configurable). Report just that one diagnostic as info; -Werror stays hard for everything else.
         "-Wconf:msg=Skipping coverage instrumentation.*:i",
-        // lexerImpl/createTablesImpl exceed Scoverage's hardcoded instrumentation size limit
+        // createLexerImpl/createTablesImpl exceed Scoverage's hardcoded instrumentation size limit
         // under this compiler version (dotty's MaxInstrumentableTreeNodes = 3000 tree nodes,
         // not configurable); excluded rather than left uninstrumented with a -Werror warning.
-        "--coverage-exclude-files:.*Lexer.*",
+        "--coverage-exclude-files:.*createLexer.*",
         "--coverage-exclude-files:.*createTables.*",
         //  "-Yprofile-enabled",
         //  s"-Yprofile-trace:$moduleDir/debug/compile-trace.json",
