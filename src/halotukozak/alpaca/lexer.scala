@@ -83,11 +83,10 @@ object Token:
    *
    * This is compile-time only and should only be used inside lexer definitions.
    *
-   * @param scope the enclosing lexer rule
    * @return a token that will be ignored
    */
   @compileTimeOnly("Should never be called outside the lexer definition")
-  def Ignored(using scope: LexerScope[LexerCtx]): IgnoredToken[Nothing] = new IgnoredToken
+  def Ignored(using LexerScope[LexerCtx]): IgnoredToken[Nothing] = new IgnoredToken
 
   /**
    * Creates a token whose lexemes carry no value (`()`). To carry the matched text or anything computed from it, bind
@@ -96,11 +95,10 @@ object Token:
    * This is compile-time only and should only be used inside lexer definitions.
    *
    * @tparam Name the token name
-   * @param scope the enclosing lexer rule
    * @return a token definition
    */
   @compileTimeOnly("Should never be called outside the lexer definition")
-  def apply[Name <: ValidName](using scope: LexerScope[LexerCtx]): Token[Name, Nothing, Unit] =
+  def apply[Name <: ValidName](using LexerScope[LexerCtx]): Token[Name, Nothing, Unit] =
     new Token[Name, Nothing, Unit]
 
   /**
@@ -110,11 +108,10 @@ object Token:
    *
    * @tparam Name the token name
    * @param value the value its lexemes carry
-   * @param scope the enclosing lexer rule
    * @return a token definition
    */
   @compileTimeOnly("Should never be called outside the lexer definition")
-  def apply[Name <: ValidName](value: Any)(using scope: LexerScope[LexerCtx]): Token[Name, Nothing, value.type] =
+  def apply[Name <: ValidName](value: Any)(using LexerScope[LexerCtx]): Token[Name, Nothing, value.type] =
     new Token[Name, Nothing, value.type]
 
 // The returned type is the concrete context type `C` refined with a getter
@@ -143,7 +140,7 @@ object Token:
  * The lexer context inside a `lexer` rule body. Read its fields, or assign them (`ctx.count += 1`) to change the
  * context for the tokens that follow: the assignment is rewritten into a `copy`, so the fields can stay `val`s.
  */
-transparent inline def ctx[C <: LexerCtx](using scope: LexerScope[C]): C = ${ ctxImpl[C]('scope) }
+transparent inline def ctx[C <: LexerCtx: LexerScope as scope]: C = ${ ctxImpl[C]('scope) }
 
 // $COVERAGE-OFF$
 @publicInBinary private[alpaca] def ctxImpl[C <: LexerCtx: Type](scope: Expr[LexerScope[C]])(using quotes: Quotes)
