@@ -9,7 +9,7 @@ import com.halotukozak.alpaca.plugin.lexer.ALPACA_BAD_CHARACTER
 import com.halotukozak.alpaca.plugin.lexer.AlpacaLexer
 import com.halotukozak.alpaca.plugin.lexer.AlpacaTokenTypes
 
-private const val AUGMENTED_START_NAME = "S'"
+private const val AUGMENTED_START_NAME = "S'\$\$synthetic\$\$"
 
 /** Bounds the reduce chain a single hypothetical lookahead can trigger. Generous relative to any
  *  real grammar's production count; just guards against a malformed table looping forever. */

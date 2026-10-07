@@ -82,8 +82,8 @@ object Terminal:
 
   type NonEmpty = Symbol { type IsEmpty = false }
 
-  /** The augmented start symbol used internally by the parser. */
-  val Start: NonTerminal { type IsEmpty = false } = NonTerminal(Printable("S'"))
+  /** The augmented start symbol used internally by the parser, shown as `S'`; synthetic like [[EOF]]. */
+  val Start: NonTerminal { type IsEmpty = false } = NonTerminal(Printable("S'" + SyntheticInfix))
 
   /**
    * The end-of-file terminal symbol, shown as `$`. Its name is synthetic so that a token named `$` stays a separate
@@ -107,9 +107,10 @@ object Terminal:
 
   extension (symbol: Symbol)
     /**
-     * The name the symbol is shown by: token names unencoded (`+`, not `$plus`), the parser's own terminals
-     * without their synthetic suffix ([[EOF]] as `$`, [[Empty]] as `ε`), and the non-terminals the EBNF extractors
-     * synthesize by the extractor they stand for (`Operation.List`), without the uniqueness suffix.
+     * The name the symbol is shown by: token names unencoded (`+`, not `$plus`), the parser's own symbols
+     * without their synthetic suffix ([[EOF]] as `$`, [[Empty]] as `ε`, [[Start]] as `S'`), and the non-terminals
+     * the EBNF extractors synthesize by the extractor they stand for (`Operation.List`), without the uniqueness
+     * suffix.
      */
     def displayName: String =
       val name = symbol.name.raw

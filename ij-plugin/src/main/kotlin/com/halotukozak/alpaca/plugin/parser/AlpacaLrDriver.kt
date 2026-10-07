@@ -6,7 +6,7 @@ import com.halotukozak.alpaca.plugin.grammar.TableEntry
 
 /** The augmented start nonterminal's name (matches `Symbol.Start` on the Scala side); reducing its
  *  single production signals a successful parse rather than a real composite node. */
-private const val AUGMENTED_START_NAME = "S'"
+private const val AUGMENTED_START_NAME = "S'\$\$synthetic\$\$"
 
 /**
  * A generic, grammar-agnostic LR parser: drives a [TreeBuilder] using [table], Alpaca's already

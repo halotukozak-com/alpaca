@@ -35,6 +35,11 @@ object DollarParser extends Parser:
     { case (DollarLexer.`ε`(_), root(r)) => "ε" + r },
   )
 
+// A rule with the name the textbook gives the augmented start symbol.
+object PrimeParser extends Parser:
+  val `S'`: Rule[String] = rule { case HashLexer.X(_) => "x" }
+  val root: Rule[String] = rule { case (`S'`(a), `S'`(b)) => a + b }
+
 final class ReservedSymbolNamesTest extends AnyFunSuite with Matchers with LoneElement:
 
   test("a token named \"#\" takes part in LALR(1) lookahead propagation like any other token") {
@@ -51,6 +56,10 @@ final class ReservedSymbolNamesTest extends AnyFunSuite with Matchers with LoneE
     parse("a") shouldBe "X"
     parse("a$") shouldBe "Y$"
     parse("εεa$") shouldBe "εεY$"
+  }
+
+  test("a rule named \"S'\" is not the parser's start symbol") {
+    PrimeParser.parse(HashLexer.tokenize("xx").getOrThrow).getOrThrow shouldBe "xx"
   }
 
   test("a ParserError tells a token named \"$\" from the end of the input") {
