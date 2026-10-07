@@ -311,10 +311,10 @@ object Tables:
       val conflictResolutionTable = ConflictResolutionTable(
         resolutionExprs.iterator
           // matched without the scope lambda, as the arguments may refer to its parameter
+          .map(_.asTerm)
           .map:
-            _.asTerm match
-              case Lambda(List(_), body) => body.asExpr
-              case other => other.asExpr
+            case Lambda(List(_), body) => body.asExpr
+            case other => other.asExpr
           .flatMap:
             case '{ ($after: Production | Token[?, ?, ?]).after[`p`](${ Varargs(befores) }*)(using $_) } =>
               befores.map(before => (extractKey(before), extractKey(after), Source(before.asTerm.pos)))
