@@ -198,12 +198,10 @@ trait LexerCtx extends Product, Selectable:
   private[alpaca] var text: CharSequence = compiletime.uninitialized
 
   /**
-   * A copy of the text still remaining to be tokenized, taken when this is called.
+   * A copy of the text still remaining to be tokenized; each call copies the remaining input.
    *
    * Exposed so a custom [[ErrorHandling]] instance can inspect the character(s)
    * that failed to match any token rule, e.g. to pick a recovery strategy based on what comes next.
-   * The copy keeps its content after the callback returns; it costs time and memory proportional to the
-   * remaining input.
    */
   final def remainingText: CharSequence = text.toString
 

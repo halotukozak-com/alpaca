@@ -142,7 +142,7 @@ private[lexer] def rewriteCtxMutations(
   rewriter.transformTerm(body)(owner)
 }
 
-/** Aborts unless `ctx` is the context parameter of a `lexer` block's rules function, i.e. `ctx` is used in a rule. */
+/** Aborts unless `ctx` is used inside a lexer rule. */
 private[alpaca] def requireLexerRule(using quotes: Quotes)(ctx: quotes.reflect.Term): Unit = {
   import quotes.reflect.*
 
