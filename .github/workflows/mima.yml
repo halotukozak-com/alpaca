@@ -9,18 +9,27 @@ permissions:
   contents: read
   pull-requests: write
 
-# Report-only, mirrors the MiMa setup on halotukozak-com/commons (synced
-# from halotukozak-com/.github to the scala-cli repos) adapted for Mill.
-# Never fails the build — instead, on a PR, it manages a `needs-major` label
-# when there's a real *backward* binary incompatibility, and removes it
-# again once a later push is compatible.
+# Mirrors the MiMa setup on halotukozak-com/commons (synced from
+# halotukozak-com/.github to the scala-cli repos) adapted for Mill.
+#
+# Report-only: on a PR, labels `needs-major` (binary break) or `needs-minor`
+# (TASTy-only break), removed once compatible. Fails only if a check can't run.
+#
+# Two checks run against the same baseline:
+# - MiMa (.mima/bin-compat-check.scala): do classfiles compiled against the
+#   baseline still link against the new JAR?
+# - TASTy-MiMa (.mima/tasty-compat-check.scala): does TASTy compiled against
+#   the baseline still re-typecheck against the new JAR? That is what breaks
+#   when a user's code inlines an `inline def` / macro of ours, which MiMa
+#   can't see. Skips packages listed in `.mima/tasty-private-packages`.
 #
 # On a PR, the baseline is the current `main` tip (the merge commit's first
 # parent), not the last release — otherwise a break introduced by PR n stays
 # baked into `main` and every unrelated PR n+1, n+2, ... would keep getting
 # relabeled until the next release, even though they changed nothing binary.
 # On a plain push, there's no PR to label, so the report falls back to
-# comparing against the last release for the summary.
+# comparing against the last stable release (pre-release tags such as
+# v1.0.0-RC1 are skipped, unless there's no stable tag yet) for the summary.
 jobs:
   mima:
     name: MiMa (binary)
@@ -37,18 +46,21 @@ jobs:
       - name: Setup coursier cache
         uses: coursier/cache-action@v8.1
       - uses: VirtusLab/scala-cli-setup@v1
-      - name: Check binary compatibility
+      - name: Check binary and TASTy compatibility
         id: mima
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REPO_NAME: ${{ github.event.repository.name }}
         run: |
           set -euo pipefail
 
           org=com.halotukozak
-          name=${{ github.event.repository.name }}
+          name=$REPO_NAME
 
           new_jar=$(./mill --disable-ticker show jvm.jar | tail -1 | sed -E 's/^"[a-z]*ref:v[0-9]+:[0-9a-f]+://; s/"$//')
-          mill_cp=$(./mill --disable-ticker show jvm.compileClasspath | jq -r '.[]' | sed -E 's/^[a-z]*ref:v[0-9]+:[0-9a-f]+://')
+          mill_cp=$(./mill --disable-ticker show jvm.compileClasspath | jq -r '.[]' | sed -E 's/^[a-z]*ref:v[0-9]+:[0-9a-f]+://' | paste -sd: -)
 
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "$EVENT_NAME" = "pull_request" ]; then
             base_sha=$(git rev-parse HEAD^1)
             baseline_label="main@${base_sha:0:7}"
             git worktree add --detach --quiet "$RUNNER_TEMP/old-src" "$base_sha"
@@ -56,17 +68,24 @@ jobs:
               # Bootstrapping a scala-cli -> Mill migration: the parent commit predates
               # ./mill, so there's no Mill-built baseline jar to compare against yet.
               echo "Baseline $baseline_label predates the Mill build (no ./mill) — nothing to compare against." >> "$GITHUB_STEP_SUMMARY"
-              echo "broken=false" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            echo "Baseline: $baseline_label (does this PR itself introduce a new binary incompatibility?)"
+            echo "Baseline: $baseline_label (does this PR itself introduce a new incompatibility?)"
             old_jar=$(cd "$RUNNER_TEMP/old-src" && ./mill --disable-ticker show jvm.jar | tail -1 | sed -E 's/^"[a-z]*ref:v[0-9]+:[0-9a-f]+://; s/"$//')
+            old_cp=$(cd "$RUNNER_TEMP/old-src" && ./mill --disable-ticker show jvm.compileClasspath | jq -r '.[]' | sed -E 's/^[a-z]*ref:v[0-9]+:[0-9a-f]+://' | paste -sd: -)
             shared_cp="$mill_cp"
           else
-            base_tag=$(git tag -l 'v*' --sort=-v:refname | head -1)
+            # Latest stable release. `--sort=-v:refname` alone ranks v1.0.0-RC1
+            # *above* v1.0.0, so drop pre-release tags (anything with a `-` in
+            # it) and only fall back to the newest pre-release when there's no
+            # stable tag at all yet.
+            tags=$(git -c versionsort.suffix=- tag -l 'v*' --sort=-v:refname)
+            base_tag=$(printf '%s\n' "$tags" | grep -v -- '-' | head -1 || true)
+            if [ -z "$base_tag" ]; then
+              base_tag=$(printf '%s\n' "$tags" | head -1)
+            fi
             if [ -z "$base_tag" ]; then
               echo "No release tag yet — nothing to compare against." >> "$GITHUB_STEP_SUMMARY"
-              echo "broken=false" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             base_version=${base_tag#v}
@@ -82,82 +101,144 @@ jobs:
 
           set +e
           scala-cli run .mima/bin-compat-check.scala -- "$old_jar" "$new_jar" "$shared_cp" | tee "$RUNNER_TEMP/mima-out.txt"
-          status=$?
+          bin_status=${PIPESTATUS[0]}
+          scala-cli run .mima/tasty-compat-check.scala -- "$old_jar" "$old_cp" "$new_jar" "$mill_cp" | tee "$RUNNER_TEMP/tasty-out.txt"
+          tasty_status=${PIPESTATUS[0]}
           set -e
 
-          if [ $status -ne 0 ]; then
-            {
-              echo "### MiMa found binary incompatibilities vs \`$baseline_label\`"
-              echo '```'
-              cat "$RUNNER_TEMP/mima-out.txt"
-              echo '```'
-            } >> "$GITHUB_STEP_SUMMARY"
-            echo "::warning title=Binary compatibility::MiMa found incompatibilities vs $baseline_label — see the job summary"
-            echo "broken=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Binary compatible with \`$baseline_label\`." >> "$GITHUB_STEP_SUMMARY"
-            echo "broken=false" >> "$GITHUB_OUTPUT"
+          # 0 = compatible, 2 = incompatible, else the check couldn't run: fail
+          # here so the label/comment steps are skipped.
+          tool_errors=0
+          for check in "MiMa (bin-compat-check.scala):$bin_status" "TASTy-MiMa (tasty-compat-check.scala):$tasty_status"; do
+            status=${check##*:}
+            if [ "$status" != 0 ] && [ "$status" != 2 ]; then
+              echo "::error title=Binary compatibility::${check%:*} could not run (exit code $status) — see the log above"
+              tool_errors=1
+            fi
+          done
+          if [ "$tool_errors" != 0 ]; then
+            echo "Compatibility check against \`$baseline_label\` could not run — see the job log." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
           fi
 
-      - name: Label needs-major on binary incompatibility
+          if [ "$bin_status" = 2 ]; then binary=broken; else binary=ok; fi
+          if [ "$tasty_status" = 2 ]; then tasty=broken; else tasty=ok; fi
+          if [ "$binary" = broken ]; then bump=major
+          elif [ "$tasty" = broken ]; then bump=minor
+          else bump=none
+          fi
+
+          mark() { if [ "$1" = ok ]; then echo '✅ compatible'; else echo '❌ incompatible'; fi; }
+
+          # One report for both the job summary and the sticky PR comment.
+          {
+            echo "| Check vs \`$baseline_label\` | Result |"
+            echo '| --- | --- |'
+            echo "| Binary (MiMa) | $(mark "$binary") |"
+            echo "| TASTy (TASTy-MiMa) | $(mark "$tasty") |"
+            echo "| Implied version bump | **$bump** |"
+            echo
+            echo "A TASTy incompatibility means other libraries' \`inline\` code that uses this API may fail to re-typecheck when it gets inlined against the new version; that is neither binary nor source compatibility."
+            echo
+            echo '<details><summary>Details</summary>'
+            echo
+            echo '```'
+            echo "MiMa (binary):"
+            cat "$RUNNER_TEMP/mima-out.txt"
+            echo
+            echo "TASTy-MiMa (TASTy):"
+            cat "$RUNNER_TEMP/tasty-out.txt"
+            echo '```'
+            echo
+            echo '</details>'
+          } > "$RUNNER_TEMP/compat-report.md"
+
+          cat "$RUNNER_TEMP/compat-report.md" >> "$GITHUB_STEP_SUMMARY"
+          case "$bump" in
+            major) echo "::warning title=Binary compatibility::binary incompatibility vs $baseline_label (needs a major version bump) — see the job summary" ;;
+            minor) echo "::warning title=Binary compatibility::TASTy incompatibility vs $baseline_label (needs at least a minor version bump) — see the job summary" ;;
+          esac
+          {
+            echo "binary=$binary"
+            echo "tasty=$tasty"
+            echo "bump=$bump"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Label needs-major / needs-minor
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          BUMP: ${{ steps.mima.outputs.bump }}
         run: |
           set -euo pipefail
-          if [ "${{ steps.mima.outputs.broken }}" = "true" ]; then
-            gh label create needs-major --repo "${{ github.repository }}" \
-              --color B60205 --description "Binary-incompatible change — needs a major version bump" \
-              --force >/dev/null
-            gh pr edit "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" \
-              --add-label needs-major
-          else
-            gh pr edit "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" \
-              --remove-label needs-major || true
-          fi
 
-      - name: Post sticky comment with binary compatibility report
+          # --force creates the label or updates its colour/description.
+          gh label create needs-major --repo "$REPO" --color B60205 --force \
+            --description "Binary-incompatible change — needs a major version bump" >/dev/null
+          gh label create needs-minor --repo "$REPO" --color FBCA04 --force \
+            --description "TASTy-incompatible (other libraries' inline code may fail to re-typecheck) — needs a minor bump" >/dev/null
+
+          case "$BUMP" in
+            major) wanted=needs-major ;;
+            minor) wanted=needs-minor ;;
+            *) wanted= ;;
+          esac
+
+          current=$(gh pr view "$PR" --repo "$REPO" --json labels --jq '.labels[].name')
+          for label in needs-major needs-minor; do
+            if [ "$label" = "$wanted" ]; then
+              gh pr edit "$PR" --repo "$REPO" --add-label "$label"
+            elif printf '%s\n' "$current" | grep -qx "$label"; then
+              gh pr edit "$PR" --repo "$REPO" --remove-label "$label"
+            fi
+          done
+
+      - name: Post sticky comment with compatibility report
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          BASELINE: ${{ steps.mima.outputs.baseline }}
+          BUMP: ${{ steps.mima.outputs.bump }}
         run: |
           set -euo pipefail
+
+          # Nothing was compared (no baseline yet): nothing to report.
+          [ -f "$RUNNER_TEMP/compat-report.md" ] || exit 0
 
           marker='<!-- mima-report -->'
-          baseline='${{ steps.mima.outputs.baseline }}'
-          repo='${{ github.repository }}'
-          pr=${{ github.event.pull_request.number }}
 
-          comment_id=$(gh api "repos/$repo/issues/$pr/comments" --paginate \
+          comment_id=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
             --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | tail -1)
 
-          if [ "${{ steps.mima.outputs.broken }}" = "true" ]; then
-            {
-              echo "$marker"
-              echo "### ⚠️ MiMa: binary incompatibility vs \`$baseline\`"
-              echo
-              echo "This PR breaks binary compatibility — it will need a major version bump."
-              echo
-              echo '<details><summary>Details</summary>'
-              echo
-              echo '```'
-              cat "$RUNNER_TEMP/mima-out.txt"
-              echo '```'
-              echo
-              echo '</details>'
-            } > "$RUNNER_TEMP/mima-comment.md"
+          case "$BUMP" in
+            major)
+              title="### ❌ MiMa: binary incompatibility vs \`$BASELINE\`"
+              lead="This PR breaks binary compatibility — it needs a major version bump." ;;
+            minor)
+              title="### ⚠️ MiMa: TASTy incompatibility vs \`$BASELINE\`"
+              lead="This PR breaks TASTy (but not binary) compatibility — it needs at least a minor version bump." ;;
+            *)
+              # Compatible and never flagged: stay quiet.
+              [ -n "$comment_id" ] || exit 0
+              title="### ✅ MiMa: binary and TASTy compatible with \`$BASELINE\`"
+              lead="A later push resolved the incompatibility flagged earlier." ;;
+          esac
 
-            if [ -n "$comment_id" ]; then
-              gh api --method PATCH "repos/$repo/issues/comments/$comment_id" -F body=@"$RUNNER_TEMP/mima-comment.md" >/dev/null
-            else
-              gh api --method POST "repos/$repo/issues/$pr/comments" -F body=@"$RUNNER_TEMP/mima-comment.md" >/dev/null
-            fi
-          elif [ -n "$comment_id" ]; then
-            {
-              echo "$marker"
-              echo "### ✅ MiMa: binary compatible with \`$baseline\`"
-              echo
-              echo "A later push resolved the binary incompatibility flagged above."
-            } > "$RUNNER_TEMP/mima-comment.md"
-            gh api --method PATCH "repos/$repo/issues/comments/$comment_id" -F body=@"$RUNNER_TEMP/mima-comment.md" >/dev/null
+          {
+            echo "$marker"
+            echo "$title"
+            echo
+            echo "$lead"
+            echo
+            cat "$RUNNER_TEMP/compat-report.md"
+          } > "$RUNNER_TEMP/mima-comment.md"
+
+          if [ -n "$comment_id" ]; then
+            gh api --method PATCH "repos/$REPO/issues/comments/$comment_id" -F body=@"$RUNNER_TEMP/mima-comment.md" >/dev/null
+          else
+            gh api --method POST "repos/$REPO/issues/$PR/comments" -F body=@"$RUNNER_TEMP/mima-comment.md" >/dev/null
           fi

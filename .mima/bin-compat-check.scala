@@ -15,7 +15,7 @@
 // since oldJar) but always has "problems" whenever you add API, so it's never
 // a reason to fail on its own.
 //
-// Exit code: 0 if backward-compatible, 1 otherwise.
+// Exit code: 0 compatible, 2 incompatible, anything else = the check failed to run.
 
 import java.io.File
 import com.typesafe.tools.mima.lib.MiMaLib
@@ -24,6 +24,9 @@ import com.typesafe.tools.mima.core.Problem
 object BinCompatCheck {
   def main(args: Array[String]): Unit = {
     val Array(oldJar, newJar, sharedCp) = args
+    // MiMa silently treats a missing JAR as empty.
+    for (jar <- List(oldJar, newJar))
+      require(new File(jar).isFile, s"not a file: $jar")
     val classpath = sharedCp.split(File.pathSeparator).iterator
       .filter(_.nonEmpty).map(new File(_)).toList
 
@@ -43,6 +46,6 @@ object BinCompatCheck {
     report("backward (code built against the release vs the new JAR)", backward)
     report("forward  (new API vs the release — expected to list additions)", forward)
 
-    if (backward.nonEmpty) sys.exit(1)
+    if (backward.nonEmpty) sys.exit(2)
   }
 }
