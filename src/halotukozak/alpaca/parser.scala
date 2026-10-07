@@ -187,7 +187,8 @@ trait Rule[R]:
    * @return a partial function that extracts an optional result
    */
   @compileTimeOnly(RuleOnly)
-  inline def Option(using ParserScope): PartialFunction[Any, Option[R]] = null.asInstanceOf[PartialFunction[Any, Option[R]]]
+  inline def Option(using ParserScope): PartialFunction[Any, Option[R]] =
+    null.asInstanceOf[PartialFunction[Any, Option[R]]]
 
   /**
    * Matches zero or more occurrences of this rule delimited by `Separator`,
@@ -279,7 +280,8 @@ extension (first: Production | Token[?, ?, ?]) {
    * @return a conflict resolution rule
    */
   @compileTimeOnly(RuleOnly)
-  inline infix def after[P <: parser.Parser[?]: ResolutionScope](@unused second: (Production | Token[?, ?, ?])*): ConflictResolution =
+  inline infix def after[P <: parser.Parser[?]: ResolutionScope](@unused second: (Production | Token[?, ?, ?])*)
+    : ConflictResolution =
     null.asInstanceOf[ConflictResolution]
 
   /**
@@ -294,7 +296,8 @@ extension (first: Production | Token[?, ?, ?]) {
    * @return a conflict resolution rule
    */
   @compileTimeOnly(RuleOnly)
-  inline infix def before[P <: parser.Parser[?]: ResolutionScope](@unused second: (Production | Token[?, ?, ?])*): ConflictResolution =
+  inline infix def before[P <: parser.Parser[?]: ResolutionScope](@unused second: (Production | Token[?, ?, ?])*)
+    : ConflictResolution =
     null.asInstanceOf[ConflictResolution]
 }
 
@@ -310,7 +313,8 @@ object Production:
    * @return a production reference
    */
   @compileTimeOnly(ConflictResolutionOnly)
-  inline def apply[P <: parser.Parser[?]: ResolutionScope](@unused symbols: (Rule[?] | Token[?, ?, ?])*): Production = null.asInstanceOf[Production]
+  inline def apply[P <: parser.Parser[?]: ResolutionScope](@unused symbols: (Rule[?] | Token[?, ?, ?])*): Production =
+    null.asInstanceOf[Production]
 
 object ParserCtx:
 
