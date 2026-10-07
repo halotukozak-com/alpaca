@@ -122,8 +122,6 @@ object Tracking:
             .carryEngineStateFrom(afterFields)
             .tap: c =>
               val values = c.productIterator.toArray
-              val lineAfter = if lineIndex < 0 then 0 else values(lineIndex).asInstanceOf[Int]
-              val columnAfter = if columnIndex < 0 then 0 else values(columnIndex).asInstanceOf[Int]
               if lineIndex >= 0 then values(lineIndex) = ctx.productElement(lineIndex)
               if columnIndex >= 0 then values(columnIndex) = ctx.productElement(columnIndex)
               val name = info.name.raw
@@ -133,10 +131,6 @@ object Tracking:
                 text = raw,
                 fieldNames = fieldNames,
                 fieldValues = values,
-                lineIndex = lineIndex,
-                columnIndex = columnIndex,
-                lineAfter = lineAfter,
-                columnAfter = columnAfter,
               )
 
         case IgnoredToken(_, modifyCtx) =>

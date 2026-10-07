@@ -88,32 +88,37 @@ final class PositionsTest extends AnyFunSuite with Matchers with LoneElement:
       List(("ab", 1, 1, 1), ("+", 1, 4, 1), ("cd", 1, 6, 2))
   }
 
-  test("a parser error is positioned at the start of the unexpected lexeme") {
-    val error = parserError(PlusParser.parse(PositionLexer.tokenize("ab\n  cd + e").getOrThrow))
-    error.unexpected.text shouldBe "cd"
-    (error.line, error.column) shouldBe (Some(2), Some(3))
-    error.message shouldBe """Unexpected WORD "cd" at line 2, column 3. Expected one of: end of input, PLUS"""
+  test("a parser error's unexpected lexeme has the lexer's typed fields") {
+    PlusParser.parse(PositionLexer.tokenize("ab\n  cd + e").getOrThrow) match
+      case Result.Failure(_, _, errors) =>
+        val error = errors.loneElement
+        (error.unexpected.text, error.unexpected.line, error.unexpected.column) shouldBe ("cd", 2, 3)
+        error.after shouldBe None
+        error.message shouldBe """Unexpected WORD "cd" at line 2, column 3. Expected one of: end of input, PLUS"""
+      case Result.Success(_, _) => fail("expected a parse failure")
   }
 
-  test("at the end of the input, a parser error is positioned right after the last lexeme") {
-    val error = parserError(PlusParser.parse(PositionLexer.tokenize("ab +\n").getOrThrow))
-    (error.line, error.column) shouldBe (Some(1), Some(5))
-    error.message shouldBe "Unexpected end of input at line 1, column 5. Expected one of: WORD"
+  test("at the end of the input, a parser error points at the last lexeme") {
+    RenamedParser.parse(RenamedLexer.tokenize("ab +\n").getOrThrow) match
+      case Result.Failure(_, _, errors) =>
+        val error = errors.loneElement
+        error.unexpected.name shouldBe "$"
+        error.after.map(l => (l.text, l.ln, l.col, l.words)) shouldBe Some(("+", 1, 4, 1))
+      case Result.Success(_, _) => fail("expected a parse failure")
   }
 
-  test("a parser error with no lexemes at all has no position") {
+  test("the message at the end of the input names the last lexeme and its position") {
+    parserError(PlusParser.parse(PositionLexer.tokenize("ab +\n").getOrThrow)).message shouldBe
+      """Unexpected end of input after PLUS "+" at line 1, column 4. Expected one of: WORD"""
+  }
+
+  test("a parser error with no lexemes at all has nothing after") {
     val error = parserError(PlusParser.parse(Nil))
-    (error.line, error.column) shouldBe (None, None)
+    error.after shouldBe None
     error.message shouldBe "Unexpected end of input. Expected one of: WORD"
   }
 
-  test("a parser error finds Line and Column fields by type, whatever their names") {
-    val error = parserError(RenamedParser.parse(RenamedLexer.tokenize("ab\ncd").getOrThrow))
-    (error.line, error.column) shouldBe (Some(2), Some(1))
-  }
-
-  test("a parser error has no position when the lexer context does not track one") {
-    val error = parserError(UntrackedParser.parse(UntrackedLexer.tokenize("ab cd").getOrThrow))
-    (error.line, error.column) shouldBe (None, None)
-    error.message should startWith("""Unexpected WORD "cd". Expected""")
+  test("a parser error's message has no position when the lexer context does not track one") {
+    parserError(UntrackedParser.parse(UntrackedLexer.tokenize("ab cd").getOrThrow)).message should
+      startWith("""Unexpected WORD "cd". Expected""")
   }

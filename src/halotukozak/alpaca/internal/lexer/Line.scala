@@ -18,7 +18,7 @@ package lexer
  * rewritten to a `copy` too.
  *
  * Found by type, so the field can have any name. In a lexeme it is the line
- * the token starts on; [[LexerError]] and [[ParserError]] report it.
+ * the token starts on; [[LexerError]] reports it.
  */
 opaque type Line <: Int = Int
 

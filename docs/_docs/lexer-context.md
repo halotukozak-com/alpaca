@@ -166,7 +166,7 @@ Alpaca ships two ready-made tracking fields, both re-exported from `halotukozak.
 
 **`Line`** -- an opaque `Int` that increments when the matched text is exactly `"\n"`.
 
-Each is a plain case-class field with a `given Tracking` in its companion. Use either one, both, or neither. `LexerCtx.Default` uses both. They are recognised by their type, not their name, so the fields can be called anything; `LexerError` and `ParserError` take their line and column from them. To add them to a custom context:
+Each is a plain case-class field with a `given Tracking` in its companion. Use either one, both, or neither. `LexerCtx.Default` uses both. They are recognised by their type, not their name, so the fields can be called anything; `LexerError` takes its line and column from them, and a `ParserError`'s lexemes carry them. To add them to a custom context:
 
 ```scala
 import halotukozak.alpaca.*

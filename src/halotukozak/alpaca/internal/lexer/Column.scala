@@ -20,7 +20,7 @@ package lexer
  * (`ctx.column = Column(...)`) is rewritten to a `copy` too.
  *
  * Found by type, so the field can have any name. In a lexeme it is the column
- * the token starts at; [[LexerError]] and [[ParserError]] report it.
+ * the token starts at; [[LexerError]] reports it.
  *
  * (Named `Column`, not `Position`, to avoid shadowing the unrelated source
  * `Position` type used throughout this library's own error reporting.)

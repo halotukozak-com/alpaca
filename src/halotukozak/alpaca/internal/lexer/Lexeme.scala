@@ -28,10 +28,6 @@ import scala.util.boundary.break
  * @tparam Value the value type
  * @param name the token name
  * @param value the extracted value
- * @param lineIndex   the index of the [[Line]] field in `fieldValues`, or -1
- * @param columnIndex the index of the [[Column]] field in `fieldValues`, or -1
- * @param lineAfter   the line right after the token, when `lineIndex >= 0`
- * @param columnAfter the column right after the token, when `columnIndex >= 0`
  */
 final class Lexeme[+Name <: ValidName, +Value] private[alpaca] (
   val name: Name,
@@ -39,10 +35,6 @@ final class Lexeme[+Name <: ValidName, +Value] private[alpaca] (
   val text: String,
   private[alpaca] val fieldNames: Array[String],
   private[alpaca] val fieldValues: Array[Any],
-  private[alpaca] val lineIndex: Int = -1,
-  private[alpaca] val columnIndex: Int = -1,
-  private[alpaca] val lineAfter: Int = 0,
-  private[alpaca] val columnAfter: Int = 0,
 ) extends Selectable:
   type Fields <: AnyNamedTuple
 
@@ -50,19 +42,6 @@ final class Lexeme[+Name <: ValidName, +Value] private[alpaca] (
     boundary:
       for i <- fieldNames.indices if fieldNames(i) == name do break(fieldValues(i))
       throw new NoSuchElementException(name)
-
-  /** The line the token starts on, if the lexer context tracks a [[Line]]. */
-  private[alpaca] def startLine: Option[Int] = Option.when(lineIndex >= 0)(fieldValues(lineIndex).asInstanceOf[Int])
-
-  /** The column the token starts at, if the lexer context tracks a [[Column]]. */
-  private[alpaca] def startColumn: Option[Int] =
-    Option.when(columnIndex >= 0)(fieldValues(columnIndex).asInstanceOf[Int])
-
-  /** The line right after the token, if the lexer context tracks a [[Line]]. */
-  private[alpaca] def endLine: Option[Int] = Option.when(lineIndex >= 0)(lineAfter)
-
-  /** The column right after the token, if the lexer context tracks a [[Column]]. */
-  private[alpaca] def endColumn: Option[Int] = Option.when(columnIndex >= 0)(columnAfter)
 
 private[alpaca] object Lexeme:
   /**

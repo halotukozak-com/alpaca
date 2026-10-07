@@ -50,11 +50,13 @@ abstract class Parser[Ctx <: ParserCtx](
    * parse the input lexemes using an LR parsing algorithm.
    *
    * @tparam R the result type
+   * @tparam L the lexer's lexeme type, which the returned errors carry
    * @param lexemes the list of lexemes to parse
    * @return the value the root rule produced, or the errors met on the way, with the context either way; when the
    *         context's [[ErrorHandling]] skipped past the errors, the value is the failure's `recovered`
    */
-  @publicInBinary private[alpaca] def parseResult[R](lexemes: List[Lexeme[?, ?]]): Result[Ctx, R, ParserError] = {
+  @publicInBinary private[alpaca] def parseResult[R, L <: Lexeme[?, ?]](lexemes: List[L])
+    : Result[Ctx, R, ParserError.Of[L]] = {
     enum Node:
       case Result(value: Any)
       case Token(lexeme: Lexeme[?, ?])
@@ -69,7 +71,7 @@ abstract class Parser[Ctx <: ParserCtx](
     val nodeStack = mutable.ArrayDeque.empty[Node]
     stateStack += 0
     nodeStack += Node.Result(null)
-    val errors = mutable.ListBuffer.empty[ParserError]
+    val errors = mutable.ListBuffer.empty[ParserError.Of[L]]
 
     // The accepted root node, or `None` when an error stopped the parser.
     @tailrec def loop(remaining: List[Lexeme[?, ?]]): Option[Node] = {
@@ -78,12 +80,10 @@ abstract class Parser[Ctx <: ParserCtx](
         case head :: _ => (head, Terminal(Printable(head.name)))
       val action = tables.parseTable.get(stateStack.last, nextSymbol)
       if action == null then {
-        val error =
-          ParserError.at(
-            current,
-            tables.parseTable.expectedTerminals(stateStack.last),
-            if lexemes.isEmpty then null else lexemes.last,
-          )
+        val after = if remaining.isEmpty then lexemes.lastOption else None
+        // `current` is `Lexeme.EOF` at the end, typed as `L` like the real lexemes
+        val error = ParserError(current, tables.parseTable.expectedTerminals(stateStack.last), after)
+          .asInstanceOf[ParserError.Of[L]]
         errors += error
         // the end of the input cannot be skipped
         errorHandling(ctx, error) match

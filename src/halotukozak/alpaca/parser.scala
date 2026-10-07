@@ -207,43 +207,45 @@ sealed trait Rule[R]:
 /**
  * Why the input does not match the grammar, as reported by `parse` in a [[Result.Failure]].
  *
+ * For positions, read the lexer context's fields of `unexpected`, e.g. `error.unexpected.line`; `parse` types it
+ * with the lexer's lexeme type. At the end of the input `unexpected` is a lexeme with no fields, so use `after`.
+ *
  * @param unexpected the lexeme the parser could not accept; its `name` is `"$"` when the input ended too early
  * @param expected   the token names the grammar would have accepted at that point (`"$"` stands for the end of
  *                   the input), sorted
- * @param line       the line the unexpected lexeme starts on, when the lexer context has a [[Line]] field; at the end
- *                   of the input, the line right after the last lexeme
- * @param column     the column the unexpected lexeme starts at, when the lexer context has a [[Column]] field; at the
- *                   end of the input, the column right after the last lexeme
+ * @param after      at the end of the input, the last lexeme before it; `None` when the input is empty or the error
+ *                   is not at the end
  */
-final case class ParserError(
-  unexpected: Lexeme[?, ?],
-  expected: List[String],
-  line: Option[Int],
-  column: Option[Int],
-):
-  /** A readable description, e.g. `Unexpected + "+" at line 1, column 3. Expected one of: Num`. */
+final case class ParserError(unexpected: Lexeme[?, ?], expected: List[String], after: Option[Lexeme[?, ?]]):
+  /** A readable description, e.g. `Unexpected PLUS "+" at line 1, column 3. Expected one of: Num`. */
   def message: String = {
-    def describe(name: String): Shown = if name == "$" then show"end of input" else Printable(name).show
+    def describe(lexeme: Lexeme[?, ?]): Shown =
+      if lexeme eq Lexeme.EOF then show"end of input"
+      else show"""${Printable(lexeme.name)} "${Printable(lexeme.text)}""""
 
-    val what =
-      if unexpected eq Lexeme.EOF then show"end of input"
-      else show"""${Printable(unexpected.name)} "${Printable(unexpected.text)}""""
-    show"Unexpected $what${describePosition(line, column)}. Expected one of: ${expected.map(describe).mkShow(", ")}"
+    // Not a contract: uses fields named `line`/`column`, as `LexerCtx.Default` has.
+    def where(lexeme: Lexeme[?, ?]): Shown = {
+      def field(name: String): Option[Int] =
+        lexeme.fieldNames.indexOf(name) match
+          case -1 => None
+          case i =>
+            lexeme.fieldValues(i) match
+              case n: Int => Some(n)
+              case _ => None
+      describePosition(field("line"), field("column"))
+    }
+
+    val what = after match
+      case Some(last) => show"${describe(unexpected)} after ${describe(last)}${where(last)}"
+      case None => show"${describe(unexpected)}${where(unexpected)}"
+    val names = expected.map(name => if name == "$" then show"end of input" else Printable(name).show)
+    show"Unexpected $what. Expected one of: ${names.mkShow(", ")}"
   }
 
 object ParserError:
 
-  /**
-   * An error at `unexpected`, positioned where it starts; at the end of the input (`unexpected` is `Lexeme.EOF`),
-   * right after `previous`, the last lexeme, if there is one.
-   */
-  private[alpaca] def at(unexpected: Lexeme[?, ?], expected: List[String], previous: => Lexeme[?, ?] | Null)
-    : ParserError =
-    if unexpected ne Lexeme.EOF then ParserError(unexpected, expected, unexpected.startLine, unexpected.startColumn)
-    else
-      previous match
-        case null => ParserError(unexpected, expected, None, None)
-        case last => ParserError(unexpected, expected, last.endLine, last.endColumn)
+  /** `ParserError` whose lexemes have the lexer's lexeme type `L`, as `parse` returns it. */
+  type Of[+L <: Lexeme[?, ?]] = ParserError { val unexpected: L; def after: Option[L] }
 
   extension [Ctx, A](result: Result[Ctx, A, ParserError])
     /** The value; throws the errors as a [[ParserException]] if parsing failed. */
@@ -331,12 +333,13 @@ extension [Ctx <: ParserCtx](parser: Parser[Ctx]) {
    * The result type is inferred from the root rule. Input that does not match the grammar is not thrown as an
    * exception: it comes back as a [[Result.Failure]] listing the [[ParserError]]s.
    *
+   * @tparam L the lexer's lexeme type; the errors carry it, so `error.unexpected.line` compiles when it has a `line`
    * @param lexemes the list of lexemes to parse
    * @return the value the root rule produced, or the errors that stopped the parser, with the context either way
    */
-  inline def parse(lexemes: List[Lexeme[?, ?]]): Result[
+  inline def parse[L <: Lexeme[?, ?]](lexemes: List[L]): Result[
     Ctx,
     parser.root.type match { case Rule[t] => t },
-    ParserError,
+    ParserError.Of[L],
   ] = parser.parseResult(lexemes)
 }

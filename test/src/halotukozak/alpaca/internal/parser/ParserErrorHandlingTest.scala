@@ -13,13 +13,13 @@ final class ParserErrorHandlingTest extends AnyFunSuite with Matchers:
     case "\\+" => Token["+"]
     case value @ "[1-9][0-9]*" => Token["Num"](value.toInt)
 
-  extension [A](result: Result[?, A, ParserError])
-    private def failure: (recovered: Option[A], errors: List[ParserError]) = result match
+  extension [A](result: Result[?, A, ParserError.Of[CalcLexer.Lexeme]])
+    private def failure: (recovered: Option[A], errors: List[ParserError.Of[CalcLexer.Lexeme]]) = result match
       case Result.Failure(_, recovered, errors) => (recovered, errors)
       case Result.Success(_, _) => fail("expected a failure")
 
-  extension (error: ParserError)
-    private def at: (text: String, column: Option[Int]) = (error.unexpected.text, error.column)
+  extension (error: ParserError.Of[CalcLexer.Lexeme])
+    private def at: (text: String, column: Int) = (error.unexpected.text, error.unexpected.column)
 
   case class StoppingContext() extends ParserCtx
   case class SkippingContext() extends ParserCtx
@@ -71,20 +71,20 @@ final class ParserErrorHandlingTest extends AnyFunSuite with Matchers:
   test("the default strategy stops at the first error and recovers nothing") {
     val result = StoppingParser.parse(CalcLexer.tokenize("1++2++3").getOrThrow).failure
     result.recovered shouldBe None
-    result.errors.map(_.at) shouldBe List(("+", Some(3)))
+    result.errors.map(_.at) shouldBe List(("+", 3))
   }
 
   test("SkipOne skips the unexpected lexeme and recovers the value") {
     val result = SkippingParser.parse(CalcLexer.tokenize("1++2").getOrThrow).failure
     result.recovered shouldBe Some(3)
-    result.errors.map(_.at) shouldBe List(("+", Some(3)))
+    result.errors.map(_.at) shouldBe List(("+", 3))
     result.errors.head.expected shouldBe List("Num")
   }
 
   test("SkipOne reports every skipped lexeme in input order") {
     val result = SkippingParser.parse(CalcLexer.tokenize("1+++2++3").getOrThrow).failure
     result.recovered shouldBe Some(6)
-    result.errors.map(_.at) shouldBe List(("+", Some(3)), ("+", Some(4)), ("+", Some(7)))
+    result.errors.map(_.at) shouldBe List(("+", 3), ("+", 4), ("+", 7))
   }
 
   test("SkipOne cannot skip the end of the input") {
@@ -101,14 +101,14 @@ final class ParserErrorHandlingTest extends AnyFunSuite with Matchers:
     seen = Nil
     val result = FirstSkipParser.parse(CalcLexer.tokenize("1+++2").getOrThrow).failure
     result.recovered shouldBe None
-    result.errors.map(_.at) shouldBe List(("+", Some(3)), ("+", Some(4)))
+    result.errors.map(_.at) shouldBe List(("+", 3), ("+", 4))
     seen shouldBe result.errors
   }
 
   test("SkipToNextMatch skips to the next acceptable lexeme and reports one error per skipped run") {
     val result = SkipAheadParser.parse(CalcLexer.tokenize("1+++2++3").getOrThrow).failure
     result.recovered shouldBe Some(6)
-    result.errors.map(_.at) shouldBe List(("+", Some(3)), ("+", Some(7)))
+    result.errors.map(_.at) shouldBe List(("+", 3), ("+", 7))
   }
 
   test("SkipToNextMatch reaches the end of the input when nothing further is acceptable") {

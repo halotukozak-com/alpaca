@@ -57,7 +57,8 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers with LoneEle
     val error = errorsOf(CalcParser.parse(lexemes)).loneElement
     (error.unexpected.name: String) shouldBe "$"
     error.expected shouldBe List("Num")
-    error.message shouldBe "Unexpected end of input at line 1, column 3. Expected one of: Num"
+    error.after.map(_.text) shouldBe Some("+")
+    error.message shouldBe """Unexpected end of input after + "+" at line 1, column 2. Expected one of: Num"""
   }
 
   test("ParserError lists only terminals, with the end of input among them when it is accepted") {
