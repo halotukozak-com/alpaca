@@ -27,6 +27,7 @@ sealed trait ResolutionCtx[P <: parser.Parser[?]]
 object ResolutionCtx:
   private val reusable = new ResolutionCtx[parser.Parser[?]] {}
   private[alpaca] def refl[P <: parser.Parser[?]]: ResolutionCtx[P] = reusable.asInstanceOf[ResolutionCtx[P]]
+
 /**
  * Collects the conflict resolutions for the parser `P`, each written with `before` or `after` (see [[Resolutions]]).
  *
@@ -324,8 +325,7 @@ extension [Ctx <: ParserCtx](parser: Parser[Ctx]) {
    */
   inline def parse(lexemes: List[Lexeme[?, ?]]): Result[
     Ctx,
-    parser.root.type match
-      case Rule[t] => t,
+    parser.root.type match { case Rule[t] => t },
     ParserError,
   ] = parser.parseResult(lexemes)
 }
