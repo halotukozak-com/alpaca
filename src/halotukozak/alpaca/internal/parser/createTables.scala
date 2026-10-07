@@ -77,6 +77,17 @@ object Tables:
       // from its productions missing (e.g. "No root rule defined")
       var unreadable = false
 
+      val symbolExtractor = extractEBNFAndAction[Ctx]
+      def symbolOf(pattern: Tree) = symbolExtractor
+        .lift(pattern)
+        .orElse:
+          error(
+            show"Each element of a production's pattern must be a token or rule extractor, as in `MyLexer.NUM(n)`, `MyLexer.PLUS(_)`, `Expr(e)` or `Expr.List(es)`",
+            pattern.pos,
+          )
+          unreadable = true
+          None
+
       def extractEBNF(ruleName: String)
         : PartialFunction[Expr[Rule[?]], Seq[(production: Production, action: Expr[Action[Ctx]])]] = {
         case '{ rule(${ Varargs(cases) }*) } =>
@@ -123,28 +134,38 @@ object Tables:
             .flatMap:
               case (c @ CaseDef(_, Some(_), _), _) =>
                 error(show"Guards are not supported yet", c.pos)
+                unreadable = true
                 None
               // Tuple1
               case (c @ CaseDef(skipTypedOrTest(pattern @ Unapply(_, _, List(_))), None, rhs), name) =>
-                val (symbol, bind, others) = extractEBNFAndAction[Ctx](pattern)
-                val source = Source(c.pos)
-                val production =
-                  Production.NonEmpty(NonTerminal(Printable(ruleName)), NEL(symbol), Printable.nullable(name), source)
-                (production = production, action = createAction(List(bind), rhs)) :: others
+                symbolOf(pattern).toList.flatMap: (symbol, bind, others) =>
+                  val source = Source(c.pos)
+                  val production =
+                    Production.NonEmpty(NonTerminal(Printable(ruleName)), NEL(symbol), Printable.nullable(name), source)
+                  (production = production, action = createAction(List(bind), rhs)) :: others
 
               // TupleN, N > 1
               case (c @ CaseDef(skipTypedOrTest(Unapply(_, _, patterns)), None, rhs), name) =>
-                val (symbols, binds, others) = patterns.map(extractEBNFAndAction[Ctx]).unzip3(using _.toTuple)
-                val source = Source(c.pos)
-                val production =
-                  Production.NonEmpty(
-                    NonTerminal(Printable(ruleName)),
-                    NEL(symbols.head, symbols.tail*),
-                    Printable.nullable(name),
-                    source,
-                  )
-                (production = production, action = createAction(binds, rhs)) :: others.flatten
-              case other => raiseShouldNeverBeCalled(other)
+                val elements = patterns.map(symbolOf)
+                if elements.contains(None) then Nil
+                else
+                  val (symbols, binds, others) = elements.flatten.unzip3(using _.toTuple)
+                  val source = Source(c.pos)
+                  val production =
+                    Production.NonEmpty(
+                      NonTerminal(Printable(ruleName)),
+                      NEL(symbols.head, symbols.tail*),
+                      Printable.nullable(name),
+                      source,
+                    )
+                  (production = production, action = createAction(binds, rhs)) :: others.flatten
+              case (c, _) =>
+                error(
+                  show"A production must match a token or rule extractor, or a tuple of them, as in `case (Expr(a), MyLexer.PLUS(_), Expr(b))`",
+                  c.pattern.pos,
+                )
+                unreadable = true
+                None
             .toList
       }
 
