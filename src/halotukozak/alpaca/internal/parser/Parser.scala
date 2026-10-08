@@ -168,5 +168,5 @@ abstract class Parser[Ctx <: ParserCtx](
 
   (refinementTpeFrom(fields).asType, fieldsTpeFrom(fields).asType).runtimeChecked match
     case ('[refinement], '[fields]) =>
-      '{ DummyProductionSelector.asInstanceOf[ProductionSelector { type Fields = fields } & refinement] }
+      '{ null.asInstanceOf[ProductionSelector { type Fields = fields } & refinement] }
 }

@@ -26,5 +26,6 @@ object Production:
    * @return a production reference
    */
   @compileTimeOnly(ConflictResolutionOnly)
-  inline def apply[P <: parser.Parser[?]: ResolutionScope](@unused symbols: (Rule[?] | Token[?, ?, ?])*): Production =
+  inline def apply[P <: parser.Parser[?]: ResolutionScope](@unused inline symbols: (Rule[?] | Token[?, ?, ?])*)
+    : Production =
     null

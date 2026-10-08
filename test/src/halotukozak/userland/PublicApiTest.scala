@@ -153,7 +153,6 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     assert(typeChecks("""def resolve(selector: ProductionSelector, production: Production): Unit = ()"""))
     assert(!typeChecks("""val p: Production = "plus""""))
     assert(!typeChecks("""new ProductionSelector { def selectDynamic(name: String): Any = null }"""))
-    assert(!typeChecks("""DummyProductionSelector"""))
   }
 
   test("the text peeked in ErrorHandling keeps its content after the callback") {

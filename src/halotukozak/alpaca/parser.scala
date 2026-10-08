@@ -267,7 +267,7 @@ trait ParserCtx
  * and tokens.
  */
 type ConflictResolution
-extension (first: Production | Token[?, ?, ?]) {
+extension (@unused inline first: Production | Token[?, ?, ?]) {
 
   /**
    * Resolves the conflicts between this production or token and each of `second` in favour of `second`: the
@@ -280,7 +280,7 @@ extension (first: Production | Token[?, ?, ?]) {
    * @return a conflict resolution rule
    */
   @compileTimeOnly(RuleOnly)
-  inline infix def after[P <: parser.Parser[?]: ResolutionScope](@unused second: (Production | Token[?, ?, ?])*)
+  inline infix def after[P <: parser.Parser[?]: ResolutionScope](@unused inline second: (Production | Token[?, ?, ?])*)
     : ConflictResolution =
     null.asInstanceOf[ConflictResolution]
 
@@ -296,7 +296,7 @@ extension (first: Production | Token[?, ?, ?]) {
    * @return a conflict resolution rule
    */
   @compileTimeOnly(RuleOnly)
-  inline infix def before[P <: parser.Parser[?]: ResolutionScope](@unused second: (Production | Token[?, ?, ?])*)
+  inline infix def before[P <: parser.Parser[?]: ResolutionScope](@unused inline second: (Production | Token[?, ?, ?])*)
     : ConflictResolution =
     null.asInstanceOf[ConflictResolution]
 }
