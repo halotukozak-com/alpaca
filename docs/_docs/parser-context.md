@@ -5,7 +5,7 @@ Parser context lets you carry mutable state through parsing reductions. Stateles
 <details>
 <summary>Under the hood: context threading</summary>
 
-When you define `Parser[Ctx]`, `Ctx` must extend `ParserCtx`, and the compiler derives an `Empty[Ctx]` instance from its constructor defaults -- which only works for a case class whose fields all have default values. At runtime, `parse()` calls that `Empty[Ctx]` once to create the initial context, and the same object is passed to every rule reduction in that call.
+When you define `Parser[Ctx]`, `Ctx` must extend `ParserCtx`, and the macro that builds the parse tables also builds a factory of the initial context from its constructor defaults -- which only works for a case class whose fields all have default values. At runtime, `parse()` calls that factory once to create the initial context, and the same object is passed to every rule reduction in that call.
 
 </details>
 
@@ -61,8 +61,8 @@ case class BrainParserCtx(
 
 Three rules apply:
 
-1. **Must be a `case class`** -- the initial context is built by the derived `Empty[Ctx]`, which only exists for case classes (otherwise: `... should be a case class.`).
-2. **All fields must have default values** -- `Empty[Ctx]` constructs the initial context from constructor defaults.
+1. **Must be a `case class`** -- the initial context is built from the case class constructor (otherwise: `... should be a case class.`).
+2. **All fields must have default values** -- the initial context is constructed from constructor defaults.
 3. **Mutable collections are `val`; other mutable fields are `var`** -- mutate the collection contents, not the reference.
 
 ## Accessing Context in Rule Bodies

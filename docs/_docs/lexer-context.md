@@ -59,7 +59,7 @@ Position advances by the matched length after each token. The snapshot captures 
 `LexerCtx` is the base trait for all lexer contexts. Any custom context must satisfy two rules:
 
 1. **It must be a case class** -- `LexerCtx` extends `Product` directly, and the auto-derivation machinery requires a `Product` instance.
-2. **All fields must have default values** -- The `Empty[T]` derivation macro reads default parameter values from the companion to construct the initial context. If any parameter lacks a default, the macro fails at compile time.
+2. **All fields must have default values** -- The `lexer` macro reads default parameter values from the companion to construct the initial context. If any parameter lacks a default, the macro fails at compile time.
 
 > **Note:** `text`, `lastLexeme` and `lastRawMatched` are taken: the `LexerCtx` trait declares them for the lexer's own bookkeeping, so a field with one of these names does not compile.
 

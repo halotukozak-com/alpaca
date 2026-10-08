@@ -32,7 +32,6 @@ export alpaca.internal.lexer.{Column, LazyReader, Lexeme, Lexer, Line, Tracking}
  * @tparam Ctx the global context type, defaults to [[LexerCtx.Default]]
  * @param rules the lexer rules as a partial function
  * @param errorHandling implicit ErrorHandling for custom error recovery
- * @param empty implicit Empty instance to create the initial context
  * @return a [[Lexer]] that can tokenize input strings
  */
 transparent inline def lexer[Ctx <: LexerCtx](
@@ -42,14 +41,12 @@ transparent inline def lexer[Ctx <: LexerCtx](
 )(using
   m: Mirror.ProductOf[Ctx],
   errorHandling: ErrorHandling[Ctx, LexerError],
-  empty: Empty[Ctx],
 ): Lexer[Ctx] { type LexemeFields = NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes] } =
   ${
     createLexerImpl[Ctx, NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes]](
       '{ rules },
       '{ Tracking.materialize[Ctx] },
       '{ errorHandling },
-      '{ empty },
     )
   }
 

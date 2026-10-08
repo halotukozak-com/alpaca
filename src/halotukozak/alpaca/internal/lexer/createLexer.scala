@@ -15,11 +15,11 @@ import scala.reflect.NameTransformer
   rules: Expr[LexerScope.Of[Ctx] ?=> LexerDefinition[Ctx]],
   onTokenMatch: Expr[(Token[?, Ctx, ?], String, Ctx) => Ctx],
   errorHandling: Expr[ErrorHandling[Ctx, LexerError]],
-  empty: Expr[Empty[Ctx]],
 )(using quotes: Quotes,
 ): Expr[Lexer[Ctx] { type LexemeFields = lexemeFields }] = {
   import quotes.reflect.*
   given diagnostics: Diagnostics = Diagnostics()
+  val initialCtx = fromDefaults[Ctx]
 
   val Lambda(oldScope :: Nil, Lambda(_, Match(_, cases: List[CaseDef]))) = rules.asTerm.underlying.runtimeChecked
 
@@ -241,7 +241,7 @@ import scala.reflect.NameTransformer
 
       '{
         {
-          new Lexer[Ctx]($onTokenMatch)(using $errorHandling, $empty):
+          new Lexer[Ctx]($onTokenMatch, $initialCtx)(using $errorHandling):
             @publicInBinary
             override private[alpaca] val tokens: List[lexer.Token[?, Ctx, ?]] = $tokensExpr
 

@@ -12,15 +12,16 @@ import scala.collection.immutable.VectorMap
 import scala.reflect.NameTransformer
 
 /**
- * An opaque type containing the parse and action tables for the parser.
+ * An opaque type containing the parse and action tables for the parser, and the factory of its initial context.
  *
  * The parse table is used to drive the LR parsing algorithm, while the
  * action table maps productions to their semantic actions. These tables
- * are generated at compile time by analyzing the grammar rules.
+ * are generated at compile time by analyzing the grammar rules. The initial
+ * context is built from the default values of the context's fields.
  *
  * @tparam Ctx the parser context type
  */
-opaque type Tables[Ctx <: ParserCtx] = (parseTable: ParseTable, actionTable: ActionTable[Ctx])
+opaque type Tables[Ctx <: ParserCtx] = (parseTable: ParseTable, actionTable: ActionTable[Ctx], initialCtx: () => Ctx)
 
 object Tables:
   /**
@@ -30,13 +31,14 @@ object Tables:
    * the parser's grammar rules and generate the necessary tables.
    *
    * @tparam Ctx the parser context type
-   * @return the generated parse and action tables
+   * @return the generated parse and action tables, and the initial context factory
    */
   inline given [Ctx <: ParserCtx]: Tables[Ctx] = ${ createTablesImpl[Ctx] }
 
   extension [Ctx <: ParserCtx](tables: Tables[Ctx])
     private[alpaca] def parseTable: ParseTable = tables.parseTable
     private[alpaca] def actionTable: ActionTable[Ctx] = tables.actionTable
+    private[alpaca] def initialCtx: () => Ctx = tables.initialCtx
 
 /**
  * Macro implementation that builds parse and action tables at compile time.
@@ -58,14 +60,15 @@ object Tables:
  *
  * @tparam Ctx the parser context type
  * @param quotes the Quotes instance
- * @return an expression containing the parse and action tables
+ * @return an expression containing the parse and action tables, and the initial context factory
  */
 // $COVERAGE-OFF$
 @publicInBinary private[parser] def createTablesImpl[Ctx <: ParserCtx: Type](
   using quotes: Quotes,
-): Expr[(parseTable: ParseTable, actionTable: ActionTable[Ctx])] = {
+): Expr[(parseTable: ParseTable, actionTable: ActionTable[Ctx], initialCtx: () => Ctx)] = {
   import quotes.reflect.*
   given Diagnostics = Diagnostics()
+  val initialCtx = fromDefaults[Ctx]
   val parserSymbol = Symbol.spliceOwner.owner.owner
   val parserTpe = parserSymbol.typeRef
 
@@ -376,7 +379,11 @@ object Tables:
 
       '{
         $referenceGivenResolutions
-        ($parseTable.asInstanceOf[ParseTable], ActionTable($actionTable.toMap))
+        (
+          $parseTable.asInstanceOf[ParseTable],
+          ActionTable($actionTable.toMap),
+          $initialCtx,
+        )
       }
   }
 }

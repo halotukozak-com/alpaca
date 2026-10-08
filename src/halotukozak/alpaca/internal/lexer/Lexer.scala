@@ -21,9 +21,8 @@ import scala.collection.mutable
  */
 transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca] (
   onTokenMatch: (Token[?, Ctx, ?], String, Ctx) => Ctx,
-)(using
-  errorHandling: ErrorHandling[Ctx, LexerError],
-  empty: Empty[Ctx],
+  initialCtx: () => Ctx,
+)(using errorHandling: ErrorHandling[Ctx, LexerError],
 ) extends Selectable:
   type Fields <: AnyNamedTuple
   type LexemeFields <: AnyNamedTuple
@@ -56,7 +55,7 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
    *         strategy the lexemes collected despite the errors are the failure's `recovered` value
    */
   final def tokenize(input: CharSequence): Result[Ctx, List[Lexeme], LexerError] = {
-    var globalCtx = empty()
+    var globalCtx = initialCtx()
     globalCtx.text = input match
       case reader: LazyReader => reader
       case _ => OffsetCharSequence(input)
