@@ -32,25 +32,6 @@ private[parser] object DefinitionRhs:
       case definition: ValOrDefDef => definition.rhs.map((definition.name, _))
       case _ => None
 
-/**
- * The members `parser` declares with a [[Rule]] type, including those declared as a `def`, with or without parameters.
- */
-private[parser] def ruleDeclarations(using Quotes)(parser: quotes.reflect.Symbol): List[quotes.reflect.Symbol] =
-  import quotes.reflect.*
-  def resultType(tpe: TypeRepr): TypeRepr = tpe match
-    case method: LambdaType => resultType(method.resType)
-    case other => other.widenByName
-  parser.declarations.filter(decl => decl.isTerm && resultType(decl.termRef.widen) <:< TypeRepr.of[Rule[?]])
-
-/** Reports every rule declared as a `def`: only `val` rules are read. */
-private[parser] def reportDefRules(using Quotes, Diagnostics)(rules: List[quotes.reflect.Symbol]): Unit =
-  import quotes.reflect.*
-  for rule <- rules if rule.isDefDef do
-    error(
-      show"Rule ${Printable(rule.name)} must be declared with `val`; parameterized rules aren't supported yet",
-      rule.pos.getOrElse(Position.ofMacroExpansion),
-    )
-
 /** A production with where it is defined and the action it runs on reduction. */
 private[parser] type ProductionWithAction[Ctx <: ParserCtx] = (
   production: Production,

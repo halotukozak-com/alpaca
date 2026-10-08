@@ -159,13 +159,19 @@ object Tables:
             .toList
       }
 
-      val rules = ruleDeclarations(parserTpe.typeSymbol)
-      reportDefRules(rules)
-      abortOnErrors()
-
-      val table = rules.iterator
+      val rules = parserTpe.typeSymbol.declarations.iterator
         .map(_.tree) // todo: can we avoid .tree?
+        .collect:
+          case rule: ValOrDefDef if rule.tpt.tpe <:< TypeRepr.of[Rule[?]] => rule
+
+      val table = rules
         .flatMap:
+          case rule: DefDef =>
+            error(
+              show"Rule ${Printable(rule.name)} must be declared with `val`; parameterized rules aren't supported yet",
+              rule.pos,
+            )
+            Nil
           case DefinitionRhs(ruleName, rhs) =>
             extractEBNF(ruleName).applyOrElse(
               rhs.asExprOf[Rule[?]],
@@ -181,7 +187,6 @@ object Tables:
               show"Cannot read the definition of rule ${Printable(other.name)}. Enable -Yretain-trees compiler flag",
               other.pos,
             )
-          case other => raiseShouldNeverBeCalled(other)
         .toList
         .tap: _ =>
           // a rule reported as unreadable stops the expansion before the errors that would only follow from its
