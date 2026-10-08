@@ -87,20 +87,25 @@ object Tables:
 
       def extractEBNF(ruleName: String): PartialFunction[Expr[Rule[?]], Seq[ProductionWithAction[Ctx]]] = {
         case '{ rule(${ Varargs(cases) }*)(using $_) } =>
-          def createAction(binds: Seq[Option[Bind]], rhs: Term) = createLambda[Action[Ctx]]:
+          def createAction(bindings: Seq[Binding[Bind]], rhs: Term) = createLambda[Action[Ctx]]:
             case (methSym, (ctx: Term) :: (param: Term) :: Nil) =>
               val paramExpr = param.asExprOf[RevertedArray[Any]]
-              val replacements = (find = ctxSymbol, replace = ctx) ::
-                binds.iterator.zipWithIndex
-                  .collect:
-                    case (Some(bind), idx) => ((bind.symbol, bind.symbol.termRef.widen.asType), Expr(idx))
-                  .flatMap:
-                    case ((bind, '[t]), idx) =>
-                      Some((find = bind, replace = '{ $paramExpr($idx).asInstanceOf[t] }.asTerm))
-                    case other => raiseShouldNeverBeCalled(other)
-                  .toList
+              // each bound value is adapted once, before the action body
+              val locals = bindings.iterator.zipWithIndex
+                .collect:
+                  case ((Some(bind), adapt), idx) => (bind, adapt, bind.symbol.termRef.widen.asType, Expr(idx))
+                .collect:
+                  case (bind, adapt, '[t], idx) =>
+                    val local = Symbol.newVal(methSym, bind.name, TypeRepr.of[t], Flags.EmptyFlags, Symbol.noSymbol)
+                    val adapted = adapt('{ $paramExpr($idx) })
+                    val value = '{ $adapted.asInstanceOf[t] }.asTerm
+                    (bind = bind.symbol, local = ValDef(local, Some(value.changeOwner(local))))
+                .toList
+              val replacements = (find = ctxSymbol, replace = ctx) :: locals.map: (bind, local) =>
+                (find = bind, replace = Ref(local.symbol))
 
-              replaceRefs(replacements*).transformTerm(rhs)(methSym)
+              val body = replaceRefs(replacements*).transformTerm(rhs)(methSym)
+              if locals.isEmpty then body else Block(locals.map(_.local), body)
 
           val extractProductionName: Function[Expr[ProductionDefinition[?]], (Tree, ValidName | Null)] =
             case '{ ($name: String).apply($production: ProductionDefinition[?])(using $_) } =>
@@ -132,24 +137,25 @@ object Tables:
                 None
               // Tuple1
               case (c @ CaseDef(skipTypedOrTest(pattern @ Unapply(_, _, List(_))), None, rhs), name) =>
-                symbolOf(pattern).toList.flatMap: (symbol, bind, others) =>
+                symbolOf(pattern).toList.flatMap: (symbol, binding, others) =>
                   val production =
                     Production.NonEmpty(NonTerminal(Printable(ruleName)), NEL(symbol), Printable.nullable(name))
-                  (production = production, source = Source(c.pos), action = createAction(List(bind), rhs)) :: others
+                  (production = production, source = Source(c.pos), action = createAction(List(binding), rhs)) :: others
 
               // TupleN, N > 1
               case (c @ CaseDef(skipTypedOrTest(Unapply(_, _, patterns)), None, rhs), name) =>
                 val elements = patterns.map(symbolOf)
                 if elements.contains(None) then Nil
                 else
-                  val (symbols, binds, others) = elements.flatten.unzip3(using _.toTuple)
+                  val (symbols, bindings, others) = elements.flatten.unzip3(using _.toTuple)
                   val production =
                     Production.NonEmpty(
                       NonTerminal(Printable(ruleName)),
                       NEL(symbols.head, symbols.tail*),
                       Printable.nullable(name),
                     )
-                  (production = production, source = Source(c.pos), action = createAction(binds, rhs)) :: others.flatten
+                  (production = production, source = Source(c.pos), action = createAction(bindings, rhs)) ::
+                    others.flatten
               case (c, _) =>
                 error(
                   show"A production must match a token or rule extractor, or a tuple of them, as in `case (Expr(a), MyLexer.PLUS(_), Expr(b))`",

@@ -134,14 +134,7 @@ OperationList → OperationList Operation
 
 In practice, the macro generates a fresh synthetic non-terminal (with a randomized name) for each `.List` occurrence. The `OperationList` name above is schematic — the actual generated names are internal.
 
-The actual desugaring adds a second non-terminal for the non-empty case, so the list can be reversed in one place:
-
-```
-OperationList         → ε | OperationList.nonEmpty
-OperationList.nonEmpty → Operation | OperationList.nonEmpty Operation
-```
-
-The left recursion keeps the parser stack constant. The semantic actions prepend each element (`elem :: list`) and the `OperationList → OperationList.nonEmpty` production reverses the list once, so a list of n elements is built in O(n).
+The left recursion keeps the parser stack constant. The semantic actions prepend each element (`elem :: list`) and the list is reversed once where it is bound, so a list of n elements is built in O(n).
 
 ## When to Use EBNF vs Explicit Recursion
 

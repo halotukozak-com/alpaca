@@ -81,11 +81,13 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
   test("conflict messages show EBNF non-terminals as the extractor that created them") {
     val message = typeCheckErrors("""
     object ListConflictParser extends Parser[CalcContext]:
-      val Expr: Rule[Int] = rule:
-        case CalcLexer.Num(lexem) => lexem.value
+      val Expr: Rule[Int] = rule(
+        { case (Expr(expr1), CalcLexer.`+`(_), Expr(expr2)) => expr1 + expr2 },
+        { case CalcLexer.Num(lexem) => lexem.value },
+      )
 
       val root = rule:
-       case (Expr.List(left), Expr.List(right)) => left.sum + right.sum
+       case (CalcLexer.`+`(_), Expr.List(exprs)) => exprs.sum
     """).map(_.message).mkString("\n")
     message should include("Expr.List")
     (message should not).include("synthetic")
