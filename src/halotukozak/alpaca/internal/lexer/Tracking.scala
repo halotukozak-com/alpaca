@@ -46,8 +46,6 @@ object Tracking:
     materializeImpl[Ctx](
       fieldSteps[m.MirroredElemTypes](0),
       constValueTuple[m.MirroredElemLabels].toArrayOf[String](using containsOnly.refl),
-      indexOfType[m.MirroredElemTypes, Line](0),
-      indexOfType[m.MirroredElemTypes, Column](0),
     )
 
   /**
@@ -66,19 +64,10 @@ object Tracking:
             (index = index, update = tracking) :: rest
           case _ => rest
 
-  /** The index of the first case field of type `F`, or -1. */
-  inline private def indexOfType[Elems <: Tuple, F](index: Int): Int =
-    inline erasedValue[Elems] match
-      case _: EmptyTuple => -1
-      case _: (F *: _) => index
-      case _: (_ *: t) => indexOfType[t, F](index + 1)
-
   @publicInBinary private[Tracking] def materializeImpl[Ctx <: LexerCtx: Mirror.ProductOf](
     steps: List[(index: Int, update: Tracking[?])],
     fieldNames: Array[String],
-    lineIndex: Int,
-    columnIndex: Int,
-  ): Hook[Ctx] = Hook(steps, fieldNames, lineIndex, columnIndex)
+  ): Hook[Ctx] = Hook(steps, fieldNames)
 
   /**
    * The hook `Lexer` runs after every token match. A plain public class
@@ -92,16 +81,11 @@ object Tracking:
    * of how many fields are tracked, rather than one per field. Contexts with
    * no tracked fields (`steps.isEmpty`) skip the snapshot/rebuild entirely.
    *
-   * A lexeme keeps the pre-match [[Line]]/[[Column]], so it points at its token's start.
-   *
-   * @param lineIndex   the index of the context's [[Line]] field, or -1
-   * @param columnIndex the index of the context's [[Column]] field, or -1
+   * A lexeme keeps the pre-match value of every tracked field, so it describes its token's start.
    */
   final class Hook[Ctx <: LexerCtx] private[Tracking] (
     steps: List[(index: Int, update: Tracking[?])],
     fieldNames: Array[String],
-    private[alpaca] val lineIndex: Int,
-    private[alpaca] val columnIndex: Int,
   )(using m: Mirror.ProductOf[Ctx],
   ) extends ((Token[?, Ctx, ?], String, Ctx) => Ctx):
 
@@ -122,8 +106,7 @@ object Tracking:
             .carryEngineStateFrom(afterFields)
             .tap: c =>
               val values = c.productIterator.toArray
-              if lineIndex >= 0 then values(lineIndex) = ctx.productElement(lineIndex)
-              if columnIndex >= 0 then values(columnIndex) = ctx.productElement(columnIndex)
+              steps.foreach(step => values(step.index) = ctx.productElement(step.index))
               val name = info.name.raw
               c.lastLexeme = Lexeme(
                 name = name,

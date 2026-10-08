@@ -4,7 +4,7 @@ package alpaca
 import alpaca.internal.*
 import alpaca.internal.lexer.{IgnoredToken as _, Token as _, *}
 
-import scala.NamedTuple.NamedTuple
+import scala.NamedTuple.{AnyNamedTuple, NamedTuple}
 import scala.annotation.{compileTimeOnly, publicInBinary, unused}
 
 /**
@@ -267,19 +267,26 @@ object LexerCtx:
 /**
  * Input that did not match any token, as reported by `tokenize` in a [[Result.Failure]].
  *
+ * Like a [[Lexeme]], it carries the lexer context's fields as they were where the input starts, read by name
+ * (`error.line` when the context has a `line` field) on the errors `tokenize` returns.
+ *
  * @param unexpected the input that was not matched: one character, or with `ErrorHandling.Strategy.SkipToNextMatch`
  *                   everything skipped up to the next match
- * @param line       the line it starts on, when the lexer context has a [[Line]] field
- * @param column     the column it starts at, in code points, when the lexer context has a [[Column]] field
  */
-final case class LexerError(unexpected: String, line: Option[Int], column: Option[Int]):
-  /** A readable description, e.g. `Unexpected character '@' at line 1, column 5`. */
+final class LexerError private[alpaca] (
+  val unexpected: String,
+  private[alpaca] val fieldNames: Array[String],
+  private[alpaca] val fieldValues: Array[Any],
+) extends Selectable:
+  type Fields <: AnyNamedTuple
+
+  def selectDynamic(name: String): Any = Lexeme.field(fieldNames, fieldValues, name)
+
+  /** A readable description, e.g. `Unexpected character '@'`. */
   def message: String = {
     val text = Printable(unexpected)
-    val what =
-      if unexpected.codePointCount(0, unexpected.length) == 1 then show"character '$text'"
-      else show"""input "$text""""
-    show"Unexpected $what${describePosition(line, column)}"
+    if unexpected.codePointCount(0, unexpected.length) == 1 then show"Unexpected character '$text'"
+    else show"""Unexpected input "$text""""
   }
 
 object LexerError:
@@ -289,18 +296,9 @@ object LexerError:
       case Result.Success(_, value) => value
       case Result.Failure(_, _, errors) => throw LexerException(errors)
 
-  /** An error for `unexpected`, positioned by `ctx`'s [[Line]] and [[Column]] fields when it has them. */
-  private[alpaca] def at(unexpected: String, ctx: LexerCtx, hook: Tracking.Hook[?]): LexerError = {
-    def field(index: Int): Option[Int] = Option.when(index >= 0)(ctx.productElement(index).asInstanceOf[Int])
-    LexerError(unexpected, field(hook.lineIndex), field(hook.columnIndex))
-  }
-
-/** ` at line L, column C`, or as much of it as is known. */
-private[alpaca] def describePosition(line: Option[Int], column: Option[Int]): Shown = (line, column) match
-  case (Some(line), Some(column)) => show" at line $line, column $column"
-  case (Some(line), None) => show" at line $line"
-  case (None, Some(column)) => show" at column $column"
-  case (None, None) => show""
+  /** An error for `unexpected`, with `ctx`'s fields as they are before it. */
+  private[alpaca] def at(unexpected: String, ctx: LexerCtx): LexerError =
+    LexerError(unexpected, ctx.productElementNames.toArray, ctx.productIterator.toArray)
 
 /**
  * Thrown by `getOrThrow` on a lexer [[Result]] when some input did not match a token.

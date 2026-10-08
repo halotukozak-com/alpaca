@@ -22,11 +22,12 @@ import scala.collection.mutable
 transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca] (
   onTokenMatch: Tracking.Hook[Ctx],
   initialCtx: () => Ctx,
-)(using errorHandling: ErrorHandling[Ctx, LexerError],
+)(using errorHandling: ErrorHandling[Ctx, alpaca.LexerError],
 ) extends Selectable:
   type Fields <: AnyNamedTuple
   type LexemeFields <: AnyNamedTuple
   final type Lexeme = lexer.Lexeme[?, ?] withFields LexemeFields
+  final type LexerError = alpaca.LexerError withFields LexemeFields
 
   /** List of all tokens defined in this lexer, including ignored tokens. */
   @publicInBinary
@@ -75,12 +76,13 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
 
         case _ =>
           val cpLen = Character.charCount(Character.codePointAt(globalCtx.text, 0))
-          val unexpected = LexerError.at(globalCtx.text.subSequence(0, cpLen).toString, globalCtx, onTokenMatch)
+          val unexpected =
+            alpaca.LexerError.at(globalCtx.text.subSequence(0, cpLen).toString, globalCtx).asInstanceOf[LexerError]
           errorHandling(globalCtx, unexpected) match {
             case Strategy.SkipToNextMatch =>
               val skipped = matcher.findFirst(globalCtx.text, cpLen).fold(cpLen)((firstMatching, _, _) => firstMatching)
               val matchedStr = globalCtx.text.subSequence(0, skipped).toString
-              errors += LexerError.at(matchedStr, globalCtx, onTokenMatch)
+              errors += alpaca.LexerError.at(matchedStr, globalCtx).asInstanceOf[LexerError]
               globalCtx.lastRawMatched = matchedStr
               globalCtx.text = globalCtx.text.from(skipped)
               Step.Matched(RecoveredToken(matchedStr), matchedStr)

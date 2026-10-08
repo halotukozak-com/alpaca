@@ -242,7 +242,9 @@ val Digits = lexer:
 Digits.tokenize("12a") match
   case Result.Success(_, lexemes) => println(lexemes.size)
   case Result.Failure(_, _, errors) =>
-    errors.foreach(error => println(error.message)) // Unexpected character 'a' at line 1, column 3
+    errors.foreach: error =>
+      println(error.message) // Unexpected character 'a'
+      println(error.column)  // 3
 ```
 
 See [Error Recovery](lexer-error-recovery.md) for how to skip unmatched input instead of stopping.
@@ -306,7 +308,7 @@ The `Lexeme` class extends `Selectable` with a structural refinement that encode
 
 A lexeme's `text` is the **matched string**, not the remaining input.
 
-Other fields are snapshotted after the rule body runs, but the `Line` and `Column` fields keep their values from before the match, so `line` and `column` point at the **start** of the token: `"42"` has `column = 1`, while the context's `column` after it is 3.
+Fields are snapshotted after the rule body runs, except fields with a `given Tracking` (such as `Line` and `Column`), which keep their values from before the match, so `line` and `column` point at the **start** of the token: `"42"` has `column = 1`, while the context's `column` after it is 3.
 
 </details>
 

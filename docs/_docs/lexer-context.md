@@ -131,7 +131,7 @@ val ExampleLexer = lexer[BrainLexContext]:
 
 ## Context Snapshots in Lexemes
 
-Each `Lexeme` carries a snapshot of all context fields right after its rule body ran (see [The Lexeme Structure](lexer.md#the-lexeme-structure)), with one exception: the `Line` and `Column` fields hold the values from before the match, so a lexeme is positioned where its token starts. Snapshots are independent: later changes to the context do not reach lexemes that were already produced. Accessing a field the context type does not have (e.g., `.brackets` with `LexerCtx.Default`) is a compile error.
+Each `Lexeme` carries a snapshot of all context fields right after its rule body ran (see [The Lexeme Structure](lexer.md#the-lexeme-structure)), with one exception: fields with a `given Tracking` (such as `Line` and `Column`) hold their values from before the match, even if the rule body assigned them, so a lexeme describes where its token starts. Snapshots are independent: later changes to the context do not reach lexemes that were already produced. Accessing a field the context type does not have (e.g., `.brackets` with `LexerCtx.Default`) is a compile error.
 
 For custom contexts, all case class fields appear in the snapshot:
 
@@ -166,7 +166,7 @@ Alpaca ships two ready-made tracking fields, both re-exported from `halotukozak.
 
 **`Line`** -- an opaque `Int` that increments when the matched text is exactly `"\n"`.
 
-Each is a plain case-class field with a `given Tracking` in its companion. Use either one, both, or neither. `LexerCtx.Default` uses both. They are recognised by their type, not their name, so the fields can be called anything; `LexerError` takes its line and column from them, and a `ParserError`'s lexemes carry them. To add them to a custom context:
+Each is a plain case-class field with a `given Tracking` in its companion. Use either one, both, or neither. `LexerCtx.Default` uses both. Like any context field, they can be called anything, and lexemes and `LexerError`s carry them under that name. To add them to a custom context:
 
 ```scala
 import halotukozak.alpaca.*
@@ -186,7 +186,7 @@ After every successful token match -- once the text cursor has already advanced 
 
 1. applies each tracked field's `Tracking` update (`column`, `line`, and any custom fragments),
 2. applies the rule body's own context changes,
-3. records the lexeme snapshot, taking the `Line` and `Column` fields from before step 1.
+3. records the lexeme snapshot, taking every tracked field from before step 1.
 
 Steps 1 and 3 are derived by the `lexer` macro from the context's case fields -- there is nothing to wire up by hand.
 

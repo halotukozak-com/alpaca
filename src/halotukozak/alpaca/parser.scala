@@ -231,7 +231,7 @@ final case class ParserError[+L <: Lexeme[?, ?]](unexpected: Option[L], expected
 
 object ParserError:
 
-  extension [Ctx, A](result: Result[Ctx, A, ParserError[Lexeme[?, ?]]])
+  extension [Ctx, A](result: Result[Ctx, A, ParserError[?]])
     /** The value; throws the errors as a [[ParserException]] if parsing failed. */
     def getOrThrow: A = result match
       case Result.Success(_, value) => value
@@ -242,8 +242,7 @@ object ParserError:
  *
  * @param errors the errors the parser reported, in input order
  */
-final class ParserException(val errors: ::[ParserError[Lexeme[?, ?]]])
-  extends RuntimeException(errors.map(_.message).mkString("\n"))
+final class ParserException(val errors: ::[ParserError[?]]) extends RuntimeException(errors.map(_.message).mkString("\n"))
 
 /**
  * Base trait for parser global context.
@@ -299,7 +298,7 @@ extension (@unused inline first: Production | Token[?, ?, ?]) {
 object ParserCtx:
 
   /** Default error handler for any [[ParserCtx]]: stop at the first input that does not match the grammar. */
-  given ErrorHandling[ParserCtx, ParserError[Lexeme[?, ?]]] = (_, _) => ErrorHandling.Strategy.Stop
+  given ErrorHandling[ParserCtx, ParserError[?]] = (_, _) => ErrorHandling.Strategy.Stop
 
   /**
    * An empty parser context with no state.

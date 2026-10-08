@@ -21,8 +21,8 @@ import scala.util.boundary.break
  * per-context-class). Lookup is a linear scan, which is optimal for the
  * tiny field counts typical of `LexerCtx` subclasses.
  *
- * The context fields are a snapshot taken after the rule body ran, except
- * for the [[Line]] and [[Column]] fields, which record where the token starts.
+ * The context fields are a snapshot taken after the rule body ran, except that a field with a [[Tracking]] given
+ * keeps its value from before the match (even if the rule body assigned it), so it describes where the token starts.
  *
  * @tparam Name the token name type
  * @tparam Value the value type
@@ -38,10 +38,7 @@ final class Lexeme[+Name <: ValidName, +Value] private[alpaca] (
 ) extends Selectable:
   type Fields <: AnyNamedTuple
 
-  def selectDynamic(name: String): Any =
-    boundary:
-      for i <- fieldNames.indices if fieldNames(i) == name do break(fieldValues(i))
-      throw new NoSuchElementException(name)
+  def selectDynamic(name: String): Any = Lexeme.field(fieldNames, fieldValues, name)
 
 private[alpaca] object Lexeme:
   /**
@@ -50,3 +47,9 @@ private[alpaca] object Lexeme:
    * This is used internally by the parser to detect when all input has been consumed.
    */
   private[alpaca] val EOF: Lexeme["$", String] = Lexeme("$", "", "", Array.empty, Array.empty)
+
+  /** The value of the context field `name` in a snapshot. */
+  private[alpaca] def field(fieldNames: Array[String], fieldValues: Array[Any], name: String): Any =
+    boundary:
+      for i <- fieldNames.indices if fieldNames(i) == name do break(fieldValues(i))
+      throw new NoSuchElementException(name)

@@ -2,7 +2,7 @@ package halotukozak
 package alpaca.internal.lexer
 
 import halotukozak.alpaca.internal.lexer.Lexeme
-import halotukozak.alpaca.{lexer, withLazyReader, LexerError, LexerException, Result, Token}
+import halotukozak.alpaca.{lexer, withLazyReader, LexerException, Result, Token}
 import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -80,8 +80,9 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
     Lexer.tokenize("123abc") match
       case Result.Failure(_, recovered, errors) =>
         recovered shouldBe None
-        errors.loneElement shouldBe LexerError("a", Some(1), Some(4))
-        errors.loneElement.message shouldBe "Unexpected character 'a' at line 1, column 4"
+        val error = errors.loneElement
+        (error.unexpected, error.line, error.column) shouldBe ("a", 1, 4)
+        error.message shouldBe "Unexpected character 'a'"
       case Result.Success(_, lexemes) => fail(s"expected a failure, got ${lexemes.size.toString} lexemes")
   }
 
@@ -90,8 +91,8 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       case number @ "[0-9]+" => Token["NUMBER"](number.toInt)
 
     val exception = intercept[LexerException](Lexer.tokenize("123abc").getOrThrow)
-    exception.errors shouldBe List(LexerError("a", Some(1), Some(4)))
-    exception.getMessage shouldBe "Unexpected character 'a' at line 1, column 4"
+    exception.errors.map(_.unexpected) shouldBe List("a")
+    exception.getMessage shouldBe "Unexpected character 'a'"
   }
 
   test("tokenize complex expression") {
@@ -263,7 +264,7 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       case number @ "[0-9]+" => Token["NUMBER"](number.toInt)
 
     val exception = intercept[LexerException](Lexer.tokenize("1\t").getOrThrow)
-    exception.getMessage shouldBe """Unexpected character '\t' at line 1, column 2"""
+    exception.getMessage shouldBe """Unexpected character '\t'"""
   }
 
   test("shadowing error escapes non-printable token names and patterns") {

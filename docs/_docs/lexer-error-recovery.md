@@ -90,11 +90,13 @@ When `tokenize()` hits input that matches no pattern, it records a `LexerError` 
 
 ### Default Behavior
 
-By default the lexer stops at the first unmatched character. The `LexerError` names it, and its `message` gives the line and column when the context has `Line` and `Column` fields (as `LexerCtx.Default` does). Columns count Unicode code points, so an emoji is one column:
+By default the lexer stops at the first unmatched character. The `LexerError` names it in its `message`:
 
 ```
-Unexpected character '@' at line 1, column 5
+Unexpected character '@'
 ```
+
+Like a lexeme, the error carries the context's fields as they were where the character starts, so with `LexerCtx.Default` its `line` and `column` give the position. Columns count Unicode code points, so an emoji is one column.
 
 `getOrThrow` throws the errors as a `LexerException`; match on the result to handle them without an exception:
 
@@ -108,7 +110,9 @@ val Lexer = lexer:
 Lexer.tokenize("abc @def") match
   case Result.Success(_, lexemes) => println(lexemes.size)
   case Result.Failure(_, _, errors) =>
-    errors.foreach(error => println(error.message)) // Unexpected character '@' at line 1, column 5
+    errors.foreach: error =>
+      println(error.message) // Unexpected character '@'
+      println(error.column)  // 5
 ```
 
 ### Error Handling Strategies
@@ -136,7 +140,7 @@ val Lexer = lexer:
 Lexer.tokenize("abc @def") match
   case Result.Failure(_, recovered, errors) =>
     println(recovered.map(_.map(_.name))) // Some(List(WORD, WORD))
-    println(errors.map(_.message))        // List(Unexpected character '@' at line 1, column 5)
+    println(errors.map(_.message))        // List(Unexpected character '@')
   case Result.Success(_, _) => ()
 ```
 

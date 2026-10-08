@@ -21,7 +21,7 @@ Each level has different recovery strategies.
 The simplest approach: stop at the first unmatched character and report it. This is Alpaca's default behavior (`ErrorHandling.Strategy.Stop`): `tokenize` returns a `Result.Failure` with a `LexerError` such as
 
 ```
-Unexpected character '@' at line 1, column 5
+Unexpected character '@'
 ```
 
 ### Strategy: Skip and Continue

@@ -19,8 +19,8 @@ package lexer
  * reads as a plain `Int` everywhere; assigning it inside a rule body
  * (`ctx.column = Column(...)`) is rewritten to a `copy` too.
  *
- * Found by type, so the field can have any name. In a lexeme it is the column
- * the token starts at; [[LexerError]] reports it.
+ * In a lexeme it is the column the token starts at, in a [[LexerError]] the
+ * column the unmatched input starts at.
  *
  * (Named `Column`, not `Position`, to avoid shadowing the unrelated source
  * `Position` type used throughout this library's own error reporting.)

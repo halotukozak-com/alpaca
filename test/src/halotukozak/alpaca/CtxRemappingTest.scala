@@ -39,6 +39,5 @@ final class CtxRemappingTest extends AnyFunSuite with Matchers with LoneElement:
         ctx.column = Column(ctx.column + 5)
         Token.Ignored
 
-    val error = intercept[LexerException](L.tokenize("a!\na!a").getOrThrow).errors.loneElement
-    error.column shouldBe Some(8)
+    L.tokenize("a!\na!a").toEither.left.map(_.map(_.column)) shouldBe Left(List(8))
   }

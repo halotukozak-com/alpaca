@@ -38,6 +38,23 @@ object RenamedParser extends Parser:
   val Word: Rule[String] = rule { case RenamedLexer.WORD(w) => w.value }
   val root: Rule[String] = rule { case (Word(a), RenamedLexer.PLUS(_), Word(b)) => a + b }
 
+opaque type Offset <: Int = Int
+
+object Offset:
+  def apply(n: Int): Offset = n
+  given Tracking[Offset] = (matched, offset) => offset + matched.length
+
+final case class OffsetCtx(offset: Offset = Offset(0), words: Int = 0) extends LexerCtx
+
+val OffsetLexer = lexer[OffsetCtx]:
+  case w @ "[a-z]+" =>
+    ctx.words += 1
+    Token["WORD"](w)
+  case "!" =>
+    ctx.offset = Offset(0)
+    Token["RESET"]
+  case "[ \t]+" => Token.Ignored
+
 val UntrackedLexer = lexer[LexerCtx.Empty]:
   case w @ "[a-z]+" => Token["WORD"](w)
   case "\\+" => Token["PLUS"]
@@ -49,9 +66,9 @@ object UntrackedParser extends Parser:
 
 final class PositionsTest extends AnyFunSuite with Matchers with LoneElement:
 
-  private def parserError[E](result: Result[?, ?, E]): E = result match
+  private def loneError[E](result: Result[?, ?, E]): E = result match
     case Result.Failure(_, _, errors) => errors.loneElement
-    case Result.Success(_, _) => fail("expected a parse failure")
+    case Result.Success(_, _) => fail("expected a failure")
 
   test("the default context's column field is called column") {
     LexerCtx.Default().column shouldBe 1
@@ -75,7 +92,7 @@ final class PositionsTest extends AnyFunSuite with Matchers with LoneElement:
 
   test("columns count code points, so an emoji is one column") {
     val result = SkippingLexer.tokenize("😀 ab 😀😀cd")
-    result.toEither.left.map(_.map(_.column)) shouldBe Left(List(Some(1), Some(6), Some(7)))
+    result.toEither.left.map(_.map(_.column)) shouldBe Left(List(1, 6, 7))
     result match
       case Result.Failure(ctx, recovered, _) =>
         recovered.map(_.map(l => (l.text, l.column))) shouldBe Some(List(("ab", 3), ("cd", 8)))
@@ -83,9 +100,24 @@ final class PositionsTest extends AnyFunSuite with Matchers with LoneElement:
       case Result.Success(_, _) => fail("expected the emoji to be reported")
   }
 
-  test("fields other than Line and Column are snapshotted after the rule body") {
+  test("untracked fields are snapshotted after the rule body") {
     RenamedLexer.tokenize("ab + cd").getOrThrow.map(l => (l.text, l.ln, l.col, l.words)) shouldBe
       List(("ab", 1, 1, 1), ("+", 1, 4, 1), ("cd", 1, 6, 2))
+  }
+
+  test("a user-defined tracked field is the token start in a lexeme") {
+    OffsetLexer.tokenize("ab  cde f").getOrThrow.map(l => (l.text, l.offset, l.words)) shouldBe
+      List(("ab", 0, 1), ("cde", 4, 2), ("f", 8, 3))
+  }
+
+  test("a tracked field assigned in the rule body is the token start in its lexeme and the assigned value after") {
+    OffsetLexer.tokenize("ab ! cd").getOrThrow.map(l => (l.text, l.offset)) shouldBe List(("ab", 0), ("!", 3), ("cd", 1))
+  }
+
+  test("a lexer error has the lexer's typed fields where the input starts") {
+    val error = loneError(OffsetLexer.tokenize("ab ?"))
+    (error.unexpected, error.offset, error.words) shouldBe ("?", 3, 1)
+    error.message shouldBe "Unexpected character '?'"
   }
 
   test("a parser error's unexpected lexeme has the lexer's typed fields") {
@@ -108,17 +140,17 @@ final class PositionsTest extends AnyFunSuite with Matchers with LoneElement:
   }
 
   test("the message at the end of the input names the last lexeme") {
-    parserError(PlusParser.parse(PositionLexer.tokenize("ab +\n").getOrThrow)).message shouldBe
+    loneError(PlusParser.parse(PositionLexer.tokenize("ab +\n").getOrThrow)).message shouldBe
       """Unexpected end of input after PLUS "+". Expected one of: WORD"""
   }
 
   test("a parser error with no lexemes at all has no last lexeme") {
-    val error = parserError(PlusParser.parse(Nil))
+    val error = loneError(PlusParser.parse(Nil))
     error.last shouldBe None
     error.message shouldBe "Unexpected end of input. Expected one of: WORD"
   }
 
   test("a parser error's message has no position") {
-    parserError(UntrackedParser.parse(UntrackedLexer.tokenize("ab cd").getOrThrow)).message should
+    loneError(UntrackedParser.parse(UntrackedLexer.tokenize("ab cd").getOrThrow)).message should
       startWith("""Unexpected WORD "cd". Expected""")
   }
