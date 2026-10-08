@@ -21,7 +21,7 @@ import scala.reflect.NameTransformer
  *
  * @tparam Ctx the parser context type
  */
-opaque type Tables[Ctx <: ParserCtx] = (parseTable: ParseTable, actionTable: ActionTable[Ctx], empty: () => Ctx)
+opaque type Tables[Ctx <: ParserCtx] = (parseTable: ParseTable, actionTable: ActionTable[Ctx], initialCtx: () => Ctx)
 
 object Tables:
   /**
@@ -38,7 +38,7 @@ object Tables:
   extension [Ctx <: ParserCtx](tables: Tables[Ctx])
     private[alpaca] def parseTable: ParseTable = tables.parseTable
     private[alpaca] def actionTable: ActionTable[Ctx] = tables.actionTable
-    private[alpaca] def empty: () => Ctx = tables.empty
+    private[alpaca] def initialCtx: () => Ctx = tables.initialCtx
 
 /**
  * Macro implementation that builds parse and action tables at compile time.
@@ -65,10 +65,10 @@ object Tables:
 // $COVERAGE-OFF$
 @publicInBinary private[parser] def createTablesImpl[Ctx <: ParserCtx: Type](
   using quotes: Quotes,
-): Expr[(parseTable: ParseTable, actionTable: ActionTable[Ctx], empty: () => Ctx)] = {
+): Expr[(parseTable: ParseTable, actionTable: ActionTable[Ctx], initialCtx: () => Ctx)] = {
   import quotes.reflect.*
   given Diagnostics = Diagnostics()
-  val empty = Empty.derivedExpr[Ctx]
+  val initialCtx = Defaults.derivedExpr[Ctx]
   val parserSymbol = Symbol.spliceOwner.owner.owner
   val parserTpe = parserSymbol.typeRef
 
@@ -382,7 +382,7 @@ object Tables:
         (
           $parseTable.asInstanceOf[ParseTable],
           ActionTable($actionTable.toMap),
-          $empty,
+          $initialCtx,
         )
       }
   }

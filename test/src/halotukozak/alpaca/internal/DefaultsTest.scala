@@ -1,14 +1,14 @@
 package halotukozak
 package alpaca.internal
 
-import halotukozak.alpaca.internal.Empty
+import halotukozak.alpaca.internal.Defaults
 import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 import scala.compiletime.testing.typeCheckErrors
 
-final class EmptyTest extends AnyFunSuite with Matchers with LoneElement:
+final class DefaultsTest extends AnyFunSuite with Matchers with LoneElement:
 
   // Helpers and domain models
   case class Zero()
@@ -24,29 +24,29 @@ final class EmptyTest extends AnyFunSuite with Matchers with LoneElement:
   case class Mixed(a: Int, b: String = "b") // has a param without default -> should fail
 
   test("derived produces an instance using all default arguments for a simple case class") {
-    Empty.derived[WithDefaults]() shouldEqual WithDefaults()
+    Defaults.derived[WithDefaults]() shouldEqual WithDefaults()
   }
 
   test("derived works for zero-arity case class") {
-    Empty.derived[Zero]() shouldEqual Zero()
+    Defaults.derived[Zero]() shouldEqual Zero()
   }
 
   test("derived supports nested case classes and common containers when defaults are provided") {
-    Empty.derived[Outer]() shouldEqual Outer(inner = Inner(), tags = Nil, opt = None)
+    Defaults.derived[Outer]() shouldEqual Outer(inner = Inner(), tags = Nil, opt = None)
   }
 
   test("derived supports generic case classes when defaults define a value (e.g., Option[T] = None)") {
-    Empty.derived[Box[Inner]]() shouldEqual Box[Inner](None)
+    Defaults.derived[Box[Inner]]() shouldEqual Box[Inner](None)
   }
 
-  test("cannot derive Empty when any parameter lacks a default (compile-time)") {
-    typeCheckErrors("Empty.derived[Mixed]").distinct.loneElement.message shouldBe
+  test("cannot derive Defaults when any parameter lacks a default (compile-time)") {
+    typeCheckErrors("Defaults.derived[Mixed]").distinct.loneElement.message shouldBe
       "Field `a` of Mixed has no default value. Every field of a lexer or parser context needs one, so that the initial context can be built."
   }
 
   test("names the first parameter that lacks a default") {
     case class TwoMissing(a: Int, b: String, c: Int = 0)
-    typeCheckErrors("Empty.derived[TwoMissing]").distinct.loneElement.message should startWith(
+    typeCheckErrors("Defaults.derived[TwoMissing]").distinct.loneElement.message should startWith(
       "Field `a` of TwoMissing has no default value.",
     )
   }
@@ -93,10 +93,10 @@ final class EmptyTest extends AnyFunSuite with Matchers with LoneElement:
     """).distinct.loneElement.message should startWith("Field `depth` of Ctx has no default value.")
   }
 
-  test("cannot derive Empty for non-case classes (compile-time)") {
+  test("cannot derive Defaults for non-case classes (compile-time)") {
     """
       |class Regular(val x: Int)
-      |Empty.derived[Regular]
+      |Defaults.derived[Regular]
       |""".stripMargin shouldNot compile
   }
 

@@ -74,7 +74,7 @@ abstract class Parser[Ctx <: ParserCtx](
         case Node.Result(value) => value
         case Node.Token(lexeme) => lexeme
 
-    val ctx = tables.empty()
+    val ctx = tables.initialCtx()
 
     val stateStack = mutable.ArrayDeque.empty[Int]
     val nodeStack = mutable.ArrayDeque.empty[Node]

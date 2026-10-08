@@ -11,7 +11,7 @@ import scala.compiletime.constValue
 /**
  * Builds the initial lexer or parser context from the default values of its fields.
  */
-@publicInBinary private[alpaca] object Empty:
+@publicInBinary private[alpaca] object Defaults:
   inline private def collectDefaults(inline owner: String, elems: Tuple)(using elems.type containsOnly MadeFieldElem)
     : Tuple =
     inline elems match
@@ -37,13 +37,13 @@ import scala.compiletime.constValue
     case m: Made.ProductOf[T] =>
       () => m.fromTuple(collectDefaults(constValue[m.Label], m.elems).asInstanceOf[m.ElemTypes])
     case _ =>
-      compiletime.error("Cannot derive Empty for non-Product types.")
+      compiletime.error("The context should be a case class.")
 
   /** The [[derived]] factory of `T`, for a macro to splice into the code it generates at its expansion site. */
   private[alpaca] def derivedExpr[T: Type](using Quotes, Diagnostics): Expr[() => T] =
     import quotes.reflect.*
-    val tpeSymbol = TypeRepr.of[T].typeSymbol
     Expr.summon[Made.Of[T]] match
-      case Some(m) if tpeSymbol.flags.is(Flags.Case) => '{ derived[T](using $m) }
-      case _ => errorAndAbort(show"${Printable(tpeSymbol.name)} should be a case class.", Position.ofMacroExpansion)
+      case Some(m) => '{ derived[T](using $m) }
+      case None =>
+        errorAndAbort(show"${Printable(TypeRepr.of[T].typeSymbol.name)} should be a case class.", Position.ofMacroExpansion)
 // $COVERAGE-ON$
