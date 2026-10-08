@@ -64,3 +64,22 @@ final class ParserMacroErrorsTest extends AnyFunSuite with Matchers with LoneEle
       val root: Rule[Int] = rule({ case ErrLexer.NUM(n) if n.value > 0 => n.value })
     """).loneElement.message shouldBe "Guards are not supported yet"
   }
+
+  test("every rule declared as a `def`, with or without parameters, is reported at its declaration") {
+    val errors = typeCheckErrors("""
+    object DefRuleParser extends Parser:
+      def Num: Rule[Int] = rule({ case ErrLexer.NUM(n) => n.value })
+      def Twice(x: Int): Rule[Int] = rule({ case ErrLexer.NUM(n) => n.value * x })
+      val root: Rule[Int] = rule({ case Num(n) => n })
+    """)
+    errors.map(e => (e.message, e.lineContent.trim)) should contain theSameElementsAs List(
+      (
+        "Rule Num must be declared with `val`; parameterized rules aren't supported yet",
+        "def Num: Rule[Int] = rule({ case ErrLexer.NUM(n) => n.value })",
+      ),
+      (
+        "Rule Twice must be declared with `val`; parameterized rules aren't supported yet",
+        "def Twice(x: Int): Rule[Int] = rule({ case ErrLexer.NUM(n) => n.value * x })",
+      ),
+    )
+  }

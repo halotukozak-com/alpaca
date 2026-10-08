@@ -156,8 +156,9 @@ def productionImpl[P <: Parser[?]: Type](using quotes: Quotes): Expr[ProductionS
     .typeSymbol
     .declarations
     .iterator
+    .map(_.tree)
     .collect:
-      case decl if decl.typeRef <:< TypeRepr.of[Rule[?]] => decl.tree
+      case rule: ValOrDefDef if rule.tpt.tpe <:< TypeRepr.of[Rule[?]] => rule
 
   val extractName: PartialFunction[Expr[Rule[?]], Seq[String]] =
     case '{ rule(${ Varargs(cases) }*)(using $_) } =>
@@ -167,7 +168,7 @@ def productionImpl[P <: Parser[?]: Type](using quotes: Quotes): Expr[ProductionS
 
   val fields = rules
     .flatMap:
-      // todo: def rules, or error? https://github.com/halotukozak/alpaca/issues/230
+      case _: DefDef => Nil
       case DefinitionRhs(_, rhs) => extractName.applyOrElse(rhs.asExprOf[Rule[?]], _ => Nil)
       case _ =>
         error(show"Define resolutions as the last field of the parser.", Position.ofMacroExpansion)
