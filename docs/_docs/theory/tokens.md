@@ -77,8 +77,8 @@ val lexemes = BrainLexer.tokenize("foo(++)").getOrThrow
 // Each Lexeme carries:
 //   .name     — token class name (e.g., "functionName")
 //   .value    — extracted value  (e.g., "foo": String)
-//   .column   — column at end of match
-//   .line     — line number at end of match
+//   .column   — column the token starts at
+//   .line     — line the token starts on
 ```
 
 Input matched as `Token.Ignored` — such as whitespace or other non-command characters — does not produce a lexeme and disappears from the stream.

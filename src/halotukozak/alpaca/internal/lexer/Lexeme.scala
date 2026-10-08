@@ -6,8 +6,6 @@ package lexer
 import halotukozak.alpaca.internal.ValidName
 
 import scala.NamedTuple.AnyNamedTuple
-import scala.util.boundary
-import scala.util.boundary.break
 
 /**
  * A lexeme represents a token that has been matched and extracted from the input.
@@ -20,6 +18,9 @@ import scala.util.boundary.break
  * allocates one small `Array[Any]` for the values (field names are cached
  * per-context-class). Lookup is a linear scan, which is optimal for the
  * tiny field counts typical of `LexerCtx` subclasses.
+ *
+ * The context fields are a snapshot taken after the rule body ran, except that a field with a [[Tracking]] given
+ * keeps its value from before the match (even if the rule body assigned it), so it describes where the token starts.
  *
  * @tparam Name the token name type
  * @tparam Value the value type
@@ -35,10 +36,7 @@ final class Lexeme[+Name <: ValidName, +Value] private[alpaca] (
 ) extends Selectable:
   type Fields <: AnyNamedTuple
 
-  def selectDynamic(name: String): Any =
-    boundary:
-      for i <- fieldNames.indices if fieldNames(i) == name do break(fieldValues(i))
-      throw new NoSuchElementException(name)
+  def selectDynamic(name: String): Any = contextField(fieldNames, fieldValues, name)
 
 private[alpaca] object Lexeme:
   /**

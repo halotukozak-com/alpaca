@@ -1,7 +1,6 @@
 package halotukozak
 package alpaca
 
-import halotukozak.alpaca.internal.lexer.Lexeme
 import halotukozak.alpaca.internal.parser.Parser
 import halotukozak.alpaca.{lexer, rule, ParserCtx, Rule, Token}
 import org.scalatest.funsuite.AnyFunSuite
@@ -30,7 +29,7 @@ final class RepetitionLinearityTest extends AnyFunSuite:
   private def now(): Long =
     if threads.isCurrentThreadCpuTimeSupported then threads.getCurrentThreadCpuTime else System.nanoTime()
 
-  private def bestParseNanos(parse: List[Lexeme[?, ?]] => Option[Int], input: String, expectedSize: Int): Long =
+  private def bestParseNanos(parse: List[NumLexer.Lexeme] => Option[Int], input: String, expectedSize: Int): Long =
     val lexemes = NumLexer.tokenize(input).getOrThrow
     List
       .fill(5) {
@@ -42,7 +41,7 @@ final class RepetitionLinearityTest extends AnyFunSuite:
       }
       .min
 
-  private def assertLinear(parse: List[Lexeme[?, ?]] => Option[Int], separator: String, sizeOf: Int => Int) =
+  private def assertLinear(parse: List[NumLexer.Lexeme] => Option[Int], separator: String, sizeOf: Int => Int) =
     val small = 20_000
     val large = 10 * small
     def input(n: Int) = Iterator.fill(n)("1").mkString(separator)

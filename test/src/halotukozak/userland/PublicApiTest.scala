@@ -35,8 +35,8 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
   }
 
   test("a lexer error points at a whole code point") {
-    WordLexer.tokenize("ab 😀").toEither.left.map(_.map(_.message)) shouldBe
-      Left(List("Unexpected character '😀' at line 1, column 4"))
+    WordLexer.tokenize("ab 😀").toEither.left.map(_.map(e => (e.message, e.column))) shouldBe
+      Left(List(("Unexpected character '😀'", 4)))
   }
 
   test("every parse starts from a fresh context, even one with mutable fields") {

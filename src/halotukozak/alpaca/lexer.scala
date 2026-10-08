@@ -4,7 +4,7 @@ package alpaca
 import alpaca.internal.*
 import alpaca.internal.lexer.{IgnoredToken as _, Token as _, *}
 
-import scala.NamedTuple.NamedTuple
+import scala.NamedTuple.AnyNamedTuple
 import scala.annotation.{compileTimeOnly, publicInBinary, unused}
 
 /**
@@ -40,10 +40,10 @@ transparent inline def lexer[Ctx <: LexerCtx](
   inline rules: LexerScope.Of[Ctx] ?=> LexerDefinition[Ctx],
 )(using
   m: Mirror.ProductOf[Ctx],
-  errorHandling: ErrorHandling[Ctx, LexerError],
-): Lexer[Ctx] { type LexemeFields = NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes] } =
+  errorHandling: ErrorHandling[Ctx, LexerError.Of[Ctx]],
+): Lexer[Ctx] =
   ${
-    createLexerImpl[Ctx, NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes]](
+    createLexerImpl[Ctx](
       '{ rules },
       '{ Tracking.materialize[Ctx] },
       '{ errorHandling },
@@ -207,7 +207,7 @@ trait LexerCtx extends Product, Selectable:
    * Propagates the engine-internal bookkeeping fields above from `prev` onto
    * `this`, e.g. after a `copy()` produced a fresh instance for an immutable
    * context field update. Used by macro-generated code (see `ctx` in
-   * `lexer.scala` and [[alpaca.internal.lexer.Tracking.Derived]]); user code
+   * `lexer.scala` and [[alpaca.internal.lexer.Tracking.materialize]]); user code
    * never needs to call this.
    *
    * @note This is for internal use only and should not be called directly.
@@ -253,7 +253,10 @@ object LexerCtx:
    * fresh `copy` of this case class through the lexer rather than mutating a
    * field in place. Read them as plain `Int`s (`ctx.line`, `ctx.column`).
    *
-   * @param column the current column within the line (1-based)
+   * In the context they are the position after the last match; in a lexeme they
+   * are the position where its token starts.
+   *
+   * @param column the current column within the line (1-based, in code points)
    * @param line   the current line number (1-based)
    */
   final case class Default(
@@ -264,44 +267,56 @@ object LexerCtx:
 /**
  * Input that did not match any token, as reported by `tokenize` in a [[Result.Failure]].
  *
+ * Like a [[Lexeme]], it carries the lexer context's fields as they were where the input starts, read by name
+ * (`error.line` when the context has a `line` field) on the errors `tokenize` returns.
+ *
  * @param unexpected the input that was not matched: one character, or with `ErrorHandling.Strategy.SkipToNextMatch`
  *                   everything skipped up to the next match
- * @param line       the line it starts on, when the lexer context tracks a `line` field
- * @param column     the column it starts at, when the lexer context tracks a `column` field
  */
-final case class LexerError(unexpected: String, line: Option[Int], column: Option[Int]):
-  /** A readable description, e.g. `Unexpected character '@' at line 1, column 5`. */
+final class LexerError private[alpaca] (
+  val unexpected: String,
+  private[alpaca] val fieldNames: Array[String],
+  private[alpaca] val fieldValues: Array[Any],
+) extends Selectable:
+  type Fields <: AnyNamedTuple
+
+  def selectDynamic(name: String): Any = contextField(fieldNames, fieldValues, name)
+
+  /** A readable description, e.g. `Unexpected character '@'`. */
   def message: String = {
     val text = Printable(unexpected)
-    val what =
-      if unexpected.codePointCount(0, unexpected.length) == 1 then show"character '$text'"
-      else show"""input "$text""""
-    val where = (line, column) match
-      case (Some(line), Some(column)) => show" at line $line, column $column"
-      case (Some(line), None) => show" at line $line"
-      case (None, Some(column)) => show" at column $column"
-      case (None, None) => show""
-    show"Unexpected $what$where"
+    if unexpected.codePointCount(0, unexpected.length) == 1 then show"Unexpected character '$text'"
+    else show"""Unexpected input "$text""""
   }
 
+  override def equals(that: Any): Boolean = that match
+    case that: LexerError =>
+      unexpected == that.unexpected && fieldNames.sameElements(that.fieldNames) &&
+      fieldValues.sameElements(that.fieldValues)
+    case _ => false
+
+  override def hashCode: Int = (unexpected, fieldNames.toSeq, fieldValues.toSeq).##
+
+  override def toString: String =
+    (unexpected +: fieldNames.lazyZip(fieldValues).map((name, value) => s"$name = ${String.valueOf(value)}"))
+      .mkString("LexerError(", ", ", ")")
+
 object LexerError:
+  /** An error carrying the fields of the lexer context `Ctx`, as an [[ErrorHandling]] for `Ctx` is given it. */
+  type Of[Ctx] = LexerError withFields NamedTuple.From[Ctx]
+
   extension [Ctx, A](result: Result[Ctx, A, LexerError])
     /** The value; throws the errors as a [[LexerException]] if any input did not match a token. */
     def getOrThrow: A = result match
       case Result.Success(_, value) => value
       case Result.Failure(_, _, errors) => throw LexerException(errors)
 
-  /** An error for `unexpected`, positioned by `ctx`'s `line` and `column` fields when it has them. */
-  private[alpaca] def at(unexpected: String, ctx: LexerCtx): LexerError = {
-    def field(name: String): Option[Int] =
-      ctx.productElementNames.indexOf(name) match
-        case -1 => None
-        case i =>
-          ctx.productElement(i) match
-            case n: Int => Some(n)
-            case _ => None
-    LexerError(unexpected, field("line"), field("column"))
-  }
+  /** An error for `unexpected`, with `ctx`'s fields as they are before it. */
+  private[alpaca] def apply[CtxFields <: AnyNamedTuple](unexpected: String, fieldNames: Array[String], ctx: LexerCtx)
+    : LexerError withFields CtxFields =
+    new LexerError(unexpected, fieldNames, ctx.productIterator.toArray).asInstanceOf[LexerError withFields CtxFields]
+
+  def unapply(error: LexerError): Some[String] = Some(error.unexpected)
 
 /**
  * Thrown by `getOrThrow` on a lexer [[Result]] when some input did not match a token.

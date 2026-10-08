@@ -79,6 +79,8 @@ object Tracking:
    * allocation and one reflective reconstruction per token match, regardless
    * of how many fields are tracked, rather than one per field. Contexts with
    * no tracked fields (`steps.isEmpty`) skip the snapshot/rebuild entirely.
+   *
+   * A lexeme keeps the pre-match value of every tracked field, so it describes its token's start.
    */
   @publicInBinary private[Tracking] def materializeImpl[Ctx <: LexerCtx: Mirror.ProductOf as m](
     steps: List[(index: Int, update: Tracking[?])],
@@ -99,13 +101,15 @@ object Tracking:
         modifyCtx(afterFields)
           .carryEngineStateFrom(afterFields)
           .tap: c =>
+            val values = c.productIterator.toArray
+            steps.foreach(step => values(step.index) = ctx.productElement(step.index))
             val name = info.name.raw
             c.lastLexeme = Lexeme(
               name = name,
               value = remapping(c),
               text = raw,
               fieldNames = fieldNames,
-              fieldValues = c.productIterator.toArray,
+              fieldValues = values,
             )
 
       case IgnoredToken(_, modifyCtx) =>

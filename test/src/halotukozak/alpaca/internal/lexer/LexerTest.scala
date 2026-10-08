@@ -25,10 +25,10 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
 
   test("selectDynamic returns ctx fields and throws for missing keys") {
     val lexeme: Lexeme[?, ?] =
-      new Lexeme("IDENTIFIER", "hello", "hello", Array("column", "line"), Array(6, 1))
+      new Lexeme("IDENTIFIER", "hello", "hello", Array("column", "line"), Array(1, 1))
 
     lexeme.text shouldBe "hello"
-    lexeme.selectDynamic("column") shouldBe 6
+    lexeme.selectDynamic("column") shouldBe 1
     lexeme.selectDynamic("line") shouldBe 1
     intercept[NoSuchElementException](lexeme.selectDynamic("missing"))
   }
@@ -45,7 +45,7 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       case id @ "[a-zA-Z][a-zA-Z0-9]*" => Token["IDENTIFIER"](id)
 
     val lexemes = Lexer.tokenize("hello").getOrThrow
-    assert(lexemes.map(_.shape) == List[Shape](("IDENTIFIER", "hello", fields("hello", 6, 1))))
+    assert(lexemes.map(_.shape) == List[Shape](("IDENTIFIER", "hello", fields("hello", 1, 1))))
   }
 
   test("tokenize with whitespace ignored") {
@@ -58,9 +58,9 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
 
     assert(
       lexemes.map(_.shape) == List[Shape](
-        ("NUMBER", "42", fields("42", 3, 1)),
-        ("PLUS", (), fields("+", 5, 1)),
-        ("NUMBER", "13", fields("13", 8, 1)),
+        ("NUMBER", "42", fields("42", 1, 1)),
+        ("PLUS", (), fields("+", 4, 1)),
+        ("NUMBER", "13", fields("13", 6, 1)),
       ),
     )
   }
@@ -80,8 +80,9 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
     Lexer.tokenize("123abc") match
       case Result.Failure(_, recovered, errors) =>
         recovered shouldBe None
-        errors.loneElement shouldBe LexerError("a", Some(1), Some(4))
-        errors.loneElement.message shouldBe "Unexpected character 'a' at line 1, column 4"
+        val error = errors.loneElement
+        (error.unexpected, error.line, error.column) shouldBe ("a", 1, 4)
+        error.message shouldBe "Unexpected character 'a'"
       case Result.Success(_, lexemes) => fail(s"expected a failure, got ${lexemes.size.toString} lexemes")
   }
 
@@ -90,8 +91,21 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       case number @ "[0-9]+" => Token["NUMBER"](number.toInt)
 
     val exception = intercept[LexerException](Lexer.tokenize("123abc").getOrThrow)
-    exception.errors shouldBe List(LexerError("a", Some(1), Some(4)))
-    exception.getMessage shouldBe "Unexpected character 'a' at line 1, column 4"
+    exception.errors.map(e => (e.unexpected, e.selectDynamic("line"), e.selectDynamic("column"))) shouldBe
+      List(("a", 1, 4))
+    exception.getMessage shouldBe "Unexpected character 'a'"
+  }
+
+  test("LexerError compares, hashes and prints the unexpected input with the context fields") {
+    def error(names: String*)(values: Any*) = new LexerError("a", names.toArray, values.toArray)
+
+    error("column", "line")(4, 1) shouldBe error("column", "line")(4, 1)
+    error("column", "line")(4, 1).hashCode shouldBe error("column", "line")(4, 1).hashCode
+    error("column", "line")(4, 1) should not be error("column", "line")(5, 1)
+    error("column", "line")(4, 1) should not be error("col", "line")(4, 1)
+    error("column", "line")(4, 1).toString shouldBe "LexerError(a, column = 4, line = 1)"
+    error()() match
+      case LexerError(unexpected) => unexpected shouldBe "a"
   }
 
   test("tokenize complex expression") {
@@ -109,15 +123,15 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
 
     assert(
       lexemes.map(_.shape) == List[Shape](
-        ("LPAREN", (), fields("(", 2, 1)),
-        ("IDENTIFIER", "x", fields("x", 3, 1)),
-        ("PLUS", (), fields("+", 5, 1)),
-        ("NUMBER", "42", fields("42", 8, 1)),
-        ("RPAREN", (), fields(")", 9, 1)),
-        ("MULTIPLY", (), fields("*", 11, 1)),
-        ("IDENTIFIER", "y", fields("y", 13, 1)),
-        ("MINUS", (), fields("-", 15, 1)),
-        ("NUMBER", "1", fields("1", 17, 1)),
+        ("LPAREN", (), fields("(", 1, 1)),
+        ("IDENTIFIER", "x", fields("x", 2, 1)),
+        ("PLUS", (), fields("+", 4, 1)),
+        ("NUMBER", "42", fields("42", 6, 1)),
+        ("RPAREN", (), fields(")", 8, 1)),
+        ("MULTIPLY", (), fields("*", 10, 1)),
+        ("IDENTIFIER", "y", fields("y", 12, 1)),
+        ("MINUS", (), fields("-", 14, 1)),
+        ("NUMBER", "1", fields("1", 16, 1)),
       ),
     )
   }
@@ -263,7 +277,7 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       case number @ "[0-9]+" => Token["NUMBER"](number.toInt)
 
     val exception = intercept[LexerException](Lexer.tokenize("1\t").getOrThrow)
-    exception.getMessage shouldBe """Unexpected character '\t' at line 1, column 2"""
+    exception.getMessage shouldBe """Unexpected character '\t'"""
   }
 
   test("shadowing error escapes non-printable token names and patterns") {
@@ -302,8 +316,8 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
     val lexemes = lexed.getOrThrow
     assert(
       lexemes.map(_.shape) == List[Shape](
-        ("IDENTIFIER", "abc", fields("abc", 4, 1)),
-        ("IDENTIFIER", "def", fields("def", 4, 2)),
+        ("IDENTIFIER", "abc", fields("abc", 1, 1)),
+        ("IDENTIFIER", "def", fields("def", 1, 2)),
       ),
     )
     lexed.ctx.line shouldBe 2
@@ -326,15 +340,15 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
 
       assert(
         lexemes.map(_.shape) == List[Shape](
-          ("LPAREN", (), fields("(", 2, 1)),
-          ("IDENTIFIER", "x", fields("x", 3, 1)),
-          ("PLUS", (), fields("+", 5, 1)),
-          ("NUMBER", "42", fields("42", 8, 1)),
-          ("RPAREN", (), fields(")", 9, 1)),
-          ("MULTIPLY", (), fields("*", 11, 1)),
-          ("IDENTIFIER", "y", fields("y", 13, 1)),
-          ("MINUS", (), fields("-", 15, 1)),
-          ("NUMBER", "1", fields("1", 17, 1)),
+          ("LPAREN", (), fields("(", 1, 1)),
+          ("IDENTIFIER", "x", fields("x", 2, 1)),
+          ("PLUS", (), fields("+", 4, 1)),
+          ("NUMBER", "42", fields("42", 6, 1)),
+          ("RPAREN", (), fields(")", 8, 1)),
+          ("MULTIPLY", (), fields("*", 10, 1)),
+          ("IDENTIFIER", "y", fields("y", 12, 1)),
+          ("MINUS", (), fields("-", 14, 1)),
+          ("NUMBER", "1", fields("1", 16, 1)),
         ),
       )
     }

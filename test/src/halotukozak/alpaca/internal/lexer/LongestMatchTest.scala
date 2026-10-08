@@ -1,7 +1,7 @@
 package halotukozak
 package alpaca.internal.lexer
 
-import halotukozak.alpaca.{lexer, LexerException, Token}
+import halotukozak.alpaca.{lexer, Token}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -81,8 +81,8 @@ final class LongestMatchTest extends AnyFunSuite with Matchers:
       case "bc" => Token["BC"]
 
     // "a" + "bc" would cover the input, but the lexer commits to the longest "ab" and gets stuck on "c".
-    val exception = intercept[LexerException](Lexer.tokenize("abc").getOrThrow)
-    exception.getMessage shouldBe "Unexpected character 'c' at line 1, column 3"
+    Lexer.tokenize("abc").toEither.left.map(_.map(e => (e.message, e.column))) shouldBe
+      Left(List(("Unexpected character 'c'", 3)))
   }
 
   test("a single pattern matches as much as it can, across what look like separate tokens") {

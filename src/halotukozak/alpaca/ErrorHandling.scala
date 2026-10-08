@@ -18,6 +18,8 @@ import scala.annotation.implicitNotFound
  * given ErrorHandling[MyParserCtx, ParserError] = (ctx, error) => ErrorHandling.Strategy.SkipToNextMatch
  * }}}
  *
+ * A lexer handler declared for `LexerError.Of[MyLexerCtx]` reads the context's fields with their types.
+ *
  * @tparam Ctx the lexer or parser context this applies to
  * @tparam E   the error it is given: [[LexerError]] for the lexer, [[ParserError]] for the parser
  */

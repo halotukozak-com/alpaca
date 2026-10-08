@@ -290,7 +290,7 @@ assert(cleared.cells(0) == 0)  // the loop decrements the cell to zero
 
 Some ways to take the interpreter further:
 
-- **Source positions** — add `Column` and `Line` fields to `BrainLexContext` (see [Built-in Tracking Fragments](lexer-context.md#built-in-tracking-fragments)); `LexerError` and `ParserError` messages then name the line and column of each error.
+- **Source positions** — add `Column` and `Line` fields to `BrainLexContext` (see [Built-in Tracking Fragments](lexer-context.md#built-in-tracking-fragments)); lexemes and `LexerError`s then carry them as `column` and `line` fields.
 - **String literals** — add a `"..."` token for printing text inline.
 
 This interpreter uses the simplest form of every Alpaca feature. The rest of the documentation covers each in full:

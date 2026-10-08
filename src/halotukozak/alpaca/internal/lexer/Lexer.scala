@@ -22,11 +22,12 @@ import scala.collection.mutable
 transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca] (
   onTokenMatch: (Token[?, Ctx, ?], String, Ctx) => Ctx,
   initialCtx: () => Ctx,
-)(using errorHandling: ErrorHandling[Ctx, LexerError],
+)(using errorHandling: ErrorHandling[Ctx, alpaca.LexerError.Of[Ctx]],
 ) extends Selectable:
   type Fields <: AnyNamedTuple
-  type LexemeFields <: AnyNamedTuple
+  final type LexemeFields = NamedTuple.From[Ctx]
   final type Lexeme = lexer.Lexeme[?, ?] withFields LexemeFields
+  final type LexerError = alpaca.LexerError withFields LexemeFields
 
   /** List of all tokens defined in this lexer, including ignored tokens. */
   @publicInBinary
@@ -75,12 +76,13 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
 
         case _ =>
           val cpLen = Character.charCount(Character.codePointAt(globalCtx.text, 0))
-          val unexpected = LexerError.at(globalCtx.text.subSequence(0, cpLen).toString, globalCtx)
+          val unexpected =
+            alpaca.LexerError[LexemeFields](globalCtx.text.subSequence(0, cpLen).toString, fieldNames, globalCtx)
           errorHandling(globalCtx, unexpected) match {
             case Strategy.SkipToNextMatch =>
               val skipped = matcher.findFirst(globalCtx.text, cpLen).fold(cpLen)((firstMatching, _, _) => firstMatching)
               val matchedStr = globalCtx.text.subSequence(0, skipped).toString
-              errors += LexerError.at(matchedStr, globalCtx)
+              errors += alpaca.LexerError[LexemeFields](matchedStr, fieldNames, globalCtx)
               globalCtx.lastRawMatched = matchedStr
               globalCtx.text = globalCtx.text.from(skipped)
               Step.Matched(RecoveredToken(matchedStr), matchedStr)
@@ -116,6 +118,8 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
   protected def matcher: TokenMatcher
 
   private lazy val tokensArray: Vector[Token[?, Ctx, ?]] = tokens.toVector
+
+  private val fieldNames: Array[String] = initialCtx().productElementNames.toArray
 
 /** The outcome of one step of [[Lexer.tokenize]]: a token matched (or recovered) from `text`, or a stop. */
 private enum Step[-Ctx <: LexerCtx]:

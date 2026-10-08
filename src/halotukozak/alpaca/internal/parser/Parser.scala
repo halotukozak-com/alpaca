@@ -8,6 +8,7 @@ import halotukozak.alpaca.internal.{fieldsTpeFrom, refinementTpeFrom, withDefaul
 import halotukozak.alpaca.internal.lexer.Lexeme
 import halotukozak.alpaca.internal.parser.{Tables, *}
 
+import scala.NamedTuple.AnyNamedTuple
 import scala.annotation.{compileTimeOnly, publicInBinary, tailrec}
 import scala.collection.mutable
 
@@ -50,11 +51,14 @@ abstract class Parser[Ctx <: ParserCtx](
    * parse the input lexemes using an LR parsing algorithm.
    *
    * @tparam R the result type
+   * @tparam LexemeFields the lexer context's fields, which the lexemes and the returned errors carry
    * @param lexemes the list of lexemes to parse
    * @return the value the root rule produced, or the errors met on the way, with the context either way; when the
    *         context's [[ErrorHandling]] skipped past the errors, the value is the failure's `recovered`
    */
-  @publicInBinary private[alpaca] def parseResult[R](lexemes: List[Lexeme[?, ?]]): Result[Ctx, R, ParserError] = {
+  @publicInBinary private[alpaca] def parseResult[R, LexemeFields <: AnyNamedTuple](
+    lexemes: List[Lexeme[?, ?] withFields LexemeFields],
+  ): Result[Ctx, R, ParserError withFields LexemeFields] = {
     enum Node:
       case Result(value: Any)
       case Token(lexeme: Lexeme[?, ?])
@@ -69,16 +73,17 @@ abstract class Parser[Ctx <: ParserCtx](
     val nodeStack = mutable.ArrayDeque.empty[Node]
     stateStack += 0
     nodeStack += Node.Result(null)
-    val errors = mutable.ListBuffer.empty[ParserError]
+    val errors = mutable.ListBuffer.empty[ParserError withFields LexemeFields]
 
     // The accepted root node, or `None` when an error stopped the parser.
-    @tailrec def loop(remaining: List[Lexeme[?, ?]]): Option[Node] = {
+    @tailrec def loop(remaining: List[Lexeme[?, ?] withFields LexemeFields]): Option[Node] = {
       val (current, nextSymbol) = remaining match
         case Nil => (Lexeme.EOF, Symbol.EOF)
         case head :: _ => (head, Terminal(Printable(head.name)))
       val action = tables.parseTable.get(stateStack.last, nextSymbol)
       if action == null then {
-        val error = ParserError(current, tables.parseTable.expectedTerminals(stateStack.last))
+        val last = if remaining.isEmpty then lexemes.lastOption else None
+        val error = ParserError(remaining.headOption, tables.parseTable.expectedTerminals(stateStack.last), last)
         errors += error
         // the end of the input cannot be skipped
         errorHandling(ctx, error) match
