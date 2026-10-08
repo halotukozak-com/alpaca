@@ -13,7 +13,7 @@ import kotlin.streams.asSequence
  * sync with the alpaca library's own `JsonExport.ExportFormatVersion` constant, since the two ship
  * on separate release schedules.
  */
-const val CURRENT_EXPORT_FORMAT_VERSION: Int = 2
+val CURRENT_EXPORT_FORMAT_VERSION: Int = 2
 
 /** The envelope every export file is wrapped in: `{"version": ..., "context": ...}`. `version`
  *  defaults to 0 so a file with no `version` key at all (written before this envelope existed)

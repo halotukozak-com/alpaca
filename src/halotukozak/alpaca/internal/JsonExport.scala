@@ -18,11 +18,13 @@ import scala.util.control.NonFatal
 private[internal] object JsonExport:
 
   /**
-   * Bumped only when the *shape* of an exported `.tokens.json`/`.productions.json`/`.table.json`
-   *  file, or the meaning of its contents, changes -- not the library's own release version, which
-   *  changes on every release regardless of whether the export did. Version 2: synthetic names for the
-   *  end of the input and the start symbol, which the `.table.json` export carries itself. A consumer (e.g. the IntelliJ plugin) reads this
-   *  back to detect whether it understands the payload before parsing it.
+   * Bumped only when the *shape* of an exported `.tokens.json`/`.productions.json`/`.table.json` file, or the meaning
+   *  of its contents, changes -- not the library's own release version, which changes on every release regardless of
+   *  whether the export did. A consumer (e.g. the IntelliJ plugin) reads this back to detect whether it understands
+   *  the payload before parsing it.
+   *
+   *  Version 2: synthetic names for the end of the input and the start symbol, which the `.table.json` export carries
+   *  itself.
    */
   private[internal] val ExportFormatVersion: Int = 2
 
