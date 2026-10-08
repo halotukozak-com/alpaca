@@ -7,10 +7,6 @@ body:
     attributes:
       value: |
         Thanks for taking the time to report a bug! Please fill out this form as completely as possible.
-        
-        **Note:** Issues will be automatically labeled based on their content. You can help by:
-        - Mentioning the component (Parser/Lexer) in your description
-        - Being specific about the type of issue
 
   - type: dropdown
     id: component
