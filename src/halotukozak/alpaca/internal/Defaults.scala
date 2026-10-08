@@ -27,20 +27,8 @@ import scala.compiletime.constValue
           case default =>
             default *: collectDefaults(owner, elems.tail.asInstanceOf[tail & Tuple.Tail[elems.type]])
 
-  /**
-   * Derives a factory of `T` that builds it from the default values of its constructor parameters.
-   *
-   * @tparam T the case class to build
-   * @return a factory of default instances
-   */
-  @publicInBinary inline private[alpaca] def derived[T: Made.Of as m]: () => T = inline m match
-    case m: Made.ProductOf[T] =>
-      () => m.fromTuple(collectDefaults(constValue[m.Label], m.elems).asInstanceOf[m.ElemTypes])
-    case _ =>
-      compiletime.error("The context should be a case class.")
-
-  /** The [[derived]] factory of `T`, for a macro to splice into the code it generates at its expansion site. */
-  private[alpaca] def derivedExpr[T: Type](using Quotes, Diagnostics): Expr[() => T] =
+  /** The factory of `T` built from its fields' default values, for a macro to splice in. */
+  def apply[T: Type](using Quotes, Diagnostics): Expr[() => T] =
     import quotes.reflect.*
     Expr.summon[Made.Of[T]] match
       case Some(m) => '{ derived[T](using $m) }
@@ -49,4 +37,10 @@ import scala.compiletime.constValue
           show"${Printable(TypeRepr.of[T].typeSymbol.name)} should be a case class.",
           Position.ofMacroExpansion,
         )
+
+  @publicInBinary inline private[Defaults] def derived[T: Made.Of as m]: () => T = inline m match
+    case m: Made.ProductOf[T] =>
+      () => m.fromTuple(collectDefaults(constValue[m.Label], m.elems).asInstanceOf[m.ElemTypes])
+    case _ =>
+      compiletime.error("The context should be a case class.")
 // $COVERAGE-ON$

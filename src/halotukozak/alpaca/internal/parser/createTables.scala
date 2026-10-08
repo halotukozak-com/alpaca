@@ -68,7 +68,7 @@ object Tables:
 ): Expr[(parseTable: ParseTable, actionTable: ActionTable[Ctx], initialCtx: () => Ctx)] = {
   import quotes.reflect.*
   given Diagnostics = Diagnostics()
-  val initialCtx = Defaults.derivedExpr[Ctx]
+  val initialCtx = Defaults[Ctx]
   val parserSymbol = Symbol.spliceOwner.owner.owner
   val parserTpe = parserSymbol.typeRef
 

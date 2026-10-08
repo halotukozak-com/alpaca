@@ -19,7 +19,7 @@ import scala.reflect.NameTransformer
 ): Expr[Lexer[Ctx] { type LexemeFields = lexemeFields }] = {
   import quotes.reflect.*
   given diagnostics: Diagnostics = Diagnostics()
-  val initialCtx = Defaults.derivedExpr[Ctx]
+  val initialCtx = Defaults[Ctx]
 
   val Lambda(oldScope :: Nil, Lambda(_, Match(_, cases: List[CaseDef]))) = rules.asTerm.underlying.runtimeChecked
 
