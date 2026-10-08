@@ -5,21 +5,13 @@ import halotukozak.commons.containsOnly
 
 import halotukozak.made.{Made, MadeElem, MadeFieldElem, NotExists}
 
-import scala.annotation.implicitNotFound
+import scala.annotation.publicInBinary
 import scala.compiletime.constValue
 
 /**
- * A type class for creating empty instances of types.
- *
- * This trait provides a way to create default instances of Product types (case classes)
- * by using their default parameter values. It extends Function0 to act as a factory.
- *
- * @tparam T the type to create empty instances of
+ * Builds the initial lexer or parser context from the default values of its fields.
  */
-@implicitNotFound("${T} should be a case class.")
-trait Empty[T] extends (() => T)
-
-object Empty:
+@publicInBinary private[alpaca] object Empty:
   inline private def collectDefaults(inline owner: String, elems: Tuple)(using elems.type containsOnly MadeFieldElem)
     : Tuple =
     inline elems match
@@ -36,17 +28,22 @@ object Empty:
             default *: collectDefaults(owner, elems.tail.asInstanceOf[tail & Tuple.Tail[elems.type]])
 
   /**
-   * Automatically derives an Empty instance for any Product type with default parameters.
+   * Derives a factory of `T` that builds it from the default values of its constructor parameters.
    *
-   * This macro-based derivation uses the default values of constructor parameters
-   * to create a factory for the type.
-   *
-   * @tparam T the Product type to derive Empty for
-   * @return an Empty instance that creates default instances
+   * @tparam T the case class to build
+   * @return a factory of default instances
    */
-  inline given derived[T <: Product: Made.Of as m]: Empty[T] = inline m match
+  @publicInBinary inline private[alpaca] def derived[T: Made.Of as m]: () => T = inline m match
     case m: Made.ProductOf[T] =>
       () => m.fromTuple(collectDefaults(constValue[m.Label], m.elems).asInstanceOf[m.ElemTypes])
     case _ =>
       compiletime.error("Cannot derive Empty for non-Product types.")
+
+  /** The [[derived]] factory of `T`, for a macro to splice into the code it generates at its expansion site. */
+  private[alpaca] def derivedExpr[T: Type](using Quotes, Diagnostics): Expr[() => T] =
+    import quotes.reflect.*
+    val tpeSymbol = TypeRepr.of[T].typeSymbol
+    Expr.summon[Made.Of[T]] match
+      case Some(m) if tpeSymbol.flags.is(Flags.Case) => '{ derived[T](using $m) }
+      case _ => errorAndAbort(show"${Printable(tpeSymbol.name)} should be a case class.", Position.ofMacroExpansion)
 // $COVERAGE-ON$

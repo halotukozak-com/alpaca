@@ -23,7 +23,7 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
   onTokenMatch: (Token[?, Ctx, ?], String, Ctx) => Ctx,
 )(using
   errorHandling: ErrorHandling[Ctx, LexerError],
-  empty: Empty[Ctx],
+  empty: () => Ctx,
 ) extends Selectable:
   type Fields <: AnyNamedTuple
   type LexemeFields <: AnyNamedTuple

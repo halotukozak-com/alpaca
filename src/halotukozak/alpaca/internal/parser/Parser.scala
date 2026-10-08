@@ -4,7 +4,7 @@ package internal
 package parser
 
 import halotukozak.alpaca.{rule, ErrorHandling, ParserCtx, ParserError, ProductionDefinition, Result, Rule}
-import halotukozak.alpaca.internal.{fieldsTpeFrom, refinementTpeFrom, withDefault, Empty, RevertedArray, RuleOnly, ValidName, *}
+import halotukozak.alpaca.internal.{fieldsTpeFrom, refinementTpeFrom, withDefault, RevertedArray, RuleOnly, ValidName, *}
 import halotukozak.alpaca.internal.lexer.Lexeme
 import halotukozak.alpaca.internal.parser.{Tables, *}
 
@@ -33,7 +33,6 @@ transparent private[alpaca] trait ProductionSelector extends Selectable:
 abstract class Parser[Ctx <: ParserCtx](
   using Ctx withDefault ParserCtx.Empty,
 )(using
-  empty: Empty[Ctx],
   tables: Tables[Ctx],
   errorHandling: ErrorHandling[Ctx, ParserError],
 ):
@@ -75,7 +74,7 @@ abstract class Parser[Ctx <: ParserCtx](
         case Node.Result(value) => value
         case Node.Token(lexeme) => lexeme
 
-    val ctx = empty()
+    val ctx = tables.empty()
 
     val stateStack = mutable.ArrayDeque.empty[Int]
     val nodeStack = mutable.ArrayDeque.empty[Node]
