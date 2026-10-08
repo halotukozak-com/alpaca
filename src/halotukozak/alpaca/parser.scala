@@ -207,7 +207,7 @@ sealed trait Rule[R]:
 /**
  * Why the input does not match the grammar, as reported by `parse` in a [[Result.Failure]].
  *
- * The type member `L` is the lexer's lexeme type. `parse` returns [[ParserError.Of]] the type of the lexemes it was given,
+ * The type member `Lexeme` is the lexer's lexeme type. `parse` returns [[ParserError.Of]] the type of the lexemes it was given,
  * so positions are the lexer context's fields, e.g. `error.unexpected.map(_.line)`, or `error.last.map(_.line)` at the
  * end of the input. Plain `ParserError` is an error over any lexemes.
  *
@@ -215,25 +215,25 @@ sealed trait Rule[R]:
  *                 input), sorted
  */
 final class ParserError private (
-  unexpectedLexeme: Option[Lexeme[?, ?]],
+  unexpectedLexeme: Option[alpaca.Lexeme[?, ?]],
   val expected: List[String],
-  lastLexeme: Option[Lexeme[?, ?]],
+  lastLexeme: Option[alpaca.Lexeme[?, ?]],
 ):
   /** The lexer's lexeme type. */
-  type L <: Lexeme[?, ?]
+  type Lexeme <: alpaca.Lexeme[?, ?]
 
   /** The lexeme the parser could not accept; `None` when the input ended too early. */
-  def unexpected: Option[L] = unexpectedLexeme.asInstanceOf[Option[L]]
+  def unexpected: Option[Lexeme] = unexpectedLexeme.asInstanceOf[Option[Lexeme]]
 
   /** At the end of the input, the last lexeme before it; `None` when the input is empty or the error is not at the end. */
-  def last: Option[L] = lastLexeme.asInstanceOf[Option[L]]
+  def last: Option[Lexeme] = lastLexeme.asInstanceOf[Option[Lexeme]]
 
-  def copy(unexpected: Option[L] = unexpected, expected: List[String] = expected, last: Option[L] = last)
-    : ParserError.Of[L] = ParserError(unexpected, expected, last)
+  def copy(unexpected: Option[Lexeme] = unexpected, expected: List[String] = expected, last: Option[Lexeme] = last)
+    : ParserError.Of[Lexeme] = ParserError(unexpected, expected, last)
 
   /** A readable description, e.g. `Unexpected PLUS "+". Expected one of: Num`. */
   def message: String = {
-    def describe(lexeme: Lexeme[?, ?]): Shown = show"""${Printable(lexeme.name)} "${Printable(lexeme.text)}""""
+    def describe(lexeme: alpaca.Lexeme[?, ?]): Shown = show"""${Printable(lexeme.name)} "${Printable(lexeme.text)}""""
 
     val what = unexpected match
       case Some(lexeme) => describe(lexeme)
@@ -251,16 +251,16 @@ final class ParserError private (
   override def toString: String = "ParserError" + (unexpected, expected, last).toString
 
 object ParserError:
-  // An upper bound rather than `type L = L0`: with an alias, matching on a `Result` of a lexer's lexemes
+  // An upper bound rather than `type Lexeme = Lex`: with an alias, matching on a `Result` of a lexer's lexemes
   // (`Lexeme[?, ?] { type Fields = ... }`) warns that `Success` and `Failure` are not exhaustive.
-  /** An error whose lexemes are `L0`s, as `parse` returns it. */
-  type Of[L0 <: Lexeme[?, ?]] = ParserError { type L <: L0 }
+  /** An error whose lexemes are `Lex`s, as `parse` returns it. */
+  type Of[Lex <: Lexeme[?, ?]] = ParserError { type Lexeme <: Lex }
 
-  private[alpaca] def apply[L0 <: Lexeme[?, ?]](unexpected: Option[L0], expected: List[String], last: Option[L0])
-    : Of[L0] =
-    new ParserError(unexpected, expected, last).asInstanceOf[Of[L0]]
+  private[alpaca] def apply[Lex <: Lexeme[?, ?]](unexpected: Option[Lex], expected: List[String], last: Option[Lex])
+    : Of[Lex] =
+    new ParserError(unexpected, expected, last).asInstanceOf[Of[Lex]]
 
-  def unapply(error: ParserError): (Option[error.L], List[String], Option[error.L]) =
+  def unapply(error: ParserError): (Option[error.Lexeme], List[String], Option[error.Lexeme]) =
     (error.unexpected, error.expected, error.last)
 
   extension [Ctx, A](result: Result[Ctx, A, ParserError])
@@ -349,13 +349,13 @@ extension [Ctx <: ParserCtx](parser: Parser[Ctx]) {
    * The result type is inferred from the root rule. Input that does not match the grammar is not thrown as an
    * exception: it comes back as a [[Result.Failure]] listing the [[ParserError]]s.
    *
-   * @tparam L the lexer's lexeme type; the errors carry it, so `error.unexpected.map(_.line)` compiles when it has a `line`
+   * @tparam Lex the lexer's lexeme type; the errors carry it, so `error.unexpected.map(_.line)` compiles when it has a `line`
    * @param lexemes the list of lexemes to parse
    * @return the value the root rule produced, or the errors that stopped the parser, with the context either way
    */
-  inline def parse[L <: Lexeme[?, ?]](lexemes: List[L]): Result[
+  inline def parse[Lex <: Lexeme[?, ?]](lexemes: List[Lex]): Result[
     Ctx,
     parser.root.type match { case Rule[t] => t },
-    ParserError.Of[L],
+    ParserError.Of[Lex],
   ] = parser.parseResult(lexemes)
 }

@@ -2,7 +2,7 @@ package halotukozak
 package alpaca.internal.lexer
 
 import halotukozak.alpaca.internal.lexer.Lexeme
-import halotukozak.alpaca.{lexer, withLazyReader, LexerException, Result, Token}
+import halotukozak.alpaca.{lexer, withLazyReader, LexerError, LexerException, Result, Token}
 import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -91,8 +91,21 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       case number @ "[0-9]+" => Token["NUMBER"](number.toInt)
 
     val exception = intercept[LexerException](Lexer.tokenize("123abc").getOrThrow)
-    exception.errors.map(_.unexpected) shouldBe List("a")
+    exception.errors.map(e => (e.unexpected, e.selectDynamic("line"), e.selectDynamic("column"))) shouldBe
+      List(("a", 1, 4))
     exception.getMessage shouldBe "Unexpected character 'a'"
+  }
+
+  test("LexerError compares, hashes and prints the unexpected input with the context fields") {
+    def error(names: String*)(values: Any*) = new LexerError("a", names.toArray, values.toArray)
+
+    error("column", "line")(4, 1) shouldBe error("column", "line")(4, 1)
+    error("column", "line")(4, 1).hashCode shouldBe error("column", "line")(4, 1).hashCode
+    error("column", "line")(4, 1) should not be error("column", "line")(5, 1)
+    error("column", "line")(4, 1) should not be error("col", "line")(4, 1)
+    error("column", "line")(4, 1).toString shouldBe "LexerError(a, column = 4, line = 1)"
+    error()() match
+      case LexerError(unexpected) => unexpected shouldBe "a"
   }
 
   test("tokenize complex expression") {

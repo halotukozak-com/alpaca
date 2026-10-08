@@ -6,8 +6,6 @@ package lexer
 import halotukozak.alpaca.internal.ValidName
 
 import scala.NamedTuple.AnyNamedTuple
-import scala.util.boundary
-import scala.util.boundary.break
 
 /**
  * A lexeme represents a token that has been matched and extracted from the input.
@@ -47,9 +45,3 @@ private[alpaca] object Lexeme:
    * This is used internally by the parser to detect when all input has been consumed.
    */
   private[alpaca] val EOF: Lexeme["$", String] = Lexeme("$", "", "", Array.empty, Array.empty)
-
-/** The value of the context field `name` in a snapshot. */
-private[alpaca] def contextField(fieldNames: Array[String], fieldValues: Array[Any], name: String): Any =
-  boundary:
-    for i <- fieldNames.indices if fieldNames(i) == name do break(fieldValues(i))
-    throw new NoSuchElementException(name)

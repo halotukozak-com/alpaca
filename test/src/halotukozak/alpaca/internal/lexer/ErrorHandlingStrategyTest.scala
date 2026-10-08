@@ -7,8 +7,8 @@ import org.scalatest.matchers.should.Matchers
 
 final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
 
-  extension [Ctx, L, E](result: Result[Ctx, List[L], E])
-    private def failure: (recovered: Option[List[L]], errors: List[E]) = result match
+  extension [Ctx, Lex, Error](result: Result[Ctx, List[Lex], Error])
+    private def failure: (recovered: Option[List[Lex]], errors: List[Error]) = result match
       case Result.Failure(_, recovered, errors) => (recovered, errors)
       case Result.Success(_, _) => fail("expected a failure")
 
@@ -112,8 +112,9 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
       case "a" => Token["A"]
 
     // the strategy sees the first unmatched character; the reported error covers the whole skipped run
-    L.tokenize("a!?a#").failure.errors.map(e => (e.unexpected, e.column)) shouldBe List(("!?", 2), ("#", 5))
-    seen.map(_.unexpected) shouldBe List("!", "#")
+    L.tokenize("a!?a#").failure.errors.map(e => (e.unexpected, e.line, e.column)) shouldBe List(("!?", 1, 2), ("#", 1, 5))
+    seen.map(e => (e.unexpected, e.selectDynamic("line"), e.selectDynamic("column"))) shouldBe
+      List(("!", 1, 2), ("#", 1, 5))
   }
 
   test("peek should expose at most n characters of the unmatched input to a custom ErrorHandling instance") {

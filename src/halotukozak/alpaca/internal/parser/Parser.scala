@@ -50,13 +50,13 @@ abstract class Parser[Ctx <: ParserCtx](
    * parse the input lexemes using an LR parsing algorithm.
    *
    * @tparam R the result type
-   * @tparam L the lexer's lexeme type, which the returned errors carry
+   * @tparam Lex the lexer's lexeme type, which the returned errors carry
    * @param lexemes the list of lexemes to parse
    * @return the value the root rule produced, or the errors met on the way, with the context either way; when the
    *         context's [[ErrorHandling]] skipped past the errors, the value is the failure's `recovered`
    */
-  @publicInBinary private[alpaca] def parseResult[R, L <: Lexeme[?, ?]](lexemes: List[L])
-    : Result[Ctx, R, ParserError.Of[L]] = {
+  @publicInBinary private[alpaca] def parseResult[R, Lex <: Lexeme[?, ?]](lexemes: List[Lex])
+    : Result[Ctx, R, ParserError.Of[Lex]] = {
     enum Node:
       case Result(value: Any)
       case Token(lexeme: Lexeme[?, ?])
@@ -71,10 +71,10 @@ abstract class Parser[Ctx <: ParserCtx](
     val nodeStack = mutable.ArrayDeque.empty[Node]
     stateStack += 0
     nodeStack += Node.Result(null)
-    val errors = mutable.ListBuffer.empty[ParserError.Of[L]]
+    val errors = mutable.ListBuffer.empty[ParserError.Of[Lex]]
 
     // The accepted root node, or `None` when an error stopped the parser.
-    @tailrec def loop(remaining: List[L]): Option[Node] = {
+    @tailrec def loop(remaining: List[Lex]): Option[Node] = {
       val (current, nextSymbol) = remaining match
         case Nil => (Lexeme.EOF, Symbol.EOF)
         case head :: _ => (head, Terminal(Printable(head.name)))

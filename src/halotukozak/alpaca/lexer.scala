@@ -289,6 +289,18 @@ final class LexerError private[alpaca] (
     else show"""Unexpected input "$text""""
   }
 
+  override def equals(that: Any): Boolean = that match
+    case that: LexerError =>
+      unexpected == that.unexpected && fieldNames.sameElements(that.fieldNames) &&
+      fieldValues.sameElements(that.fieldValues)
+    case _ => false
+
+  override def hashCode: Int = (unexpected, fieldNames.toSeq, fieldValues.toSeq).##
+
+  override def toString: String =
+    (unexpected +: fieldNames.lazyZip(fieldValues).map((name, value) => s"$name = ${String.valueOf(value)}"))
+      .mkString("LexerError(", ", ", ")")
+
 object LexerError:
   extension [Ctx, A](result: Result[Ctx, A, LexerError])
     /** The value; throws the errors as a [[LexerException]] if any input did not match a token. */
@@ -297,8 +309,11 @@ object LexerError:
       case Result.Failure(_, _, errors) => throw LexerException(errors)
 
   /** An error for `unexpected`, with `ctx`'s fields as they are before it. */
-  private[alpaca] def at(unexpected: String, fieldNames: Array[String], ctx: LexerCtx): LexerError =
-    LexerError(unexpected, fieldNames, ctx.productIterator.toArray)
+  private[alpaca] def apply[CtxFields <: AnyNamedTuple](unexpected: String, fieldNames: Array[String], ctx: LexerCtx)
+    : LexerError withFields CtxFields =
+    new LexerError(unexpected, fieldNames, ctx.productIterator.toArray).asInstanceOf[LexerError withFields CtxFields]
+
+  def unapply(error: LexerError): Some[String] = Some(error.unexpected)
 
 /**
  * Thrown by `getOrThrow` on a lexer [[Result]] when some input did not match a token.
