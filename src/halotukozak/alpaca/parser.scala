@@ -3,7 +3,7 @@ package alpaca
 
 import halotukozak.alpaca.internal.*
 import halotukozak.alpaca.internal.lexer.{Lexeme, Token}
-import halotukozak.alpaca.internal.parser.*
+import halotukozak.alpaca.internal.parser.{Production as _, *}
 
 import scala.annotation.{compileTimeOnly, implicitNotFound, unused}
 
@@ -300,21 +300,6 @@ extension (first: Production | Token[?, ?, ?]) {
     : ConflictResolution =
     null.asInstanceOf[ConflictResolution]
 }
-
-object Production:
-
-  /**
-   * Creates a production reference from symbols.
-   *
-   * This is compile-time only and can be used only inside [[resolutions]], to refer to a production by its
-   * right-hand side, e.g. `Production(CalcParser.Expr, CalcLexer.MINUS, CalcParser.Expr)`.
-   *
-   * @param symbols the symbols on the right-hand side of the production
-   * @return a production reference
-   */
-  @compileTimeOnly(ConflictResolutionOnly)
-  inline def apply[P <: parser.Parser[?]: ResolutionScope](@unused symbols: (Rule[?] | Token[?, ?, ?])*): Production =
-    null.asInstanceOf[Production]
 
 object ParserCtx:
 

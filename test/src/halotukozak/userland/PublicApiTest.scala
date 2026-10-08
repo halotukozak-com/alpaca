@@ -149,6 +149,13 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     errors("""val p = Production(WordLexer.WORD)""") shouldBe List(outsideResolutions)
   }
 
+  test("the resolutions DSL's types can be named but not created from user code") {
+    assert(typeChecks("""def resolve(selector: ProductionSelector, production: Production): Unit = ()"""))
+    assert(!typeChecks("""val p: Production = "plus""""))
+    assert(!typeChecks("""new ProductionSelector { def selectDynamic(name: String): Any = null }"""))
+    assert(!typeChecks("""DummyProductionSelector"""))
+  }
+
   test("the text peeked in ErrorHandling keeps its content after the callback") {
     var seen: String | Null = null
     case class RecordingCtx(n: Int = 0) extends LexerCtx

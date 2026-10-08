@@ -12,17 +12,6 @@ import scala.annotation.{compileTimeOnly, publicInBinary, tailrec}
 import scala.collection.mutable
 
 /**
- * A trait that provides compile-time access to named productions for use in conflict resolution definitions.
- *
- * It is typically used when specifying conflict resolutions, enabling you to refer to productions
- * in a type-safe and compile-time-checked manner.
- *
- * @note This is a compile-time only feature and can be used only inside `resolutions(...)`.
- */
-transparent private[alpaca] trait ProductionSelector extends Selectable:
-  def selectDynamic(name: String): Any
-
-/**
  * Base class for parsers.
  *
  * Users should extend this class and define their grammar rules as `Rule` instances.
@@ -174,23 +163,10 @@ abstract class Parser[Ctx <: ParserCtx](
       case _ =>
         error(show"Define resolutions as the last field of the parser.", Position.ofMacroExpansion)
         Nil
-    .map(name => (name, TypeRepr.of[Production]))
+    .map(name => (name, TypeRepr.of[alpaca.Production]))
     .toList
 
   (refinementTpeFrom(fields).asType, fieldsTpeFrom(fields).asType).runtimeChecked match
     case ('[refinement], '[fields]) =>
       '{ DummyProductionSelector.asInstanceOf[ProductionSelector { type Fields = fields } & refinement] }
 }
-
-/**
- * A real (non-null) placeholder instance of [[ProductionSelector]].
- *
- * `production.someName` is meant to be intercepted and rewritten entirely at compile
- * time, but the underlying `resolutions(...)` call is an ordinary runtime function, so
- * this placeholder still gets evaluated and `.selectDynamic` still gets called on it.
- * It must be a real object rather than `null.asInstanceOf[...]`, otherwise that call
- * NPEs instead of reaching the `.after`/`.before` extension methods, which are inline
- * and discard their receiver/arguments entirely.
- */
-@publicInBinary private[parser] object DummyProductionSelector extends ProductionSelector:
-  override def selectDynamic(name: String): Any = null
