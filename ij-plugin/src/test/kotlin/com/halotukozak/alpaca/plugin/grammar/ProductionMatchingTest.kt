@@ -6,8 +6,8 @@ import com.halotukozak.alpaca.plugin.settings.GrammarAssociation
 import com.intellij.openapi.application.runWriteAction
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
-private const val LEXER_ID = "MathTest.CalcLexer@L11"
-private const val PARSER_ID = "MathTest.MathParser@L39"
+private val LEXER_ID = exportedGrammarId("MathTest", "CalcLexer")
+private val PARSER_ID = exportedGrammarId("MathTest", "MathParser")
 
 /**
  * Exercises [matchedAlternativeName] directly against MathParser's real exported grammar, ahead

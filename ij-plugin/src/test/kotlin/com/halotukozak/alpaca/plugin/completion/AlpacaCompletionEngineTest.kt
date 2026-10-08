@@ -1,6 +1,7 @@
 package com.halotukozak.alpaca.plugin.completion
 
 import com.halotukozak.alpaca.plugin.grammar.GrammarDirectory
+import com.halotukozak.alpaca.plugin.grammar.exportedGrammarId
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.nio.file.Path
@@ -14,8 +15,8 @@ import java.nio.file.Path
  */
 class AlpacaCompletionEngineTest {
     companion object {
-        private const val GRAMMAR_ID = "MathTest.MathParser@L39"
-        private const val LEXER_ID = "MathTest.CalcLexer@L11"
+        private val GRAMMAR_ID = exportedGrammarId("MathTest", "MathParser")
+        private val LEXER_ID = exportedGrammarId("MathTest", "CalcLexer")
     }
 
     private fun suggest(prefixText: String): List<String> {

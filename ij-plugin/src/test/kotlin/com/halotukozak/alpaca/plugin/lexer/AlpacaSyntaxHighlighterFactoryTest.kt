@@ -1,11 +1,12 @@
 package com.halotukozak.alpaca.plugin.lexer
 
+import com.halotukozak.alpaca.plugin.grammar.exportedGrammarId
 import com.halotukozak.alpaca.plugin.settings.AlpacaSettingsState
 import com.halotukozak.alpaca.plugin.settings.GrammarAssociation
 import com.intellij.lexer.Lexer
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
-private const val LEXER_ID = "MathTest.CalcLexer@L11"
+private val LEXER_ID = exportedGrammarId("MathTest", "CalcLexer")
 
 /**
  * [AlpacaSyntaxHighlighterFactory] is the entry point the platform actually calls per file, so
