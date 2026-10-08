@@ -66,6 +66,7 @@ object Tables:
 ): Expr[(parseTable: ParseTable, actionTable: ActionTable[Ctx])] = {
   import quotes.reflect.*
   given Diagnostics = Diagnostics()
+  given NonTerminal.Fresh = NonTerminal.Fresh()
   val parserSymbol = Symbol.spliceOwner.owner.owner
   val parserTpe = parserSymbol.typeRef
 

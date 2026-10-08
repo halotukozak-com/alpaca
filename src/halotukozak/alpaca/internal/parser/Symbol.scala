@@ -8,7 +8,6 @@ import halotukozak.alpaca.internal.{Printable, Showable}
 import halotukozak.mcodec.MCodec
 
 import scala.annotation.publicInBinary
-import scala.util.Random
 
 /**
  * Represents a grammar symbol (either terminal or non-terminal).
@@ -35,6 +34,17 @@ sealed case class NonTerminal(name: Printable) extends AnyVal, Symbol
 object NonTerminal:
 
   /**
+   * Numbers the non-terminals [[fresh]] creates. Create one per macro expansion, so that the names are unique within
+   * a parser and the same on every compilation.
+   */
+  private[parser] final class Fresh:
+    private var last = 0
+
+    private[NonTerminal] def next(): Int =
+      last += 1
+      last
+
+  /**
    * Creates a fresh non-terminal symbol with a unique name.
    *
    * This is used internally to create temporary non-terminals for
@@ -42,10 +52,10 @@ object NonTerminal:
    *
    * @param base      the symbol the extractor is applied to
    * @param extractor the extractor the non-terminal stands for, e.g. `List`
-   * @return a non-terminal shown as `base.extractor`, with a unique name
+   * @return a non-terminal shown as `base.extractor`, with a name unique within the [[Fresh]] numbering
    */
-  def fresh(base: Symbol, extractor: String): NonTerminal & Symbol.NonEmpty =
-    NonTerminal(Printable(s"${base.name.raw}.${extractor}_${SyntheticInfix}_${Random.alphanumeric.take(8).mkString}"))
+  def fresh(using Fresh)(base: Symbol, extractor: String): NonTerminal & Symbol.NonEmpty =
+    NonTerminal(Printable(s"${base.name.raw}.${extractor}_${SyntheticInfix}_${summon[Fresh].next()}"))
 
   /**
    * Creates a non-terminal symbol from a name.

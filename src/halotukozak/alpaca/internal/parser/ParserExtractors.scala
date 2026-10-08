@@ -4,6 +4,7 @@ package internal
 package parser
 
 import halotukozak.alpaca.internal.lexer.Token
+import halotukozak.alpaca.internal.parser.NonTerminal.Fresh
 import halotukozak.alpaca.internal.parser.ParserExtractors.*
 
 import scala.reflect.NameTransformer
@@ -47,7 +48,7 @@ private[parser] type Binding[B] = (bind: Option[B], adapt: Expr[Any] => Expr[Any
  * extracting the grammar symbol it matches (terminal or non-terminal) together
  * with any EBNF desugaring (`Option`, `List`, `SeparatedBy`) it requires.
  */
-private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, Diagnostics): PartialFunction[
+private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, Diagnostics, Fresh): PartialFunction[
   quotes.reflect.Tree,
   (
     symbol: parser.Symbol.NonEmpty,
