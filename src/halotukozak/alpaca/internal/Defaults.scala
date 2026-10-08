@@ -45,5 +45,8 @@ import scala.compiletime.constValue
     Expr.summon[Made.Of[T]] match
       case Some(m) => '{ derived[T](using $m) }
       case None =>
-        errorAndAbort(show"${Printable(TypeRepr.of[T].typeSymbol.name)} should be a case class.", Position.ofMacroExpansion)
+        errorAndAbort(
+          show"${Printable(TypeRepr.of[T].typeSymbol.name)} should be a case class.",
+          Position.ofMacroExpansion,
+        )
 // $COVERAGE-ON$

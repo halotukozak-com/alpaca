@@ -22,7 +22,8 @@ import scala.collection.mutable
 transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca] (
   onTokenMatch: (Token[?, Ctx, ?], String, Ctx) => Ctx,
   initialCtx: () => Ctx,
-)(using errorHandling: ErrorHandling[Ctx, LexerError]) extends Selectable:
+)(using errorHandling: ErrorHandling[Ctx, LexerError],
+) extends Selectable:
   type Fields <: AnyNamedTuple
   type LexemeFields <: AnyNamedTuple
   final type Lexeme = lexer.Lexeme[?, ?] withFields LexemeFields
