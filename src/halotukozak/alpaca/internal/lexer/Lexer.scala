@@ -78,7 +78,7 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
           val cpLen = Character.charCount(Character.codePointAt(globalCtx.text, 0))
           val unexpected =
             alpaca.LexerError[LexemeFields](globalCtx.text.subSequence(0, cpLen).toString, fieldNames, globalCtx)
-          errorHandling(globalCtx, unexpected) match {
+          errorHandling(globalCtx, unexpected.asInstanceOf[alpaca.LexerError.Of[Ctx]]) match {
             case Strategy.SkipToNextMatch =>
               val skipped = matcher.findFirst(globalCtx.text, cpLen).fold(cpLen)((firstMatching, _, _) => firstMatching)
               val matchedStr = globalCtx.text.subSequence(0, skipped).toString

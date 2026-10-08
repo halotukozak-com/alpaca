@@ -2,7 +2,7 @@ package halotukozak
 package alpaca.internal.lexer
 
 import halotukozak.alpaca.internal.lexer.Lexeme
-import halotukozak.alpaca.{lexer, withLazyReader, LexerError, LexerException, Result, Token}
+import halotukozak.alpaca.{lexer, withLazyReader, LexerCtx, LexerError, LexerException, Result, Token}
 import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -90,9 +90,8 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
     val Lexer = lexer:
       case number @ "[0-9]+" => Token["NUMBER"](number.toInt)
 
-    val exception = intercept[LexerException](Lexer.tokenize("123abc").getOrThrow)
-    exception.errors.map(e => (e.unexpected, e.selectDynamic("line"), e.selectDynamic("column"))) shouldBe
-      List(("a", 1, 4))
+    val exception = intercept[LexerException.Of[LexerCtx.Default]](Lexer.tokenize("123abc").getOrThrow)
+    exception.errors.map(e => (e.unexpected, e.line, e.column)) shouldBe List(("a", 1, 4))
     exception.getMessage shouldBe "Unexpected character 'a'"
   }
 

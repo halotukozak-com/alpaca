@@ -302,6 +302,9 @@ final class LexerError private[alpaca] (
       .mkString("LexerError(", ", ", ")")
 
 object LexerError:
+  /** An error carrying the fields of the lexer context `Ctx`, as an [[ErrorHandling]] for `Ctx` is given it. */
+  type Of[Ctx] = LexerError withFields NamedTuple.From[Ctx]
+
   extension [Ctx, A](result: Result[Ctx, A, LexerError])
     /** The value; throws the errors as a [[LexerException]] if any input did not match a token. */
     def getOrThrow: A = result match
@@ -318,9 +321,19 @@ object LexerError:
 /**
  * Thrown by `getOrThrow` on a lexer [[Result]] when some input did not match a token.
  *
- * @param errors the errors the lexer reported, in input order
+ * Catch it as a [[LexerException.Of]] the lexer's context to read the errors' context fields with their types.
  */
-final class LexerException(val errors: ::[LexerError]) extends RuntimeException(errors.map(_.message).mkString("\n"))
+final class LexerException private[alpaca] (reported: ::[LexerError])
+  extends RuntimeException(reported.map(_.message).mkString("\n")):
+  type Fields <: AnyNamedTuple
+
+  /** The errors the lexer reported, in input order. */
+  val errors: ::[LexerError withFields Fields] =
+    reported.asInstanceOf[::[LexerError withFields Fields]]
+
+object LexerException:
+  /** An exception whose errors carry the fields of the lexer context `Ctx`. */
+  type Of[Ctx] = LexerException withFields NamedTuple.From[Ctx]
 
 /**
  * Type alias for lexer rule definitions.

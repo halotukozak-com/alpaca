@@ -2,6 +2,7 @@ package halotukozak
 package alpaca
 
 import scala.annotation.implicitNotFound
+import scala.annotation.unchecked.uncheckedVariance
 
 /**
  * How tokenizing or parsing goes on after input that is not accepted.
@@ -18,13 +19,22 @@ import scala.annotation.implicitNotFound
  * given ErrorHandling[MyParserCtx, ParserError] = (ctx, error) => ErrorHandling.Strategy.SkipToNextMatch
  * }}}
  *
+ * A lexer's handler is given a [[LexerError.Of]] its context, so it reads the context's fields by name with their
+ * types (`error.line` when the context has a `line` field).
+ *
  * @tparam Ctx the lexer or parser context this applies to
  * @tparam E   the error it is given: [[LexerError]] for the lexer, [[ParserError]] for the parser
  */
 @implicitNotFound("Define ErrorHandling[${Ctx}, ${E}].")
-trait ErrorHandling[-Ctx, -E] extends ((Ctx, E) => ErrorHandling.Strategy)
+trait ErrorHandling[-Ctx, -E]
+  extends ((Ctx, ErrorHandling.Error[Ctx @uncheckedVariance, E @uncheckedVariance]) => ErrorHandling.Strategy)
 
 object ErrorHandling:
+  /** The error a handler is given: a [[LexerError]] typed by the context's fields, any other error as it is. */
+  type Error[Ctx, E] = E match
+    case LexerError => LexerError.Of[Ctx]
+    case _ => E
+
   /** What to do with input that is not accepted: one character for the lexer, one lexeme for the parser. */
   enum Strategy:
     /** Skips the one character or lexeme that is not accepted and goes on. */

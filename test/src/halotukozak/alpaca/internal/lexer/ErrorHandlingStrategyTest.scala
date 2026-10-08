@@ -103,9 +103,9 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
   }
 
   test("the strategy is given the error for the unmatched character") {
-    var seen = List.empty[LexerError]
+    var seen = List.empty[(String, Int, Int)]
     given ErrorHandling[LexerCtx.Default, LexerError] = (_, error) =>
-      seen = seen :+ error
+      seen = seen :+ (error.unexpected, error.line, error.column)
       ErrorHandling.Strategy.SkipToNextMatch
 
     val L = lexer:
@@ -113,8 +113,21 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
 
     // the strategy sees the first unmatched character; the reported error covers the whole skipped run
     L.tokenize("a!?a#").failure.errors.map(e => (e.unexpected, e.line, e.column)) shouldBe List(("!?", 1, 2), ("#", 1, 5))
-    seen.map(e => (e.unexpected, e.selectDynamic("line"), e.selectDynamic("column"))) shouldBe
-      List(("!", 1, 2), ("#", 1, 5))
+    seen shouldBe List(("!", 1, 2), ("#", 1, 5))
+  }
+
+  test("the strategy reads a custom context's fields from the error") {
+    final case class MyCtx(line: Line = Line.Start) extends LexerCtx
+    given ErrorHandling[MyCtx, LexerError] =
+      (_, error) => if error.line > 1 then ErrorHandling.Strategy.Stop else ErrorHandling.Strategy.SkipOne
+
+    val L = lexer[MyCtx]:
+      case "a" => Token["A"]
+      case "\n" => Token.Ignored
+
+    val result = L.tokenize("a!a\n?a!")
+    result.failure.recovered shouldBe None
+    result.failure.errors.map(e => (e.unexpected, e.line)) shouldBe List(("!", 1), ("?", 2))
   }
 
   test("peek should expose at most n characters of the unmatched input to a custom ErrorHandling instance") {
