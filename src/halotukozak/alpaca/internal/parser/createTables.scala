@@ -234,7 +234,7 @@ object Tables:
 
       val productionsByRhs = productions.groupBy(_.rhs)
 
-      def findProduction(call: Expr[Production]): Production = call match {
+      def findProduction(call: Expr[alpaca.Production]): Production = call match {
         case '{ ($_ : ProductionSelector).selectDynamic(${ Expr(name) }).$asInstanceOf$[i] } =>
           val decodedName = Printable(NameTransformer.decode(name))
           productionsByName.getOrElse(
@@ -312,8 +312,8 @@ object Tables:
             case _ => unsupported(rhs.pos)
       }
 
-      def extractKey(expr: Expr[Production | Token[?, ?, ?]]): ConflictKey = expr match
-        case '{ $prod: Production } => ConflictKey.Reduction(findProduction(prod))
+      def extractKey(expr: Expr[alpaca.Production | Token[?, ?, ?]]): ConflictKey = expr match
+        case '{ $prod: alpaca.Production } => ConflictKey.Reduction(findProduction(prod))
         case '{ $_ : Token[name, ?, ?] } => ConflictKey.Shift(Printable(ValidName.from[name]))
 
       // each rule remembers the `.before(...)`/`.after(...)` argument it came from, so errors about it can point there;
@@ -326,9 +326,9 @@ object Tables:
             case Lambda(List(_), body) => body.asExpr
             case other => other.asExpr
           .flatMap:
-            case '{ ($after: Production | Token[?, ?, ?]).after[`p`](${ Varargs(befores) }*)(using $_) } =>
+            case '{ ($after: alpaca.Production | Token[?, ?, ?]).after[`p`](${ Varargs(befores) }*)(using $_) } =>
               befores.map(before => (extractKey(before), extractKey(after), Source(before.asTerm.pos)))
-            case '{ ($before: Production | Token[?, ?, ?]).before[`p`](${ Varargs(afters) }*)(using $_) } =>
+            case '{ ($before: alpaca.Production | Token[?, ?, ?]).before[`p`](${ Varargs(afters) }*)(using $_) } =>
               afters.map(after => (extractKey(before), extractKey(after), Source(after.asTerm.pos)))
             case other =>
               errorAndAbort(

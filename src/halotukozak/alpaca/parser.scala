@@ -3,7 +3,7 @@ package alpaca
 
 import halotukozak.alpaca.internal.*
 import halotukozak.alpaca.internal.lexer.{Lexeme, Token}
-import halotukozak.alpaca.internal.parser.*
+import halotukozak.alpaca.internal.parser.{Production as _, *}
 
 import scala.annotation.{compileTimeOnly, implicitNotFound, unused}
 
@@ -267,7 +267,7 @@ trait ParserCtx
  * and tokens.
  */
 type ConflictResolution
-extension (first: Production | Token[?, ?, ?]) {
+extension (@unused inline first: Production | Token[?, ?, ?]) {
 
   /**
    * Resolves the conflicts between this production or token and each of `second` in favour of `second`: the
@@ -280,7 +280,7 @@ extension (first: Production | Token[?, ?, ?]) {
    * @return a conflict resolution rule
    */
   @compileTimeOnly(RuleOnly)
-  inline infix def after[P <: parser.Parser[?]: ResolutionScope](@unused second: (Production | Token[?, ?, ?])*)
+  inline infix def after[P <: parser.Parser[?]: ResolutionScope](@unused inline second: (Production | Token[?, ?, ?])*)
     : ConflictResolution =
     null.asInstanceOf[ConflictResolution]
 
@@ -296,25 +296,10 @@ extension (first: Production | Token[?, ?, ?]) {
    * @return a conflict resolution rule
    */
   @compileTimeOnly(RuleOnly)
-  inline infix def before[P <: parser.Parser[?]: ResolutionScope](@unused second: (Production | Token[?, ?, ?])*)
+  inline infix def before[P <: parser.Parser[?]: ResolutionScope](@unused inline second: (Production | Token[?, ?, ?])*)
     : ConflictResolution =
     null.asInstanceOf[ConflictResolution]
 }
-
-object Production:
-
-  /**
-   * Creates a production reference from symbols.
-   *
-   * This is compile-time only and can be used only inside [[resolutions]], to refer to a production by its
-   * right-hand side, e.g. `Production(CalcParser.Expr, CalcLexer.MINUS, CalcParser.Expr)`.
-   *
-   * @param symbols the symbols on the right-hand side of the production
-   * @return a production reference
-   */
-  @compileTimeOnly(ConflictResolutionOnly)
-  inline def apply[P <: parser.Parser[?]: ResolutionScope](@unused symbols: (Rule[?] | Token[?, ?, ?])*): Production =
-    null.asInstanceOf[Production]
 
 object ParserCtx:
 
