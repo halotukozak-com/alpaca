@@ -38,7 +38,7 @@ export alpaca.internal.lexer.{Column, LazyReader, Lexeme, Lexer, Line, Tracking}
 transparent inline def lexer[Ctx <: LexerCtx](
   using Ctx withDefault LexerCtx.Default,
 )(
-  inline rules: Ctx ?=> LexerDefinition[Ctx],
+  inline rules: LexerScope.Of[Ctx] ?=> LexerDefinition[Ctx],
 )(using
   m: Mirror.ProductOf[Ctx],
   errorHandling: ErrorHandling[Ctx, LexerError],
@@ -83,11 +83,10 @@ object Token:
    *
    * This is compile-time only and should only be used inside lexer definitions.
    *
-   * @param ctx the lexer context
    * @return a token that will be ignored
    */
   @compileTimeOnly("Should never be called outside the lexer definition")
-  def Ignored(using ctx: LexerCtx): IgnoredToken[ctx.type] = new IgnoredToken[ctx.type]
+  def Ignored(using s: LexerScope): IgnoredToken[s.Ctx] = new IgnoredToken
 
   /**
    * Creates a token whose lexemes carry no value (`()`). To carry the matched text or anything computed from it, bind
@@ -96,12 +95,11 @@ object Token:
    * This is compile-time only and should only be used inside lexer definitions.
    *
    * @tparam Name the token name
-   * @param ctx the lexer context
    * @return a token definition
    */
   @compileTimeOnly("Should never be called outside the lexer definition")
-  def apply[Name <: ValidName](using ctx: LexerCtx): Token[Name, ctx.type, Unit] =
-    new Token[Name, ctx.type, Unit]
+  def apply[Name <: ValidName](using s: LexerScope): Token[Name, s.Ctx, Unit] =
+    new Token[Name, s.Ctx, Unit]
 
   /**
    * Creates a token whose lexemes carry `value`, typically computed from the bound match.
@@ -110,12 +108,11 @@ object Token:
    *
    * @tparam Name the token name
    * @param value the value its lexemes carry
-   * @param ctx   the lexer context
    * @return a token definition
    */
   @compileTimeOnly("Should never be called outside the lexer definition")
-  def apply[Name <: ValidName](value: Any)(using ctx: LexerCtx): Token[Name, ctx.type, value.type] =
-    new Token[Name, ctx.type, value.type]
+  def apply[Name <: ValidName](value: Any)(using s: LexerScope): Token[Name, s.Ctx, value.type] =
+    new Token[Name, s.Ctx, value.type]
 
 // The returned type is the concrete context type `C` refined with a getter
 // and a setter for every case field that doesn't already have a real setter,
@@ -133,7 +130,7 @@ object Token:
 // refinement member in the first place.
 //
 // `C` is inferred as a fresh, unbound type parameter from whatever context
-// function currently binds `c` — deliberately *not* `c.type`: refining the
+// function currently binds the `LexerScope` — deliberately *not* `scope.ctx.type`: refining the
 // singleton type of the specific enclosing lambda parameter, rather than the
 // nominal class `C`, is what a `lexer` rule's own macro (which tears the
 // rule apart and rebuilds its pieces as fresh lambdas — see `createLexer.scala`)
@@ -143,10 +140,10 @@ object Token:
  * The lexer context inside a `lexer` rule body. Read its fields, or assign them (`ctx.count += 1`) to change the
  * context for the tokens that follow: the assignment is rewritten into a `copy`, so the fields can stay `val`s.
  */
-transparent inline def ctx[C <: LexerCtx](using c: C): C = ${ ctxImpl[C]('c) }
+transparent inline def ctx[C <: LexerCtx: LexerScope.Of as scope]: C = ${ ctxImpl[C]('scope) }
 
 // $COVERAGE-OFF$
-@publicInBinary private[alpaca] def ctxImpl[C <: LexerCtx: Type](c: Expr[C])(using quotes: Quotes): Expr[C] = {
+@publicInBinary private[alpaca] def ctxImpl[C <: LexerCtx: Type](scope: Expr[LexerScope.Of[C]])(using Quotes): Expr[C] = {
   import quotes.reflect.*
 
   val ctxTpe = TypeRepr.of[C].widen
@@ -161,7 +158,7 @@ transparent inline def ctx[C <: LexerCtx](using c: C): C = ${ ctxImpl[C]('c) }
       Refinement(withGetter, s"${name}_=", MethodType(List("v"))(_ => List(tpe), _ => TypeRepr.of[Unit]))
 
   refined.asType match
-    case '[type r <: C; r] => '{ $c.asInstanceOf[r] }
+    case '[type r <: C; r] => '{ LexerScope.ctx($scope).asInstanceOf[r] }
 }
 
 // $COVERAGE-ON$
@@ -183,10 +180,10 @@ trait LexerCtx extends Product, Selectable:
 
   /**
    * The raw string that was matched for the last token.
-   * @note Internal API — the lexer macro reads this field at user-site, so it
-   *       has to be source-visible outside the `alpaca` package.
+   * @note This is for internal use only and should not be accessed directly.
    */
-  var lastRawMatched: String = compiletime.uninitialized
+  @publicInBinary
+  private[alpaca] var lastRawMatched: String = compiletime.uninitialized
 
   /**
    * The remaining text to be tokenized.
@@ -196,12 +193,18 @@ trait LexerCtx extends Product, Selectable:
   private[alpaca] var text: CharSequence = compiletime.uninitialized
 
   /**
-   * A read-only view of the text still remaining to be tokenized.
+   * A copy of at most the next `n` characters of the input still to be tokenized, fewer at its end.
    *
-   * Exposed so a custom [[ErrorHandling]] instance can inspect the character(s)
-   * that failed to match any token rule, e.g. to pick a recovery strategy based on what comes next.
+   * Meant for a custom [[ErrorHandling]] instance to look at what failed to match any token rule, e.g. to pick a
+   * recovery strategy based on what comes next. Only the requested characters are read and copied, and the result is
+   * safe to keep after the callback returns.
+   *
+   * @param n the maximum number of characters to return
+   * @throws IllegalArgumentException if `n` is negative
    */
-  final def remainingText: CharSequence = text
+  final def peek(n: Int): String =
+    require(n >= 0, s"peek length must be non-negative, got $n")
+    text.subSequence(0, math.min(n, text.length)).toString
 
   /**
    * Propagates the engine-internal bookkeeping fields above from `prev` onto
@@ -223,16 +226,10 @@ trait LexerCtx extends Product, Selectable:
    * Structural fallback for the getter/setter refinement that `ctx` (see
    * below) types itself with, so that `ctx.field += 1` type-checks even when
    * `field` is an immutable `val`. The `lexer` macro rewrites away every such
-   * structural access inside a rule before it is compiled, so in practice
-   * this is only a safety net; it should never be hit at runtime.
+   * structural access inside a rule before it is inlined; anywhere else it is a compile error.
    */
-  // $COVERAGE-OFF$
-  def applyDynamic(name: String)(@unused args: Any*): Any =
-    throw new UnsupportedOperationException(
-      show"Cannot mutate lexer context field '${Printable(name)}' on ${Printable(productPrefix)}: either this " +
-        "assignment is outside a lexer rule, or the lexer macro failed to rewrite it into a functional update.",
-    )
-  // $COVERAGE-ON$
+  inline def applyDynamic(@unused inline name: String)(@unused inline args: Any*): Any =
+    compiletime.error("Lexer context fields can only be assigned inside a lexer rule")
 
 object LexerCtx:
 

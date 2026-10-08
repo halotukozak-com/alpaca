@@ -26,6 +26,8 @@ object CollectingParser extends Parser[CollectingCtx]:
       w.value
   val root: Rule[Int] = rule { case Word.List(words) => words.size }
 
+final case class MyCtx() extends LexerCtx
+
 final class PublicApiTest extends AnyFunSuite with Matchers:
 
   test("an empty input parses when the root rule accepts no tokens") {
@@ -44,16 +46,53 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     parse("d").ctx.seen shouldBe List("d")
   }
 
-  // Known API issues: each check fails today, and `pendingUntilFixed` fails the test once it passes.
-  private def knownIssue(check: => Any) = pendingUntilFixed(check: Unit)
-
   test("a lexer's token is named by its path") {
     assert(typeChecks("""val token: WordLexer.WORD = WordLexer.WORD"""))
   }
 
-  test("KNOWN ISSUE: the lexer's internal bookkeeping cannot be overwritten from user code") {
-    knownIssue:
-      assert(!typeChecks("""LexerCtx.Default().lastRawMatched = "x""""))
+  test("the lexer's internal bookkeeping cannot be overwritten from user code") {
+    assert(!typeChecks("""LexerCtx.Default().lastRawMatched = "x""""))
+  }
+
+  test("ctx and its field assignments are compile errors outside a lexer rule") {
+    case class CountingCtx(count: Int = 0) extends LexerCtx
+    typeCheckErrors("""
+      given CountingCtx = CountingCtx()
+      ctx.count
+    """).map(_.message) shouldBe List("`ctx` and `Token` can only be used inside a lexer rule")
+    typeCheckErrors("""
+      def bump(using CountingCtx) = ctx.count += 1
+    """).map(_.message) shouldBe List("`ctx` and `Token` can only be used inside a lexer rule")
+    typeCheckErrors("""
+      CountingCtx().applyDynamic("count_=")(1)
+    """).map(_.message) shouldBe List("Lexer context fields can only be assigned inside a lexer rule")
+  }
+
+  test("Token is a compile error outside a lexer rule") {
+    typeCheckErrors("""Token["X"]""").map(_.message) shouldBe
+      List("`ctx` and `Token` can only be used inside a lexer rule")
+    assert(!typeChecks("""val scope: LexerScope.Of[LexerCtx.Default] = LexerCtx.Default()"""))
+    assert(!typeChecks("""LexerScope.refl(LexerCtx.Default())"""))
+  }
+
+  test("Token carries the lexer's context type, and only a lexer rule provides it") {
+    typeCheckErrors("""
+      lexer[MyCtx]:
+        case "x" =>
+          val _: Token["X", MyCtx, Unit] = Token["X"]
+          Token["X"]
+    """).map(_.message) shouldBe Nil
+    assert(!typeChecks("""
+      lexer[MyCtx]:
+        case "x" =>
+          val _: Token["X", LexerCtx.Empty, Unit] = Token["X"]
+          Token["X"]
+    """))
+    assert(!typeChecks("""
+      object Fake { type Ctx = MyCtx }
+      given Fake.type = Fake
+      Token["X"]
+    """))
   }
 
   test("the lexer DSL's marker types cannot be created or extended from user code") {
@@ -62,9 +101,8 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     assert(!typeChecks("""class MyToken extends Token["A", LexerCtx.Default, Int]"""))
   }
 
-  test("KNOWN ISSUE: a Rule cannot be instantiated from user code") {
-    knownIssue:
-      assert(!typeChecks("""new Rule[Int] {}"""))
+  test("a Rule cannot be instantiated from user code") {
+    assert(!typeChecks("""new Rule[Int] {}"""))
   }
 
   test("a lexer's type can be named") {
@@ -111,16 +149,15 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     errors("""val p = Production(WordLexer.WORD)""") shouldBe List(outsideResolutions)
   }
 
-  test("KNOWN ISSUE: the remaining text handed to ErrorHandling keeps its content after the callback") {
-    var seen: CharSequence | Null = null
+  test("the text peeked in ErrorHandling keeps its content after the callback") {
+    var seen: String | Null = null
     case class RecordingCtx(n: Int = 0) extends LexerCtx
     given ErrorHandling[RecordingCtx, LexerError] = (ctx, _) =>
-      if seen == null then seen = ctx.remainingText
+      if seen == null then seen = ctx.peek(10)
       ErrorHandling.Strategy.SkipOne
     val Lexer = lexer[RecordingCtx]:
       case "a" => Token["A"]
 
     Lexer.tokenize("a!aa!").toEither.left.map(_.size) shouldBe Left(2)
-    knownIssue:
-      seen.nn.toString shouldBe "!aa!"
+    seen shouldBe "!aa!"
   }

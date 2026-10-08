@@ -148,7 +148,7 @@ abstract class Parser[Ctx <: ParserCtx](
   }
 
 // $COVERAGE-OFF$
-def productionImpl[P <: Parser[?]: Type](using quotes: Quotes): Expr[ProductionSelector] = {
+@publicInBinary private[alpaca] def productionImpl[P <: Parser[?]: Type](using Quotes): Expr[ProductionSelector] = {
   import quotes.reflect.*
   given Diagnostics = Diagnostics()
   val rules = TypeRepr

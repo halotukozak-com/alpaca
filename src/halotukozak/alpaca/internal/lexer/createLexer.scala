@@ -11,8 +11,8 @@ import scala.annotation.{publicInBinary, switch}
 import scala.reflect.NameTransformer
 
 // $COVERAGE-OFF$
-def createLexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
-  rules: Expr[Ctx ?=> LexerDefinition[Ctx]],
+@publicInBinary private[alpaca] def createLexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
+  rules: Expr[LexerScope.Of[Ctx] ?=> LexerDefinition[Ctx]],
   onTokenMatch: Expr[(Token[?, Ctx, ?], String, Ctx) => Ctx],
   errorHandling: Expr[ErrorHandling[Ctx, LexerError]],
   empty: Expr[Empty[Ctx]],
@@ -21,7 +21,7 @@ def createLexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
   import quotes.reflect.*
   given diagnostics: Diagnostics = Diagnostics()
 
-  val Lambda(oldCtx :: Nil, Lambda(_, Match(_, cases: List[CaseDef]))) = rules.asTerm.underlying.runtimeChecked
+  val Lambda(oldScope :: Nil, Lambda(_, Match(_, cases: List[CaseDef]))) = rules.asTerm.underlying.runtimeChecked
 
   if cases.isEmpty then errorAndAbort(show"Lexer definition must contain at least one case", rules.asTerm.pos)
 
@@ -30,14 +30,23 @@ def createLexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
 
   val tokens = cases.foldLeft(List.empty[CompiledRule]):
     case (acc, CaseDef(tree, None, body)) =>
-      def replaceWithNewCtx(newCtx: Term) = replaceRefs(
-        (find = oldCtx.symbol, replace = newCtx),
-        (find = tree.symbol, replace = '{ ${ newCtx.asExprOf[Ctx] }.lastRawMatched }.asTerm),
-      )
+      def replaceWithNewCtx(newCtx: Term) = new TreeMap:
+        override def transformTerm(t: Term)(owner: Symbol): Term = t match
+          case _ if t.symbol == oldScope.symbol => '{ LexerScope.refl[Ctx](${ newCtx.asExprOf[Ctx] }) }.asTerm
+          case _ if !tree.symbol.isNoSymbol && t.symbol == tree.symbol =>
+            '{ ${ newCtx.asExprOf[Ctx] }.lastRawMatched }.asTerm
+          case block: Block => super.transformTerm(block.changeOwner(owner))(owner)
+          case t if t.isExpr =>
+            t.asExpr match
+              // `ctx` unwraps the scope, which is the context itself; use `newCtx` directly so `rewriteCtxMutations`
+              // recognises it
+              case '{ ($scope: LexerScope).ctx } if scope.asTerm.symbol == oldScope.symbol => newCtx
+              case _ => super.transformTerm(t)(owner)
+          case _ => super.transformTerm(t)(owner)
 
       // whether `term` refers to the context or to the bound match, i.e. whether its remapping needs the new context
       def readsCtx(term: Term): Boolean =
-        val syms = Set(oldCtx.symbol, tree.symbol).filterNot(_.isNoSymbol)
+        val syms = Set(oldScope.symbol, tree.symbol).filterNot(_.isNoSymbol)
         new TreeAccumulator[Boolean]:
           def foldTree(found: Boolean, t: Tree)(owner: Symbol): Boolean =
             found || syms.contains(t.symbol) || foldOverTree(found, t)(owner)
