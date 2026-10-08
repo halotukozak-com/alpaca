@@ -306,7 +306,7 @@ extension (ast: BrainAST)
 ```scala sc-name:brain-tokenize sc-compile-with:brain-eval-defs
 val lexemes = BrainLexer.tokenize("++[>+<-]").getOrThrow
 val parsed = BrainParser.parse(lexemes)
-// parsed: Result[ParserCtx.Empty, BrainAST, ParserError.Of[BrainLexer.Lexeme]]
+// parsed: Result[ParserCtx.Empty, BrainAST, ParserError withFields BrainLexer.LexemeFields]
 ```
 
 `parse()` does not throw when the input does not match the grammar. It returns a `Result` -- the same type `tokenize` returns -- which is one of two cases, both carrying the parser context (`ctx`) as it was when parsing ended:
@@ -330,7 +330,7 @@ parsed.toOption                   // Some(ast), or None
 parsed.toEither                   // Right(ast), or Left(errors)
 ```
 
-A `ParserError` is plain data: it carries the lexeme the parser could not accept (`unexpected`, `None` when the input ended too early), the token names the grammar would have accepted there (`expected`, with `"$"` standing for the end of the input), and, at the end of the input, the last lexeme before it (`last`, otherwise `None`). The errors `parse` returns are `ParserError.Of[Lex]`, where `Lex` is the lexer's lexeme type (the error's `Lexeme` type member), so both lexemes have that type and the error's position is in the lexer context's fields: `error.unexpected.map(_.line)` and `error.unexpected.map(_.column)` with `LexerCtx.Default`, a compile error when the context has no such field. At the end of the input, read the position from `error.last` instead. Its `message` names the lexemes but no position, e.g. for `1 + + 2` in a grammar of numbers and `+`:
+A `ParserError` is plain data: it carries the lexeme the parser could not accept (`unexpected`, `None` when the input ended too early), the token names the grammar would have accepted there (`expected`, with `"$"` standing for the end of the input), and, at the end of the input, the last lexeme before it (`last`, otherwise `None`). The errors `parse` returns have a `Fields` type member, the lexer context's fields that the lexemes carry, so the error's position is in the lexer context's fields: `error.unexpected.map(_.line)` and `error.unexpected.map(_.column)` with `LexerCtx.Default`, a compile error when the context has no such field. At the end of the input, read the position from `error.last` instead. Its `message` names the lexemes but no position, e.g. for `1 + + 2` in a grammar of numbers and `+`:
 
 ```
 Unexpected PLUS "+". Expected one of: NUMBER

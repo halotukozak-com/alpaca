@@ -5,6 +5,7 @@ import halotukozak.alpaca.internal.*
 import halotukozak.alpaca.internal.lexer.{Lexeme, Token}
 import halotukozak.alpaca.internal.parser.{Production as _, *}
 
+import scala.NamedTuple.AnyNamedTuple
 import scala.annotation.{compileTimeOnly, implicitNotFound, unused}
 
 type Parser[Ctx <: ParserCtx] = parser.Parser[Ctx]
@@ -207,33 +208,33 @@ sealed trait Rule[R]:
 /**
  * Why the input does not match the grammar, as reported by `parse` in a [[Result.Failure]].
  *
- * The type member `Lexeme` is the lexer's lexeme type. `parse` returns [[ParserError.Of]] the type of the lexemes it was given,
- * so positions are the lexer context's fields, e.g. `error.unexpected.map(_.line)`, or `error.last.map(_.line)` at the
- * end of the input. Plain `ParserError` is an error over any lexemes.
- *
- * @param expected the token names the grammar would have accepted at that point (`"$"` stands for the end of the
- *                 input), sorted
+ * The type member `Fields` is the lexer context's fields, which the lexemes carry. `parse` returns errors with
+ * the fields of the lexemes it was given, so positions are the lexer context's fields, e.g.
+ * `error.unexpected.map(_.line)`, or `error.last.map(_.line)` at the end of the input. Plain `ParserError` is an error
+ * over any lexemes.
  */
-final class ParserError private (
-  unexpectedLexeme: Option[alpaca.Lexeme[?, ?]],
-  val expected: List[String],
-  lastLexeme: Option[alpaca.Lexeme[?, ?]],
-):
-  /** The lexer's lexeme type. */
-  type Lexeme <: alpaca.Lexeme[?, ?]
+sealed abstract class ParserError:
+  /** The lexer context's fields, which the lexemes carry. */
+  type Fields <: AnyNamedTuple
 
   /** The lexeme the parser could not accept; `None` when the input ended too early. */
-  def unexpected: Option[Lexeme] = unexpectedLexeme.asInstanceOf[Option[Lexeme]]
+  val unexpected: Option[Lexeme[?, ?] withFields Fields]
+
+  /** The token names the grammar would have accepted at that point (`"$"` stands for the end of the input), sorted. */
+  val expected: List[String]
 
   /** At the end of the input, the last lexeme before it; `None` when the input is empty or the error is not at the end. */
-  def last: Option[Lexeme] = lastLexeme.asInstanceOf[Option[Lexeme]]
+  val last: Option[Lexeme[?, ?] withFields Fields]
 
-  def copy(unexpected: Option[Lexeme] = unexpected, expected: List[String] = expected, last: Option[Lexeme] = last)
-    : ParserError.Of[Lexeme] = ParserError(unexpected, expected, last)
+  def copy(
+    unexpected: Option[Lexeme[?, ?] withFields Fields] = unexpected,
+    expected: List[String] = expected,
+    last: Option[Lexeme[?, ?] withFields Fields] = last,
+  ): ParserError withFields Fields = ParserError(unexpected, expected, last)
 
   /** A readable description, e.g. `Unexpected PLUS "+". Expected one of: Num`. */
   def message: String = {
-    def describe(lexeme: alpaca.Lexeme[?, ?]): Shown = show"""${Printable(lexeme.name)} "${Printable(lexeme.text)}""""
+    def describe(lexeme: Lexeme[?, ?]): Shown = show"""${Printable(lexeme.name)} "${Printable(lexeme.text)}""""
 
     val what = unexpected match
       case Some(lexeme) => describe(lexeme)
@@ -251,16 +252,18 @@ final class ParserError private (
   override def toString: String = "ParserError" + (unexpected, expected, last).toString
 
 object ParserError:
-  // An upper bound rather than `type Lexeme = Lex`: with an alias, matching on a `Result` of a lexer's lexemes
-  // (`Lexeme[?, ?] { type Fields = ... }`) warns that `Success` and `Failure` are not exhaustive.
-  /** An error whose lexemes are `Lex`s, as `parse` returns it. */
-  type Of[Lex <: Lexeme[?, ?]] = ParserError { type Lexeme <: Lex }
+  private[alpaca] def apply[LexemeFields <: AnyNamedTuple](
+    unexpectedLexeme: Option[Lexeme[?, ?] withFields LexemeFields],
+    expectedNames: List[String],
+    lastLexeme: Option[Lexeme[?, ?] withFields LexemeFields],
+  ): ParserError withFields LexemeFields = new ParserError:
+    type Fields = LexemeFields
+    val unexpected = unexpectedLexeme
+    val expected = expectedNames
+    val last = lastLexeme
 
-  private[alpaca] def apply[Lex <: Lexeme[?, ?]](unexpected: Option[Lex], expected: List[String], last: Option[Lex])
-    : Of[Lex] =
-    new ParserError(unexpected, expected, last).asInstanceOf[Of[Lex]]
-
-  def unapply(error: ParserError): (Option[error.Lexeme], List[String], Option[error.Lexeme]) =
+  def unapply(error: ParserError)
+    : (Option[Lexeme[?, ?] withFields error.Fields], List[String], Option[Lexeme[?, ?] withFields error.Fields]) =
     (error.unexpected, error.expected, error.last)
 
   extension [Ctx, A](result: Result[Ctx, A, ParserError])
@@ -349,13 +352,14 @@ extension [Ctx <: ParserCtx](parser: Parser[Ctx]) {
    * The result type is inferred from the root rule. Input that does not match the grammar is not thrown as an
    * exception: it comes back as a [[Result.Failure]] listing the [[ParserError]]s.
    *
-   * @tparam Lex the lexer's lexeme type; the errors carry it, so `error.unexpected.map(_.line)` compiles when it has a `line`
+   * @tparam LexemeFields the lexer context's fields, which the lexemes carry; the errors carry them too, so
+   *                      `error.unexpected.map(_.line)` compiles when they have a `line`
    * @param lexemes the list of lexemes to parse
    * @return the value the root rule produced, or the errors that stopped the parser, with the context either way
    */
-  inline def parse[Lex <: Lexeme[?, ?]](lexemes: List[Lex]): Result[
+  inline def parse[LexemeFields <: AnyNamedTuple](lexemes: List[Lexeme[?, ?] withFields LexemeFields]): Result[
     Ctx,
     parser.root.type match { case Rule[t] => t },
-    ParserError.Of[Lex],
+    ParserError withFields LexemeFields,
   ] = parser.parseResult(lexemes)
 }

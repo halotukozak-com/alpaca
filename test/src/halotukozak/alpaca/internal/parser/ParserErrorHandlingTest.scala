@@ -13,12 +13,12 @@ final class ParserErrorHandlingTest extends AnyFunSuite with Matchers:
     case "\\+" => Token["+"]
     case value @ "[1-9][0-9]*" => Token["Num"](value.toInt)
 
-  extension [A](result: Result[?, A, ParserError.Of[CalcLexer.Lexeme]])
-    private def failure: (recovered: Option[A], errors: List[ParserError.Of[CalcLexer.Lexeme]]) = result match
+  extension [A](result: Result[?, A, ParserError withFields CalcLexer.LexemeFields])
+    private def failure: (recovered: Option[A], errors: List[ParserError withFields CalcLexer.LexemeFields]) = result match
       case Result.Failure(_, recovered, errors) => (recovered, errors)
       case Result.Success(_, _) => fail("expected a failure")
 
-  extension (error: ParserError.Of[CalcLexer.Lexeme])
+  extension (error: ParserError withFields CalcLexer.LexemeFields)
     private def at: (text: String, column: Int) = (error.unexpected.get.text, error.unexpected.get.column)
 
   case class StoppingContext() extends ParserCtx
