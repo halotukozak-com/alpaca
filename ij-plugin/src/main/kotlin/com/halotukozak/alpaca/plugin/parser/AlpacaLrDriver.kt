@@ -1,12 +1,8 @@
 package com.halotukozak.alpaca.plugin.parser
 
 import com.halotukozak.alpaca.plugin.grammar.ActionSpec
+import com.halotukozak.alpaca.plugin.grammar.ParseTableSpec
 import com.halotukozak.alpaca.plugin.grammar.SymbolSpec
-import com.halotukozak.alpaca.plugin.grammar.TableEntry
-
-/** The augmented start nonterminal's name (matches `Symbol.Start` on the Scala side); reducing its
- *  single production signals a successful parse rather than a real composite node. */
-private const val AUGMENTED_START_NAME = "S'"
 
 /**
  * A generic, grammar-agnostic LR parser: drives a [TreeBuilder] using [table], Alpaca's already
@@ -24,11 +20,13 @@ private const val AUGMENTED_START_NAME = "S'"
  */
 class AlpacaLrDriver(
     private val table: List<Map<SymbolSpec, ActionSpec>>,
+    private val endOfInput: String,
+    private val augmentedStart: String,
 ) {
     companion object {
-        /** Builds a driver from the raw rows an exported `.table.json` decodes into (see [com.halotukozak.alpaca.plugin.grammar.ParserTableFile]). */
-        fun forTable(rows: List<List<TableEntry>>): AlpacaLrDriver =
-            AlpacaLrDriver(rows.map { row -> row.associate { it.symbol to it.action } })
+        /** Builds a driver from an exported `.table.json` (see [com.halotukozak.alpaca.plugin.grammar.ParserTableFile]). */
+        fun forTable(spec: ParseTableSpec): AlpacaLrDriver =
+            AlpacaLrDriver(spec.states.map { row -> row.associate { it.symbol to it.action } }, spec.endOfInput, spec.start)
     }
 
     fun <M> parse(builder: TreeBuilder<M>) {
@@ -37,12 +35,12 @@ class AlpacaLrDriver(
 
         while (true) {
             val state = stateStack.last()
-            val terminal = builder.currentTerminal()
+            val terminal = builder.currentTerminal() ?: endOfInput
             val action = table[state][SymbolSpec("terminal", terminal)]
 
             if (action == null) {
                 builder.error("Unexpected token '${builder.currentTokenText()}'")
-                if (terminal == EOF_TERMINAL_NAME) {
+                if (terminal == endOfInput) {
                     // Incomplete input (still typing, or a genuine syntax error): whatever's left on the
                     // stack (bare shifted terminals that never got reduced) would otherwise stay
                     // unresolved forever, which PsiBuilder rejects as an unbalanced tree.
@@ -65,7 +63,8 @@ class AlpacaLrDriver(
 
                 is ActionSpec.Reduce -> {
                     val production = action.production
-                    if (production.lhs == AUGMENTED_START_NAME) return // accept: input fully and successfully parsed
+                    // reducing the augmented start production means the input was fully and successfully parsed
+                    if (production.lhs == augmentedStart) return
 
                     val rhsSize = production.rhs.size
                     val reducedMarker =

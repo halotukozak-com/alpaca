@@ -64,11 +64,11 @@ class GrammarFileTest {
     fun `reads a table json file written by Alpaca's compile-time export`() {
         val json =
             versionedJson(
-                """[""" +
+                """{"endOfInput":"end","start":"S'","states":[""" +
                     """[{"symbol":{"kind":"terminal","name":"int"},"action":{"type":"shift","state":1}}],""" +
-                    """[{"symbol":{"kind":"terminal","name":"$"},""" +
+                    """[{"symbol":{"kind":"terminal","name":"end"},""" +
                     """"action":{"type":"reduce","production":{"lhs":"root","rhs":[],"name":null}}}]""" +
-                    """]""",
+                    """]}""",
             )
         val path = Files.createTempFile("grammar-file-test", ".table.json")
         try {
@@ -78,14 +78,19 @@ class GrammarFileTest {
 
             assertEquals(
                 VersionedExport.Compatible(
-                    listOf(
-                        listOf(TableEntry(SymbolSpec("terminal", "int"), ActionSpec.Shift(1))),
-                        listOf(
-                            TableEntry(
-                                SymbolSpec("terminal", "$"),
-                                ActionSpec.Reduce(ProductionSpec("root", emptyList(), null)),
+                    ParseTableSpec(
+                        endOfInput = "end",
+                        start = "S'",
+                        states =
+                            listOf(
+                                listOf(TableEntry(SymbolSpec("terminal", "int"), ActionSpec.Shift(1))),
+                                listOf(
+                                    TableEntry(
+                                        SymbolSpec("terminal", "end"),
+                                        ActionSpec.Reduce(ProductionSpec("root", emptyList(), null)),
+                                    ),
+                                ),
                             ),
-                        ),
                     ),
                 ),
                 result,

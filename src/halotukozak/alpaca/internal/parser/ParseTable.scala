@@ -7,7 +7,6 @@ import halotukozak.alpaca.internal.parser.ParseAction.*
 import halotukozak.mcodec.MCodec
 
 import scala.annotation.tailrec
-import scala.collection.immutable.SortedSet
 import scala.collection.mutable
 
 /**
@@ -34,20 +33,24 @@ private[parser] object ParseTable:
     def apply(state: Int, symbol: Symbol): ParseAction = table(state).get(symbol) match
       case Some(action) => action
       case None =>
-        val expected = table(state).keysIterator.map(_.name).to(SortedSet).mkShow(", ")
-        throw AlgorithmError(show"Unexpected symbol '${symbol.name}' in state $state. Expected one of: $expected")
+        val expected = table(state).keysIterator.toList.sortBy(_.show).mkShow(", ")
+        throw AlgorithmError(show"Unexpected symbol '$symbol' in state $state. Expected one of: $expected")
 
     /** The parse action for a given state and symbol, or `null` if the grammar accepts no such symbol there. */
     def get(state: Int, symbol: Symbol): ParseAction | Null = table(state).get(symbol) match
       case Some(action) => action
       case None => null
 
-    /** Names of the terminals that have an action in `state` -- what the input may continue with there. */
+    /**
+     * Names of the terminals that have an action in `state` -- what the input may continue with there -- sorted, with
+     * the end of the input shown as `$`, ahead of a token named `$`.
+     */
     def expectedTerminals(state: Int): List[String] =
       table(state).keysIterator
-        .collect { case Terminal(name) if name != Symbol.Dummy.name && name != Symbol.Empty.name => name.raw }
-        .to(SortedSet)
+        .collect { case terminal: Terminal if terminal != Symbol.Dummy && terminal != Symbol.Empty => terminal }
         .toList
+        .sortBy(terminal => (terminal.displayName, terminal != Symbol.EOF))
+        .map(_.displayName.raw)
 
     private def allSymbols: List[Symbol] =
       table.iterator.flatMap(_.keysIterator).distinct.toList
@@ -69,7 +72,7 @@ private[parser] object ParseTable:
     def toCsv: Csv = {
       val symbols = table.allSymbols
 
-      val headers = show"State" :: symbols.map(s => show"${s.name}")
+      val headers = show"State" :: symbols.map(s => show"$s")
       val rows = table.indices
         .map: i =>
           val row = table(i)
@@ -242,11 +245,18 @@ private[parser] object ParseTable:
     }
 
   // No constructor for a raw ParseTable outside the algorithm above, hence write-only below.
+  // The export carries the parser's own symbol names, so a consumer need not hardcode them.
   given MCodec[Production] => MCodec[ParseTable] =
-    given MCodec[(symbol: Symbol, action: ParseAction)] = MCodec.derived
-    MCodec[List[List[(symbol: Symbol, action: ParseAction)]]].transform(
-      onWrite =
-        table => table.rows.toList.map(_.iterator.map((symbol, action) => (symbol = symbol, action = action)).toList),
+    import JsonExport.TableFormat
+    given MCodec[TableFormat.Cell[Symbol, ParseAction]] = MCodec.derived
+    given MCodec[TableFormat[Symbol, ParseAction]] = MCodec.derived
+    MCodec[TableFormat[Symbol, ParseAction]].transform(
+      onWrite = table =>
+        (
+          endOfInput = Symbol.EOF.name.raw,
+          start = Symbol.Start.name.raw,
+          states = table.rows.toList.map(_.iterator.map((symbol, action) => (symbol = symbol, action = action)).toList),
+        ),
       onRead = _ => throw UnsupportedOperationException("ParseTable's export codec is write-only"),
     )
 // $COVERAGE-ON$

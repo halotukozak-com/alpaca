@@ -9,11 +9,11 @@ import kotlin.streams.asSequence
 
 /**
  * The export-format version this plugin build understands. Bumped only when the *shape* of an
- * exported `.tokens.json`/`.productions.json`/`.table.json` file changes -- kept independently in
+ * exported `.tokens.json`/`.productions.json`/`.table.json` file, or the meaning of its contents, changes -- kept independently in
  * sync with the alpaca library's own `JsonExport.ExportFormatVersion` constant, since the two ship
  * on separate release schedules.
  */
-const val CURRENT_EXPORT_FORMAT_VERSION: Int = 1
+val CURRENT_EXPORT_FORMAT_VERSION: Int = 2
 
 /** The envelope every export file is wrapped in: `{"version": ..., "context": ...}`. `version`
  *  defaults to 0 so a file with no `version` key at all (written before this envelope existed)
@@ -152,25 +152,33 @@ data class TableEntry(
 )
 
 /**
- * Reads a `<parser>.table.json` file written by Alpaca's compile-time grammar export: the
- * parser's already conflict-resolved LALR(1) table, one row of (symbol, action) entries per state
- * (dense, consecutive state ids starting at 0, matching the row's index in the returned list).
+ * A parser's already conflict-resolved LALR(1) table: one row of (symbol, action) entries per state
+ * (dense, consecutive state ids starting at 0, matching the row's index in [states]), plus the
+ * names the parser gives the end of the input ([endOfInput]) and its augmented start symbol ([start]).
  */
+@Serializable
+data class ParseTableSpec(
+    val endOfInput: String,
+    val start: String,
+    val states: List<List<TableEntry>>,
+)
+
+/** Reads a `<parser>.table.json` file written by Alpaca's compile-time grammar export. */
 object ParserTableFile {
     const val SUFFIX = ".table.json"
 
-    fun read(path: Path): VersionedExport<List<List<TableEntry>>> = readVersioned(Files.readString(path))
+    fun read(path: Path): VersionedExport<ParseTableSpec> = readVersioned(Files.readString(path))
 }
 
 /**
  * A single parser's exported grammar, identified by its export file name (sans the
- * `.productions.json` suffix). [table] is empty when no matching `.table.json` was found
+ * `.productions.json` suffix). [table] is null when no matching `.table.json` was found
  * alongside the productions (e.g. an export written before the table export was added).
  */
 data class ParserGrammar(
     val id: String,
     val productions: List<ProductionSpec>,
-    val table: List<List<TableEntry>> = emptyList(),
+    val table: ParseTableSpec? = null,
 )
 
 /** One export file whose `version` didn't match [CURRENT_EXPORT_FORMAT_VERSION], excluded from the
@@ -247,7 +255,7 @@ object GrammarDirectory {
                         val id = path.fileName.toString().removeSuffix(ParserGrammarFile.SUFFIX)
                         when (val result = ParserGrammarFile.read(path)) {
                             is VersionedExport.Compatible ->
-                                ParserGrammar(id, productions = result.value, table = tablesById[id] ?: emptyList())
+                                ParserGrammar(id, productions = result.value, table = tablesById[id])
                             is VersionedExport.Incompatible -> {
                                 incompatible += IncompatibleExport(path.fileName.toString(), result.foundVersion)
                                 null

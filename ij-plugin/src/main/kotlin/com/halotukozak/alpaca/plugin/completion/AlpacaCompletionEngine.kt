@@ -1,15 +1,13 @@
 package com.halotukozak.alpaca.plugin.completion
 
 import com.halotukozak.alpaca.plugin.grammar.ActionSpec
+import com.halotukozak.alpaca.plugin.grammar.ParseTableSpec
 import com.halotukozak.alpaca.plugin.grammar.SymbolSpec
-import com.halotukozak.alpaca.plugin.grammar.TableEntry
 import com.halotukozak.alpaca.plugin.grammar.TokenSpec
 import com.halotukozak.alpaca.plugin.grammar.literalTextOf
 import com.halotukozak.alpaca.plugin.lexer.ALPACA_BAD_CHARACTER
 import com.halotukozak.alpaca.plugin.lexer.AlpacaLexer
 import com.halotukozak.alpaca.plugin.lexer.AlpacaTokenTypes
-
-private const val AUGMENTED_START_NAME = "S'"
 
 /** Bounds the reduce chain a single hypothetical lookahead can trigger. Generous relative to any
  *  real grammar's production count; just guards against a malformed table looping forever. */
@@ -28,9 +26,10 @@ private const val MAX_REDUCE_CHAIN = 10_000
  * stripped, so every token this lexes is treated as complete.
  */
 class AlpacaCompletionEngine(
-    rows: List<List<TableEntry>>,
+    spec: ParseTableSpec,
 ) {
-    private val table: List<Map<SymbolSpec, ActionSpec>> = rows.map { row -> row.associate { it.symbol to it.action } }
+    private val table: List<Map<SymbolSpec, ActionSpec>> = spec.states.map { row -> row.associate { it.symbol to it.action } }
+    private val augmentedStart = spec.start
 
     fun suggestNextLiterals(
         lexerId: String,
@@ -91,7 +90,7 @@ class AlpacaCompletionEngine(
                 is ActionSpec.Shift -> s + action.state
                 is ActionSpec.Reduce -> {
                     val production = action.production
-                    if (production.lhs == AUGMENTED_START_NAME) return null
+                    if (production.lhs == augmentedStart) return null
                     val reduced = if (production.rhs.isEmpty()) s else s.dropLast(production.rhs.size)
                     val gotoState =
                         (table[reduced.last()][SymbolSpec("nonterminal", production.lhs)] as? ActionSpec.Shift)?.state

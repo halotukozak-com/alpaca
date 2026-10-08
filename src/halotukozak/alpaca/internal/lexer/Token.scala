@@ -51,11 +51,11 @@ private[lexer] object TokenInfo:
   /**
    * Creates a TokenInfo expression from a name and the alternatives of its regex pattern.
    *
-   * This validates the name and constructs an expression that will
+   * This constructs an expression that will
    * create a TokenInfo at runtime. An invalid pattern is reported as an error without aborting,
    * so the lexer is still typed from all of its cases.
    *
-   * @param name the token name
+   * @param name the token name, already validated
    * @param alternatives the regex patterns, joined with `|` into the token's pattern
    * @param ignored whether matches of this token are dropped from the lexeme stream
    * @param quotes the Quotes instance
@@ -67,13 +67,12 @@ private[lexer] object TokenInfo:
     Quotes,
     Diagnostics,
   )(
-    name: String,
+    name: ValidName,
     alternatives: List[String],
     ignored: Boolean,
     pos: quotes.reflect.Position,
   ): CompiledPattern =
     import quotes.reflect.*
-    ValidName.check(name, pos)
     val pattern = alternatives.mkString("|")
     def reportInvalid(err: RegexParseError): Unit =
       error(show"""Invalid regex pattern for token "${Printable(name)}": $err""", pos)

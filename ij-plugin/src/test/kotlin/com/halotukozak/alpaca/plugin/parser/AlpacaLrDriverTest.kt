@@ -1,14 +1,24 @@
 package com.halotukozak.alpaca.plugin.parser
 
+import com.halotukozak.alpaca.plugin.grammar.ActionSpec
+import com.halotukozak.alpaca.plugin.grammar.CURRENT_EXPORT_FORMAT_VERSION
 import com.halotukozak.alpaca.plugin.grammar.GrammarDirectory
+import com.halotukozak.alpaca.plugin.grammar.ParserTableFile
+import com.halotukozak.alpaca.plugin.grammar.SymbolSpec
 import com.halotukozak.alpaca.plugin.grammar.TokenSpec
 import com.halotukozak.alpaca.plugin.grammar.exportedGrammarId
 import com.halotukozak.alpaca.plugin.lexer.ALPACA_BAD_CHARACTER
 import com.halotukozak.alpaca.plugin.lexer.AlpacaLexer
 import com.halotukozak.alpaca.plugin.lexer.AlpacaTokenTypes
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.nio.file.Files
 import java.nio.file.Path
 
 /**
@@ -51,11 +61,12 @@ class AlpacaLrDriverTest {
         val grammars = GrammarDirectory.scan(dir)
         val lexerGrammar = grammars.lexers.first { it.id == LEXER_ID }
         val parserGrammar = grammars.parsers.first { it.id == GRAMMAR_ID }
-        assertTrue("expected a real exported table (run mill jvm.test.compile first)", parserGrammar.table.isNotEmpty())
+        val table = parserGrammar.table
+        assertNotNull("expected a real exported table (run mill jvm.test.compile first)", table)
 
         val tokens = tokenize(lexerGrammar.tokens, text)
         val builder = FakeTreeBuilder(tokens)
-        AlpacaLrDriver.forTable(parserGrammar.table).parse(builder)
+        AlpacaLrDriver.forTable(table!!).parse(builder)
         assertEquals("expected no parse errors for '$text': ${builder.errors}", emptyList<Any>(), builder.errors)
 
         val tree = builder.buildTree()
@@ -166,7 +177,7 @@ class AlpacaLrDriverTest {
 
         val tokens = tokenize(lexerGrammar.tokens, text)
         val builder = FakeTreeBuilder(tokens)
-        AlpacaLrDriver.forTable(parserGrammar.table).parse(builder)
+        AlpacaLrDriver.forTable(parserGrammar.table!!).parse(builder)
         return builder
     }
 
@@ -199,5 +210,30 @@ class AlpacaLrDriverTest {
             val builder = driveRaw(incomplete)
             builder.buildTree() // throws ("marker was never done()") if anything was left unresolved
         }
+    }
+
+    @Test
+    fun `reads the format version and the parser's own symbol names from a real export`() {
+        val dir = Path.of("/tmp/alpaca-grammar-export")
+        val text = Files.readString(dir.resolve("$GRAMMAR_ID${ParserTableFile.SUFFIX}"))
+        val version =
+            Json
+                .parseToJsonElement(text)
+                .jsonObject
+                .getValue("version")
+                .jsonPrimitive.int
+        assertEquals(CURRENT_EXPORT_FORMAT_VERSION, version)
+
+        val table =
+            GrammarDirectory
+                .scan(dir)
+                .parsers
+                .first { it.id == GRAMMAR_ID }
+                .table!!
+        val entries = table.states.flatten()
+        // the driver ends the input on endOfInput and accepts on reducing start
+        assertTrue(entries.any { it.symbol == SymbolSpec("terminal", table.endOfInput) })
+        assertTrue(entries.any { (it.action as? ActionSpec.Reduce)?.production?.lhs == table.start })
+        assertEquals(emptyList<Any>(), driveRaw("1 + 2").errors)
     }
 }

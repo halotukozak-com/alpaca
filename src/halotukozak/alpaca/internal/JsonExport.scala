@@ -18,12 +18,25 @@ import scala.util.control.NonFatal
 private[internal] object JsonExport:
 
   /**
-   * Bumped only when the *shape* of an exported `.tokens.json`/`.productions.json`/`.table.json`
-   *  file changes -- not the library's own release version, which changes on every release
-   *  regardless of whether the export shape did. A consumer (e.g. the IntelliJ plugin) reads this
-   *  back to detect whether it understands the payload before parsing it.
+   * Bumped only when the *shape* of an exported `.tokens.json`/`.productions.json`/`.table.json` file, or the meaning
+   *  of its contents, changes -- not the library's own release version, which changes on every release regardless of
+   *  whether the export did. A consumer (e.g. the IntelliJ plugin) reads this back to detect whether it understands
+   *  the payload before parsing it.
+   *
+   *  Version 2: synthetic names for the end of the input and the start symbol, which the `.table.json` export carries
+   *  itself.
    */
-  private[internal] val ExportFormatVersion: Int = 1
+  private[internal] val ExportFormatVersion: Int = 2
+
+  /**
+   * Shape of a `.table.json` export, mirrored by the IntelliJ plugin's `ParseTableSpec`; changing it means bumping
+   *  [[ExportFormatVersion]]. Generic because `Symbol` and `ParseAction` are private to the `parser` package.
+   */
+  private[internal] type TableFormat[Symbol, Action] =
+    (endOfInput: String, start: String, states: List[List[TableFormat.Cell[Symbol, Action]]])
+
+  private[internal] object TableFormat:
+    type Cell[Symbol, Action] = (symbol: Symbol, action: Action)
 
 // $COVERAGE-OFF$
   /**

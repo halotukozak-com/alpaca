@@ -24,7 +24,7 @@ class AlpacaCompletionEngineTest {
         val grammars = GrammarDirectory.scan(dir)
         val lexerGrammar = grammars.lexers.first { it.id == LEXER_ID }
         val parserGrammar = grammars.parsers.first { it.id == GRAMMAR_ID }
-        return AlpacaCompletionEngine(parserGrammar.table).suggestNextLiterals(LEXER_ID, lexerGrammar.tokens, prefixText)
+        return AlpacaCompletionEngine(parserGrammar.table!!).suggestNextLiterals(LEXER_ID, lexerGrammar.tokens, prefixText)
     }
 
     @Test

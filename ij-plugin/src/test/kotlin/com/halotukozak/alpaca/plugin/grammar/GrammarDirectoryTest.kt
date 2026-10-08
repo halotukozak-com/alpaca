@@ -23,7 +23,10 @@ class GrammarDirectoryTest {
             )
             Files.writeString(
                 dir.resolve("BrainParser.BrainParser@L12.table.json"),
-                versionedJson("""[[{"symbol":{"kind":"terminal","name":"+"},"action":{"type":"shift","state":1}}]]"""),
+                versionedJson(
+                    """{"endOfInput":"end","start":"S'","states":""" +
+                        """[[{"symbol":{"kind":"terminal","name":"+"},"action":{"type":"shift","state":1}}]]}""",
+                ),
             )
             Files.writeString(dir.resolve("README.md"), "not a grammar export")
 
@@ -41,7 +44,12 @@ class GrammarDirectoryTest {
                     ParserGrammar(
                         "BrainParser.BrainParser@L12",
                         listOf(ProductionSpec("root", emptyList(), null)),
-                        table = listOf(listOf(TableEntry(SymbolSpec("terminal", "+"), ActionSpec.Shift(1)))),
+                        table =
+                            ParseTableSpec(
+                                endOfInput = "end",
+                                start = "S'",
+                                states = listOf(listOf(TableEntry(SymbolSpec("terminal", "+"), ActionSpec.Shift(1)))),
+                            ),
                     ),
                 ),
                 grammars.parsers,

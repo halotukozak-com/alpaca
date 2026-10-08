@@ -225,8 +225,8 @@ final case class ParserError(unexpected: Lexeme[?, ?], expected: List[String]):
     def describe(name: String): Shown = if name == "$" then show"end of input" else Printable(name).show
 
     val what =
-      if unexpected.name == "$" then describe(unexpected.name)
-      else show"""${describe(unexpected.name)} "${Printable(unexpected.text)}""""
+      if unexpected eq Lexeme.EOF then show"end of input"
+      else show"""${Printable(unexpected.name)} "${Printable(unexpected.text)}""""
     // `column` is recorded after the match, so the token itself starts `text.length` earlier.
     val where = (field("line"), field("column")) match
       case (Some(line), Some(column)) => show" at line $line, column ${column - unexpected.text.length}"

@@ -32,8 +32,8 @@ class AlpacaPsiTreeBuilder(
         builder.enforceCommentTokens(TokenSet.create(*ignoredTypes.toList().toTypedArray()))
     }
 
-    override fun currentTerminal(): String {
-        val type = builder.tokenType ?: return EOF_TERMINAL_NAME
+    override fun currentTerminal(): String? {
+        val type = builder.tokenType ?: return null
         return terminalNameByType[type] ?: type.toString()
     }
 

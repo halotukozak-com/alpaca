@@ -41,7 +41,7 @@ private class AlpacaCompletionProvider : CompletionProvider<CompletionParameters
     ) {
         val virtualFile = parameters.originalFile.virtualFile ?: return
         val resolved = resolveGrammarForFile(parameters.originalFile.project, virtualFile) ?: return
-        val parserGrammar = resolved.parserGrammar ?: return
+        val table = resolved.parserGrammar?.table ?: return
 
         val offset = parameters.editor.caretModel.offset
         val textBeforeCaret =
@@ -50,7 +50,7 @@ private class AlpacaCompletionProvider : CompletionProvider<CompletionParameters
         val partialWord = PARTIAL_WORD.find(textBeforeCaret)!!.value
         val basePrefixText = textBeforeCaret.subSequence(0, textBeforeCaret.length - partialWord.length).toString()
 
-        val suggestions = AlpacaCompletionEngine(parserGrammar.table).suggestNextLiterals(resolved.lexerId, resolved.tokens, basePrefixText)
+        val suggestions = AlpacaCompletionEngine(table).suggestNextLiterals(resolved.lexerId, resolved.tokens, basePrefixText)
         val resultWithPrefix = if (partialWord.isEmpty()) result else result.withPrefixMatcher(partialWord)
         for (text in suggestions) resultWithPrefix.addElement(LookupElementBuilder.create(text))
     }
