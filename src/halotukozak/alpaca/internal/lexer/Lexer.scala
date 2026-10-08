@@ -25,7 +25,7 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
 )(using errorHandling: ErrorHandling[Ctx, alpaca.LexerError.Of[Ctx]],
 ) extends Selectable:
   type Fields <: AnyNamedTuple
-  type LexemeFields <: AnyNamedTuple
+  final type LexemeFields = NamedTuple.From[Ctx]
   final type Lexeme = lexer.Lexeme[?, ?] withFields LexemeFields
   final type LexerError = alpaca.LexerError withFields LexemeFields
 
@@ -78,7 +78,7 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
           val cpLen = Character.charCount(Character.codePointAt(globalCtx.text, 0))
           val unexpected =
             alpaca.LexerError[LexemeFields](globalCtx.text.subSequence(0, cpLen).toString, fieldNames, globalCtx)
-          errorHandling(globalCtx, unexpected.asInstanceOf[alpaca.LexerError.Of[Ctx]]) match {
+          errorHandling(globalCtx, unexpected) match {
             case Strategy.SkipToNextMatch =>
               val skipped = matcher.findFirst(globalCtx.text, cpLen).fold(cpLen)((firstMatching, _, _) => firstMatching)
               val matchedStr = globalCtx.text.subSequence(0, skipped).toString

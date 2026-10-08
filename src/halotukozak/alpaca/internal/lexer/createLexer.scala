@@ -6,17 +6,16 @@ package lexer
 import halotukozak.alpaca.Token as TokenDef
 import halotukozak.regex.{Regex, Subset, TokenMatcher}
 
-import scala.NamedTuple.{AnyNamedTuple, NamedTuple}
 import scala.annotation.{publicInBinary, switch}
 import scala.reflect.NameTransformer
 
 // $COVERAGE-OFF$
-@publicInBinary private[alpaca] def createLexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
+@publicInBinary private[alpaca] def createLexerImpl[Ctx <: LexerCtx: Type](
   rules: Expr[LexerScope.Of[Ctx] ?=> LexerDefinition[Ctx]],
   onTokenMatch: Expr[(Token[?, Ctx, ?], String, Ctx) => Ctx],
   errorHandling: Expr[ErrorHandling[Ctx, LexerError.Of[Ctx]]],
 )(using quotes: Quotes,
-): Expr[Lexer[Ctx] { type LexemeFields = lexemeFields }] = {
+): Expr[Lexer[Ctx]] = {
   import quotes.reflect.*
   given diagnostics: Diagnostics = Diagnostics()
   val initialCtx = fromDefaults[Ctx]
@@ -74,7 +73,7 @@ import scala.reflect.NameTransformer
               (
                 info = tokenInfo,
                 expr = '{
-                  DefinedToken[name, Ctx, Unit, Lexeme[name, Unit] withFields lexemeFields](
+                  DefinedToken[name, Ctx, Unit, Lexeme[name, Unit] withFields NamedTuple.From[Ctx]](
                     ${ Expr(tokenInfo) },
                     $ctxManipulation,
                     _ => (),
@@ -92,7 +91,7 @@ import scala.reflect.NameTransformer
               (
                 info = tokenInfo,
                 expr = '{
-                  DefinedToken[name, Ctx, String, Lexeme[name, String] withFields lexemeFields](
+                  DefinedToken[name, Ctx, String, Lexeme[name, String] withFields NamedTuple.From[Ctx]](
                     ${ Expr(tokenInfo) },
                     $ctxManipulation,
                     _.lastRawMatched,
@@ -122,7 +121,7 @@ import scala.reflect.NameTransformer
                   (
                     info = tokenInfo,
                     expr = '{
-                      DefinedToken[name, Ctx, result, Lexeme[name, result] withFields lexemeFields](
+                      DefinedToken[name, Ctx, result, Lexeme[name, result] withFields NamedTuple.From[Ctx]](
                         ${ Expr(tokenInfo) },
                         $ctxManipulation,
                         $remapping,
@@ -248,7 +247,7 @@ import scala.reflect.NameTransformer
             override def selectDynamic(name: String): lexer.Token[?, Ctx, ?] = ${ selectDynamicImpl('{ name }) }
 
             override protected val matcher: TokenMatcher = $matcherExpr
-        }.asInstanceOf[Lexer[Ctx] { type LexemeFields = lexemeFields; type Fields = fields } & refinedTpe & types]
+        }.asInstanceOf[Lexer[Ctx] { type Fields = fields } & refinedTpe & types]
       }
   }
 }

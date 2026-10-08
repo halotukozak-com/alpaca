@@ -4,7 +4,7 @@ package alpaca
 import alpaca.internal.*
 import alpaca.internal.lexer.{IgnoredToken as _, Token as _, *}
 
-import scala.NamedTuple.{AnyNamedTuple, NamedTuple}
+import scala.NamedTuple.AnyNamedTuple
 import scala.annotation.{compileTimeOnly, publicInBinary, unused}
 
 /**
@@ -41,9 +41,9 @@ transparent inline def lexer[Ctx <: LexerCtx](
 )(using
   m: Mirror.ProductOf[Ctx],
   errorHandling: ErrorHandling[Ctx, LexerError.Of[Ctx]],
-): Lexer[Ctx] { type LexemeFields = NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes] } =
+): Lexer[Ctx] =
   ${
-    createLexerImpl[Ctx, NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes]](
+    createLexerImpl[Ctx](
       '{ rules },
       '{ Tracking.materialize[Ctx] },
       '{ errorHandling },
