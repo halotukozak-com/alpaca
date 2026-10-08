@@ -32,7 +32,7 @@ object BoxParser extends Parser[BoxCtx[Inner]]:
   val root: Rule[Int] = rule:
     case WithDefaultsLexer.NUM(n) => n.value
 
-final class DefaultsTest extends AnyFunSuite with Matchers with LoneElement:
+final class FromDefaultsTest extends AnyFunSuite with Matchers with LoneElement:
 
   test("a lexer builds its initial context from the context's default arguments") {
     WithDefaultsLexer.tokenize("1").ctx shouldEqual WithDefaultsCtx()
