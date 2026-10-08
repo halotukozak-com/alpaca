@@ -306,7 +306,7 @@ extension (ast: BrainAST)
 ```scala sc-name:brain-tokenize sc-compile-with:brain-eval-defs
 val lexemes = BrainLexer.tokenize("++[>+<-]").getOrThrow
 val parsed = BrainParser.parse(lexemes)
-// parsed: Result[ParserCtx.Empty, BrainAST, ParserError withFields BrainLexer.LexemeFields]
+// parsed: Result[ParserCtx.Empty, BrainAST, ParserError]
 ```
 
 `parse()` does not throw when the input does not match the grammar. It returns a `Result` -- the same type `tokenize` returns -- which is one of two cases, both carrying the parser context (`ctx`) as it was when parsing ended:
