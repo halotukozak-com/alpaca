@@ -207,7 +207,7 @@ trait LexerCtx extends Product, Selectable:
    * Propagates the engine-internal bookkeeping fields above from `prev` onto
    * `this`, e.g. after a `copy()` produced a fresh instance for an immutable
    * context field update. Used by macro-generated code (see `ctx` in
-   * `lexer.scala` and [[alpaca.internal.lexer.Tracking.Hook]]); user code
+   * `lexer.scala` and [[alpaca.internal.lexer.Tracking.materialize]]); user code
    * never needs to call this.
    *
    * @note This is for internal use only and should not be called directly.
@@ -297,8 +297,8 @@ object LexerError:
       case Result.Failure(_, _, errors) => throw LexerException(errors)
 
   /** An error for `unexpected`, with `ctx`'s fields as they are before it. */
-  private[alpaca] def at(unexpected: String, ctx: LexerCtx): LexerError =
-    LexerError(unexpected, ctx.productElementNames.toArray, ctx.productIterator.toArray)
+  private[alpaca] def at(unexpected: String, fieldNames: Array[String], ctx: LexerCtx): LexerError =
+    LexerError(unexpected, fieldNames, ctx.productIterator.toArray)
 
 /**
  * Thrown by `getOrThrow` on a lexer [[Result]] when some input did not match a token.

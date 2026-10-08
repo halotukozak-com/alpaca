@@ -20,7 +20,7 @@ import scala.collection.mutable
  * @tparam Ctx the global context type
  */
 transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca] (
-  onTokenMatch: Tracking.Hook[Ctx],
+  onTokenMatch: (Token[?, Ctx, ?], String, Ctx) => Ctx,
   initialCtx: () => Ctx,
 )(using errorHandling: ErrorHandling[Ctx, alpaca.LexerError],
 ) extends Selectable:
@@ -77,12 +77,14 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
         case _ =>
           val cpLen = Character.charCount(Character.codePointAt(globalCtx.text, 0))
           val unexpected =
-            alpaca.LexerError.at(globalCtx.text.subSequence(0, cpLen).toString, globalCtx).asInstanceOf[LexerError]
+            alpaca.LexerError
+              .at(globalCtx.text.subSequence(0, cpLen).toString, fieldNames, globalCtx)
+              .asInstanceOf[LexerError]
           errorHandling(globalCtx, unexpected) match {
             case Strategy.SkipToNextMatch =>
               val skipped = matcher.findFirst(globalCtx.text, cpLen).fold(cpLen)((firstMatching, _, _) => firstMatching)
               val matchedStr = globalCtx.text.subSequence(0, skipped).toString
-              errors += alpaca.LexerError.at(matchedStr, globalCtx).asInstanceOf[LexerError]
+              errors += alpaca.LexerError.at(matchedStr, fieldNames, globalCtx).asInstanceOf[LexerError]
               globalCtx.lastRawMatched = matchedStr
               globalCtx.text = globalCtx.text.from(skipped)
               Step.Matched(RecoveredToken(matchedStr), matchedStr)
@@ -118,6 +120,8 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
   protected def matcher: TokenMatcher
 
   private lazy val tokensArray: Vector[Token[?, Ctx, ?]] = tokens.toVector
+
+  private val fieldNames: Array[String] = initialCtx().productElementNames.toArray
 
 /** The outcome of one step of [[Lexer.tokenize]]: a token matched (or recovered) from `text`, or a stop. */
 private enum Step[-Ctx <: LexerCtx]:

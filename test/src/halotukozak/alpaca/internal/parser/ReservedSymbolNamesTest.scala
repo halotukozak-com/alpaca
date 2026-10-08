@@ -68,9 +68,9 @@ final class ReservedSymbolNamesTest extends AnyFunSuite with Matchers with LoneE
       case Result.Success(_, _) => fail("expected a failure")
 
     val tooLong = error("a$$")
-    (tooLong.unexpected.name: String) shouldBe "$"
+    tooLong.unexpected.map(_.name: String) shouldBe Some("$")
     tooLong.expected shouldBe List("$")
-    tooLong.message should (startWith("Unexpected $ \"$\" at").and(endWith(". Expected one of: end of input")))
+    tooLong.message shouldBe "Unexpected $ \"$\". Expected one of: end of input"
 
     val either = error("aa")
     either.expected shouldBe List("$", "$")
