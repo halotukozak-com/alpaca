@@ -1,5 +1,6 @@
 package com.halotukozak.alpaca.plugin.structure
 
+import com.halotukozak.alpaca.plugin.grammar.exportedGrammarId
 import com.halotukozak.alpaca.plugin.lexer.AlpacaFileTypeRegistrar
 import com.halotukozak.alpaca.plugin.settings.AlpacaSettingsState
 import com.halotukozak.alpaca.plugin.settings.GrammarAssociation
@@ -7,8 +8,8 @@ import com.intellij.ide.structureView.StructureViewTreeElement
 import com.intellij.openapi.application.runWriteAction
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
-private const val LEXER_ID = "MathTest.CalcLexer@L11"
-private const val PARSER_ID = "MathTest.MathParser@L39"
+private val LEXER_ID = exportedGrammarId("MathTest", "CalcLexer")
+private val PARSER_ID = exportedGrammarId("MathTest", "MathParser")
 
 /**
  * Exercises [AlpacaStructureViewFactory]/[AlpacaStructureViewModel]/[AlpacaStructureViewElement]

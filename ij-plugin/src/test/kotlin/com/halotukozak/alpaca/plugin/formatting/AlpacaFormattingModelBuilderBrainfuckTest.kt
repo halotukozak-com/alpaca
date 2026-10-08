@@ -1,13 +1,14 @@
 package com.halotukozak.alpaca.plugin.formatting
 
+import com.halotukozak.alpaca.plugin.grammar.exportedGrammarId
 import com.halotukozak.alpaca.plugin.lexer.AlpacaFileTypeRegistrar
 import com.halotukozak.alpaca.plugin.settings.AlpacaSettingsState
 import com.halotukozak.alpaca.plugin.settings.GrammarAssociation
 import com.intellij.openapi.application.runWriteAction
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
-private const val LEXER_ID = "BrainLexer.BrainLexer@L9"
-private const val PARSER_ID = "BrainParser.BrainParser@L12"
+private val LEXER_ID = exportedGrammarId("BrainLexer", "BrainLexer")
+private val PARSER_ID = exportedGrammarId("BrainParser", "BrainParser")
 
 /**
  * The same [AlpacaFormattingModelBuilder] against a completely different grammar -- Brainfuck

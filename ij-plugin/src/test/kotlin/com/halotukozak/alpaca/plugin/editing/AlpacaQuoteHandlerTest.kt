@@ -1,5 +1,6 @@
 package com.halotukozak.alpaca.plugin.editing
 
+import com.halotukozak.alpaca.plugin.grammar.exportedGrammarId
 import com.halotukozak.alpaca.plugin.lexer.AlpacaFileTypeRegistrar
 import com.halotukozak.alpaca.plugin.settings.AlpacaSettingsState
 import com.halotukozak.alpaca.plugin.settings.GrammarAssociation
@@ -7,10 +8,10 @@ import com.intellij.openapi.application.runWriteAction
 import com.intellij.openapi.editor.ex.EditorEx
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
-private const val JSON_LEXER_ID = "JsonTest.JsonLexer@L11"
-private const val JSON_PARSER_ID = "JsonTest.JsonE2EParser@L31"
-private const val CALC_LEXER_ID = "MathTest.CalcLexer@L11"
-private const val CALC_PARSER_ID = "MathTest.MathParser@L39"
+private val JSON_LEXER_ID = exportedGrammarId("JsonTest", "JsonLexer")
+private val JSON_PARSER_ID = exportedGrammarId("JsonTest", "JsonE2EParser")
+private val CALC_LEXER_ID = exportedGrammarId("MathTest", "CalcLexer")
+private val CALC_PARSER_ID = exportedGrammarId("MathTest", "MathParser")
 
 /**
  * `JsonTest`'s grammar has a `"(\\.|[^"])*"` String rule; `MathTest`'s has no string-shaped rule

@@ -2,6 +2,7 @@ package com.halotukozak.alpaca.plugin.parser
 
 import com.halotukozak.alpaca.plugin.grammar.GrammarDirectory
 import com.halotukozak.alpaca.plugin.grammar.TokenSpec
+import com.halotukozak.alpaca.plugin.grammar.exportedGrammarId
 import com.halotukozak.alpaca.plugin.lexer.ALPACA_BAD_CHARACTER
 import com.halotukozak.alpaca.plugin.lexer.AlpacaLexer
 import com.halotukozak.alpaca.plugin.lexer.AlpacaTokenTypes
@@ -18,8 +19,8 @@ import java.nio.file.Path
  */
 class AlpacaLrDriverTest {
     companion object {
-        private const val GRAMMAR_ID = "MathTest.MathParser@L39"
-        private const val LEXER_ID = "MathTest.CalcLexer@L11"
+        private val GRAMMAR_ID = exportedGrammarId("MathTest", "MathParser")
+        private val LEXER_ID = exportedGrammarId("MathTest", "CalcLexer")
     }
 
     /** Tokenizes [text] with the real lexer, dropping ignored tokens (whitespace/comments), matching

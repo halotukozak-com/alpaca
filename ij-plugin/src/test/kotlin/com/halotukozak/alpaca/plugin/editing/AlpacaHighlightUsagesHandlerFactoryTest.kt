@@ -1,15 +1,16 @@
 package com.halotukozak.alpaca.plugin.editing
 
+import com.halotukozak.alpaca.plugin.grammar.exportedGrammarId
 import com.halotukozak.alpaca.plugin.lexer.AlpacaFileTypeRegistrar
 import com.halotukozak.alpaca.plugin.settings.AlpacaSettingsState
 import com.halotukozak.alpaca.plugin.settings.GrammarAssociation
 import com.intellij.openapi.application.runWriteAction
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
-private const val CALC_LEXER_ID = "MathTest.CalcLexer@L11"
-private const val CALC_PARSER_ID = "MathTest.MathParser@L39"
-private const val BRAIN_LEXER_ID = "BrainLexer.BrainLexer@L9"
-private const val BRAIN_PARSER_ID = "BrainParser.BrainParser@L12"
+private val CALC_LEXER_ID = exportedGrammarId("MathTest", "CalcLexer")
+private val CALC_PARSER_ID = exportedGrammarId("MathTest", "MathParser")
+private val BRAIN_LEXER_ID = exportedGrammarId("BrainLexer", "BrainLexer")
+private val BRAIN_PARSER_ID = exportedGrammarId("BrainParser", "BrainParser")
 
 /**
  * Exercises [AlpacaHighlightUsagesHandlerFactory] end to end -- through the platform's own
