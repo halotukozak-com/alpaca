@@ -8,7 +8,6 @@ import halotukozak.alpaca.internal.{Printable, Showable}
 import halotukozak.mcodec.MCodec
 
 import scala.annotation.publicInBinary
-import scala.util.Random
 
 /**
  * Represents a grammar symbol (either terminal or non-terminal).
@@ -42,10 +41,12 @@ object NonTerminal:
    *
    * @param base      the symbol the extractor is applied to
    * @param extractor the extractor the non-terminal stands for, e.g. `List`
-   * @return a non-terminal shown as `base.extractor`, with a unique name
+   * @param offset    the offset of the extractor's pattern in the parser's source file
+   * @return a non-terminal shown as `base.extractor`, with a name unique within the parser and the same on every
+   *         compilation
    */
-  def fresh(base: Symbol, extractor: String): NonTerminal & Symbol.NonEmpty =
-    NonTerminal(Printable(s"${base.name.raw}.${extractor}_${SyntheticInfix}_${Random.alphanumeric.take(8).mkString}"))
+  def fresh(base: Symbol, extractor: String, offset: Int): NonTerminal & Symbol.NonEmpty =
+    NonTerminal(Printable(s"${base.name.raw}.${extractor}_${SyntheticInfix}_$offset"))
 
   /**
    * Creates a non-terminal symbol from a name.
