@@ -98,7 +98,7 @@ Unexpected character '@'
 
 Like a lexeme, the error carries the context's fields as they were where the character starts, so with `LexerCtx.Default` its `line` and `column` give the position. Columns count Unicode code points, so an emoji is one column.
 
-`getOrThrow` throws the errors as a `LexerException` (catch it as a `LexerException.Of[LexerCtx.Default]` to read `error.line` and `error.column` on its `errors`); match on the result to handle them without an exception:
+`getOrThrow` throws the errors as a `LexerException`; match on the result to handle them without an exception:
 
 ```scala
 import halotukozak.alpaca.*
@@ -144,13 +144,13 @@ Lexer.tokenize("abc @def") match
   case Result.Success(_, _) => ()
 ```
 
-The strategy receives the context and the `LexerError` for the unmatched character, so it can choose per character. It is the same `ErrorHandling` type the parser uses, with `LexerError` as its error type. The error carries the fields of the context the handler is for, so it reads them with their types:
+The strategy receives the context and the `LexerError` for the unmatched character, so it can choose per character. It is the same `ErrorHandling` type the parser uses, with `LexerError` as its error type. Declare it for `LexerError.Of[MyCtx]` instead to read the context's fields from the error with their types:
 
 ```scala
 import halotukozak.alpaca.*
 
 // Skip unrecognized characters on the first line, stop on any later one
-given ErrorHandling[LexerCtx.Default, LexerError] = (_, error) =>
+given ErrorHandling[LexerCtx.Default, LexerError.Of[LexerCtx.Default]] = (_, error) =>
   if error.line > 1 then ErrorHandling.Strategy.Stop else ErrorHandling.Strategy.SkipOne
 ```
 

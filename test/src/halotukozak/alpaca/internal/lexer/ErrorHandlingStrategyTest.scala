@@ -104,7 +104,7 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
 
   test("the strategy is given the error for the unmatched character") {
     var seen = List.empty[(String, Int, Int)]
-    given ErrorHandling[LexerCtx.Default, LexerError] = (_, error) =>
+    given ErrorHandling[LexerCtx.Default, LexerError.Of[LexerCtx.Default]] = (_, error) =>
       seen = seen :+ (error.unexpected, error.line, error.column)
       ErrorHandling.Strategy.SkipToNextMatch
 
@@ -118,7 +118,7 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
 
   test("the strategy reads a custom context's fields from the error") {
     final case class MyCtx(line: Line = Line.Start) extends LexerCtx
-    given ErrorHandling[MyCtx, LexerError] =
+    given ErrorHandling[MyCtx, LexerError.Of[MyCtx]] =
       (_, error) => if error.line > 1 then ErrorHandling.Strategy.Stop else ErrorHandling.Strategy.SkipOne
 
     val L = lexer[MyCtx]:

@@ -14,7 +14,7 @@ import scala.reflect.NameTransformer
 @publicInBinary private[alpaca] def createLexerImpl[Ctx <: LexerCtx: Type, lexemeFields <: AnyNamedTuple: Type](
   rules: Expr[LexerScope.Of[Ctx] ?=> LexerDefinition[Ctx]],
   onTokenMatch: Expr[(Token[?, Ctx, ?], String, Ctx) => Ctx],
-  errorHandling: Expr[ErrorHandling[Ctx, LexerError]],
+  errorHandling: Expr[ErrorHandling[Ctx, LexerError.Of[Ctx]]],
 )(using quotes: Quotes,
 ): Expr[Lexer[Ctx] { type LexemeFields = lexemeFields }] = {
   import quotes.reflect.*

@@ -40,7 +40,7 @@ transparent inline def lexer[Ctx <: LexerCtx](
   inline rules: LexerScope.Of[Ctx] ?=> LexerDefinition[Ctx],
 )(using
   m: Mirror.ProductOf[Ctx],
-  errorHandling: ErrorHandling[Ctx, LexerError],
+  errorHandling: ErrorHandling[Ctx, LexerError.Of[Ctx]],
 ): Lexer[Ctx] { type LexemeFields = NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes] } =
   ${
     createLexerImpl[Ctx, NamedTuple[m.MirroredElemLabels, m.MirroredElemTypes]](
@@ -321,19 +321,9 @@ object LexerError:
 /**
  * Thrown by `getOrThrow` on a lexer [[Result]] when some input did not match a token.
  *
- * Catch it as a [[LexerException.Of]] the lexer's context to read the errors' context fields with their types.
+ * @param errors the errors the lexer reported, in input order
  */
-final class LexerException private[alpaca] (reported: ::[LexerError])
-  extends RuntimeException(reported.map(_.message).mkString("\n")):
-  type Fields <: AnyNamedTuple
-
-  /** The errors the lexer reported, in input order. */
-  val errors: ::[LexerError withFields Fields] =
-    reported.asInstanceOf[::[LexerError withFields Fields]]
-
-object LexerException:
-  /** An exception whose errors carry the fields of the lexer context `Ctx`. */
-  type Of[Ctx] = LexerException withFields NamedTuple.From[Ctx]
+final class LexerException(val errors: ::[LexerError]) extends RuntimeException(errors.map(_.message).mkString("\n"))
 
 /**
  * Type alias for lexer rule definitions.
