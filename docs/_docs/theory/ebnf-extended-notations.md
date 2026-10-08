@@ -134,6 +134,8 @@ OperationList → OperationList Operation
 
 In practice, the macro generates a fresh synthetic non-terminal (with a randomized name) for each `.List` occurrence. The `OperationList` name above is schematic — the actual generated names are internal.
 
+The left recursion keeps the parser stack constant. The semantic actions prepend each element (`elem :: list`) and the list is reversed once where it is bound, so a list of n elements is built in O(n).
+
 ## When to Use EBNF vs Explicit Recursion
 
 Use `.List` for **unseparated** sequences — elements that follow each other with no delimiter:
