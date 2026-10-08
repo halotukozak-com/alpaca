@@ -91,21 +91,16 @@ object Tables:
             case (methSym, (ctx: Term) :: (param: Term) :: Nil) =>
               val paramExpr = param.asExprOf[RevertedArray[Any]]
               // each bound value is adapted once, before the action body
-              val locals = bindings.iterator.zipWithIndex
+              val bound = bindings.iterator.zipWithIndex
                 .collect:
-                  case ((Some(bind), adapt), idx) => (bind, adapt, bind.symbol.termRef.widen.asType, Expr(idx))
-                .collect:
-                  case (bind, adapt, '[t], idx) =>
-                    val local = Symbol.newVal(methSym, bind.name, TypeRepr.of[t], Flags.EmptyFlags, Symbol.noSymbol)
-                    val adapted = adapt('{ $paramExpr($idx) })
-                    val value = '{ $adapted.asInstanceOf[t] }.asTerm
-                    (bind = bind.symbol, local = ValDef(local, Some(value.changeOwner(local))))
+                  case ((Some(bind), adapt), idx) =>
+                    val adapted = adapt('{ $paramExpr(${ Expr(idx) }) })
+                    bind.symbol.termRef.widen.asType match
+                      case '[t] => (bind = bind.symbol, value = '{ $adapted.asInstanceOf[t] }.asTerm)
                 .toList
-              val replacements = (find = ctxSymbol, replace = ctx) :: locals.map: (bind, local) =>
-                (find = bind, replace = Ref(local.symbol))
-
-              val body = replaceRefs(replacements*).transformTerm(rhs)(methSym)
-              if locals.isEmpty then body else Block(locals.map(_.local), body)
+              ValDef.let(methSym, bound.map(_.value)): refs =>
+                val locals = bound.map(_.bind).zip(refs).map((bind, ref) => (find = bind, replace = ref))
+                replaceRefs((find = ctxSymbol, replace = ctx) :: locals*).transformTerm(rhs)(methSym)
 
           val extractProductionName: Function[Expr[ProductionDefinition[?]], (Tree, ValidName | Null)] =
             case '{ ($name: String).apply($production: ProductionDefinition[?])(using $_) } =>
