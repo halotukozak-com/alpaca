@@ -280,7 +280,7 @@ final class LexerError private[alpaca] (
 ) extends Selectable:
   type Fields <: AnyNamedTuple
 
-  def selectDynamic(name: String): Any = Lexeme.field(fieldNames, fieldValues, name)
+  def selectDynamic(name: String): Any = contextField(fieldNames, fieldValues, name)
 
   /** A readable description, e.g. `Unexpected character '@'`. */
   def message: String = {

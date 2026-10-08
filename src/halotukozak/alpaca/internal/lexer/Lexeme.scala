@@ -38,7 +38,7 @@ final class Lexeme[+Name <: ValidName, +Value] private[alpaca] (
 ) extends Selectable:
   type Fields <: AnyNamedTuple
 
-  def selectDynamic(name: String): Any = Lexeme.field(fieldNames, fieldValues, name)
+  def selectDynamic(name: String): Any = contextField(fieldNames, fieldValues, name)
 
 private[alpaca] object Lexeme:
   /**
@@ -48,8 +48,8 @@ private[alpaca] object Lexeme:
    */
   private[alpaca] val EOF: Lexeme["$", String] = Lexeme("$", "", "", Array.empty, Array.empty)
 
-  /** The value of the context field `name` in a snapshot. */
-  private[alpaca] def field(fieldNames: Array[String], fieldValues: Array[Any], name: String): Any =
-    boundary:
-      for i <- fieldNames.indices if fieldNames(i) == name do break(fieldValues(i))
-      throw new NoSuchElementException(name)
+/** The value of the context field `name` in a snapshot. */
+private[alpaca] def contextField(fieldNames: Array[String], fieldValues: Array[Any], name: String): Any =
+  boundary:
+    for i <- fieldNames.indices if fieldNames(i) == name do break(fieldValues(i))
+    throw new NoSuchElementException(name)

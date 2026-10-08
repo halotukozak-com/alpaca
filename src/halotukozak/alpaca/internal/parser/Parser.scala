@@ -23,7 +23,7 @@ abstract class Parser[Ctx <: ParserCtx](
   using Ctx withDefault ParserCtx.Empty,
 )(using
   tables: Tables[Ctx],
-  errorHandling: ErrorHandling[Ctx, ParserError[?]],
+  errorHandling: ErrorHandling[Ctx, ParserError],
 ):
 
   /**
@@ -56,7 +56,7 @@ abstract class Parser[Ctx <: ParserCtx](
    *         context's [[ErrorHandling]] skipped past the errors, the value is the failure's `recovered`
    */
   @publicInBinary private[alpaca] def parseResult[R, L <: Lexeme[?, ?]](lexemes: List[L])
-    : Result[Ctx, R, ParserError[L]] = {
+    : Result[Ctx, R, ParserError.Of[L]] = {
     enum Node:
       case Result(value: Any)
       case Token(lexeme: Lexeme[?, ?])
@@ -71,7 +71,7 @@ abstract class Parser[Ctx <: ParserCtx](
     val nodeStack = mutable.ArrayDeque.empty[Node]
     stateStack += 0
     nodeStack += Node.Result(null)
-    val errors = mutable.ListBuffer.empty[ParserError[L]]
+    val errors = mutable.ListBuffer.empty[ParserError.Of[L]]
 
     // The accepted root node, or `None` when an error stopped the parser.
     @tailrec def loop(remaining: List[L]): Option[Node] = {

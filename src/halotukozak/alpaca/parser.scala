@@ -207,17 +207,30 @@ sealed trait Rule[R]:
 /**
  * Why the input does not match the grammar, as reported by `parse` in a [[Result.Failure]].
  *
- * `parse` types the lexemes with the lexer's lexeme type, so positions are the lexer context's fields, e.g.
- * `error.unexpected.map(_.line)`, or `error.last.map(_.line)` at the end of the input.
+ * The type member `L` is the lexer's lexeme type. `parse` returns [[ParserError.Of]] the type of the lexemes it was given,
+ * so positions are the lexer context's fields, e.g. `error.unexpected.map(_.line)`, or `error.last.map(_.line)` at the
+ * end of the input. Plain `ParserError` is an error over any lexemes.
  *
- * @tparam L the lexer's lexeme type
- * @param unexpected the lexeme the parser could not accept; `None` when the input ended too early
- * @param expected   the token names the grammar would have accepted at that point (`"$"` stands for the end of
- *                   the input), sorted
- * @param last       at the end of the input, the last lexeme before it; `None` when the input is empty or the error
- *                   is not at the end
+ * @param expected the token names the grammar would have accepted at that point (`"$"` stands for the end of the
+ *                 input), sorted
  */
-final case class ParserError[+L <: Lexeme[?, ?]](unexpected: Option[L], expected: List[String], last: Option[L]):
+final class ParserError private (
+  unexpectedLexeme: Option[Lexeme[?, ?]],
+  val expected: List[String],
+  lastLexeme: Option[Lexeme[?, ?]],
+):
+  /** The lexer's lexeme type. */
+  type L <: Lexeme[?, ?]
+
+  /** The lexeme the parser could not accept; `None` when the input ended too early. */
+  def unexpected: Option[L] = unexpectedLexeme.asInstanceOf[Option[L]]
+
+  /** At the end of the input, the last lexeme before it; `None` when the input is empty or the error is not at the end. */
+  def last: Option[L] = lastLexeme.asInstanceOf[Option[L]]
+
+  def copy(unexpected: Option[L] = unexpected, expected: List[String] = expected, last: Option[L] = last)
+    : ParserError.Of[L] = ParserError(unexpected, expected, last)
+
   /** A readable description, e.g. `Unexpected PLUS "+". Expected one of: Num`. */
   def message: String = {
     def describe(lexeme: Lexeme[?, ?]): Shown = show"""${Printable(lexeme.name)} "${Printable(lexeme.text)}""""
@@ -229,9 +242,28 @@ final case class ParserError[+L <: Lexeme[?, ?]](unexpected: Option[L], expected
     show"Unexpected $what. Expected one of: ${names.mkShow(", ")}"
   }
 
-object ParserError:
+  override def equals(that: Any): Boolean = that match
+    case that: ParserError => unexpected == that.unexpected && expected == that.expected && last == that.last
+    case _ => false
 
-  extension [Ctx, A](result: Result[Ctx, A, ParserError[?]])
+  override def hashCode: Int = (unexpected, expected, last).##
+
+  override def toString: String = "ParserError" + (unexpected, expected, last).toString
+
+object ParserError:
+  // An upper bound rather than `type L = L0`: with an alias, matching on a `Result` of a lexer's lexemes
+  // (`Lexeme[?, ?] { type Fields = ... }`) warns that `Success` and `Failure` are not exhaustive.
+  /** An error whose lexemes are `L0`s, as `parse` returns it. */
+  type Of[L0 <: Lexeme[?, ?]] = ParserError { type L <: L0 }
+
+  private[alpaca] def apply[L0 <: Lexeme[?, ?]](unexpected: Option[L0], expected: List[String], last: Option[L0])
+    : Of[L0] =
+    new ParserError(unexpected, expected, last).asInstanceOf[Of[L0]]
+
+  def unapply(error: ParserError): (Option[error.L], List[String], Option[error.L]) =
+    (error.unexpected, error.expected, error.last)
+
+  extension [Ctx, A](result: Result[Ctx, A, ParserError])
     /** The value; throws the errors as a [[ParserException]] if parsing failed. */
     def getOrThrow: A = result match
       case Result.Success(_, value) => value
@@ -242,7 +274,7 @@ object ParserError:
  *
  * @param errors the errors the parser reported, in input order
  */
-final class ParserException(val errors: ::[ParserError[?]]) extends RuntimeException(errors.map(_.message).mkString("\n"))
+final class ParserException(val errors: ::[ParserError]) extends RuntimeException(errors.map(_.message).mkString("\n"))
 
 /**
  * Base trait for parser global context.
@@ -298,7 +330,7 @@ extension (@unused inline first: Production | Token[?, ?, ?]) {
 object ParserCtx:
 
   /** Default error handler for any [[ParserCtx]]: stop at the first input that does not match the grammar. */
-  given ErrorHandling[ParserCtx, ParserError[?]] = (_, _) => ErrorHandling.Strategy.Stop
+  given ErrorHandling[ParserCtx, ParserError] = (_, _) => ErrorHandling.Strategy.Stop
 
   /**
    * An empty parser context with no state.
@@ -324,6 +356,6 @@ extension [Ctx <: ParserCtx](parser: Parser[Ctx]) {
   inline def parse[L <: Lexeme[?, ?]](lexemes: List[L]): Result[
     Ctx,
     parser.root.type match { case Rule[t] => t },
-    ParserError[L],
+    ParserError.Of[L],
   ] = parser.parseResult(lexemes)
 }
