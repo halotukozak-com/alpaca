@@ -7,8 +7,8 @@ import com.intellij.openapi.application.runWriteAction
 import com.intellij.openapi.editor.ex.EditorEx
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
-private const val JSON_LEXER_ID = "JsonTest.JsonLexer@L13"
-private const val JSON_PARSER_ID = "JsonTest.JsonE2EParser@L33"
+private const val JSON_LEXER_ID = "JsonTest.JsonLexer@L11"
+private const val JSON_PARSER_ID = "JsonTest.JsonE2EParser@L31"
 private const val CALC_LEXER_ID = "MathTest.CalcLexer@L11"
 private const val CALC_PARSER_ID = "MathTest.MathParser@L39"
 

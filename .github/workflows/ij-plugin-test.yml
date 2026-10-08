@@ -33,7 +33,8 @@ jobs:
           changed=$(gh api --paginate \
             "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
             --jq '.[].filename')
-          if grep -qE '^(ij-plugin/|\.github/workflows/ij-plugin-test\.yml$)' <<< "$changed"; then
+          # The plugin's tests drive grammars exported from the library's test suite, so library changes count too.
+          if grep -qE '^(ij-plugin/|src/|test/|build\.mill$|\.github/workflows/ij-plugin-test\.yml$)' <<< "$changed"; then
             echo "plugin=true" >> "$GITHUB_OUTPUT"
           else
             echo "plugin=false" >> "$GITHUB_OUTPUT"
