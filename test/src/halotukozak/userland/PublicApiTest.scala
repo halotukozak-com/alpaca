@@ -149,15 +149,15 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     errors("""val p = Production(WordLexer.WORD)""") shouldBe List(outsideResolutions)
   }
 
-  test("the remaining text handed to ErrorHandling keeps its content after the callback") {
-    var seen: CharSequence | Null = null
+  test("the text peeked in ErrorHandling keeps its content after the callback") {
+    var seen: String | Null = null
     case class RecordingCtx(n: Int = 0) extends LexerCtx
     given ErrorHandling[RecordingCtx, LexerError] = (ctx, _) =>
-      if seen == null then seen = ctx.remainingText
+      if seen == null then seen = ctx.peek(10)
       ErrorHandling.Strategy.SkipOne
     val Lexer = lexer[RecordingCtx]:
       case "a" => Token["A"]
 
     Lexer.tokenize("a!aa!").toEither.left.map(_.size) shouldBe Left(2)
-    seen.nn.toString shouldBe "!aa!"
+    seen shouldBe "!aa!"
   }

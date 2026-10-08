@@ -193,12 +193,18 @@ trait LexerCtx extends Product, Selectable:
   private[alpaca] var text: CharSequence = compiletime.uninitialized
 
   /**
-   * A copy of the text still remaining to be tokenized; each call copies the remaining input.
+   * A copy of at most the next `n` characters of the input still to be tokenized, fewer at its end.
    *
-   * Exposed so a custom [[ErrorHandling]] instance can inspect the character(s)
-   * that failed to match any token rule, e.g. to pick a recovery strategy based on what comes next.
+   * Meant for a custom [[ErrorHandling]] instance to look at what failed to match any token rule, e.g. to pick a
+   * recovery strategy based on what comes next. Only the requested characters are read and copied, and the result is
+   * safe to keep after the callback returns.
+   *
+   * @param n the maximum number of characters to return
+   * @throws IllegalArgumentException if `n` is negative
    */
-  final def remainingText: CharSequence = text.toString
+  final def peek(n: Int): String =
+    require(n >= 0, s"peek length must be non-negative, got $n")
+    text.subSequence(0, math.min(n, text.length)).toString
 
   /**
    * Propagates the engine-internal bookkeeping fields above from `prev` onto

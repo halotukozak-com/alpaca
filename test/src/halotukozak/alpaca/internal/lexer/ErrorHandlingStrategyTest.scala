@@ -72,8 +72,8 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
   }
 
   test("a stop after a skip recovers nothing but reports both errors") {
-    given ErrorHandling[LexerCtx.Default, LexerError] = (ctx, _) =>
-      if ctx.remainingText.charAt(0) == '!' then ErrorHandling.Strategy.SkipOne else ErrorHandling.Strategy.Stop
+    given ErrorHandling[LexerCtx.Default, LexerError] =
+      (ctx, _) => if ctx.peek(1) == "!" then ErrorHandling.Strategy.SkipOne else ErrorHandling.Strategy.Stop
 
     val L = lexer:
       case "a" => Token["A"]
@@ -116,17 +116,28 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
     seen shouldBe List(LexerError("!", Some(1), Some(2)), LexerError("#", Some(1), Some(5)))
   }
 
-  test("remainingText should expose the unmatched input to a custom ErrorHandling instance") {
-    var seenFirstChar: Char = ' '
+  test("peek should expose at most n characters of the unmatched input to a custom ErrorHandling instance") {
+    var seen = List.empty[String]
     given ErrorHandling[LexerCtx.Default, LexerError] = (ctx, _) =>
-      seenFirstChar = ctx.remainingText.charAt(0)
+      seen = seen :+ ctx.peek(2)
       ErrorHandling.Strategy.SkipOne
 
     val L = lexer:
       case "a" => Token["A"]
 
-    L.tokenize("a!a"): Unit
-    seenFirstChar shouldBe '!'
+    L.tokenize("a!aa?"): Unit
+    seen shouldBe List("!a", "?")
+  }
+
+  test("peek should reject a negative length") {
+    given ErrorHandling[LexerCtx.Default, LexerError] = (ctx, _) =>
+      ctx.peek(-1): Unit
+      ErrorHandling.Strategy.Stop
+
+    val L = lexer:
+      case "a" => Token["A"]
+
+    an[IllegalArgumentException] should be thrownBy L.tokenize("!")
   }
 
   test("Strategy.SkipOne should update column correctly") {
