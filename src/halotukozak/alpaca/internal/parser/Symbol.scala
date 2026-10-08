@@ -34,17 +34,6 @@ sealed case class NonTerminal(name: Printable) extends AnyVal, Symbol
 object NonTerminal:
 
   /**
-   * Numbers the non-terminals [[fresh]] creates. Create one per macro expansion, so that the names are unique within
-   * a parser and the same on every compilation.
-   */
-  private[parser] final class Fresh:
-    private var last = 0
-
-    private[NonTerminal] def next(): Int =
-      last += 1
-      last
-
-  /**
    * Creates a fresh non-terminal symbol with a unique name.
    *
    * This is used internally to create temporary non-terminals for
@@ -52,10 +41,12 @@ object NonTerminal:
    *
    * @param base      the symbol the extractor is applied to
    * @param extractor the extractor the non-terminal stands for, e.g. `List`
-   * @return a non-terminal shown as `base.extractor`, with a name unique within the [[Fresh]] numbering
+   * @param offset    the offset of the extractor's pattern in the parser's source file
+   * @return a non-terminal shown as `base.extractor`, with a name unique within the parser and the same on every
+   *         compilation
    */
-  def fresh(using Fresh)(base: Symbol, extractor: String): NonTerminal & Symbol.NonEmpty =
-    NonTerminal(Printable(s"${base.name.raw}.${extractor}_${SyntheticInfix}_${summon[Fresh].next()}"))
+  def fresh(base: Symbol, extractor: String, offset: Int): NonTerminal & Symbol.NonEmpty =
+    NonTerminal(Printable(s"${base.name.raw}.${extractor}_${SyntheticInfix}_$offset"))
 
   /**
    * Creates a non-terminal symbol from a name.

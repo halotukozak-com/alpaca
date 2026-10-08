@@ -4,7 +4,6 @@ package internal
 package parser
 
 import halotukozak.alpaca.internal.lexer.Token
-import halotukozak.alpaca.internal.parser.NonTerminal.Fresh
 import halotukozak.alpaca.internal.parser.ParserExtractors.*
 
 import scala.reflect.NameTransformer
@@ -48,7 +47,7 @@ private[parser] type Binding[B] = (bind: Option[B], adapt: Expr[Any] => Expr[Any
  * extracting the grammar symbol it matches (terminal or non-terminal) together
  * with any EBNF desugaring (`Option`, `List`, `SeparatedBy`) it requires.
  */
-private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, Diagnostics, Fresh): PartialFunction[
+private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, Diagnostics): PartialFunction[
   quotes.reflect.Tree,
   (
     symbol: parser.Symbol.NonEmpty,
@@ -132,8 +131,8 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
           ),
         ) =>
       val source = Source(pattern.pos)
-      val fresh = NonTerminal.fresh(element, "SeparatedBy")
-      val nonEmpty = NonTerminal.fresh(element, "SeparatedBy.nonEmpty")
+      val fresh = NonTerminal.fresh(element, "SeparatedBy", pattern.pos.start)
+      val nonEmpty = NonTerminal.fresh(element, "SeparatedBy.nonEmpty", pattern.pos.start)
       (
         symbol = fresh,
         binding = (bind = bind, adapt = identity),
@@ -169,7 +168,7 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
 
     case pattern @ Extractor.Symbol(symbol, bind, Names.Option) =>
       val source = Source(pattern.pos)
-      val fresh = NonTerminal.fresh(symbol, "Option")
+      val fresh = NonTerminal.fresh(symbol, "Option", pattern.pos.start)
       (
         symbol = fresh,
         binding = (bind = bind, adapt = identity),
@@ -185,7 +184,7 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
 
     case pattern @ Extractor.Symbol(symbol, bind, Names.List) =>
       val source = Source(pattern.pos)
-      val fresh = NonTerminal.fresh(symbol, "List")
+      val fresh = NonTerminal.fresh(symbol, "List", pattern.pos.start)
       (
         symbol = fresh,
         binding = (bind = bind, adapt = v => '{ $v.asInstanceOf[List[?]].reverse }),
