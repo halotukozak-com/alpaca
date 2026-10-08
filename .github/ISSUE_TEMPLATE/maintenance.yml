@@ -7,10 +7,6 @@ body:
     attributes:
       value: |
         Thanks for helping maintain the project! Please describe the maintenance task in detail.
-        
-        **Note:** Issues will be automatically labeled based on their content. You can help by:
-        - Being specific about the type of maintenance task
-        - Mentioning affected components if applicable
 
   - type: dropdown
     id: maintenance-type

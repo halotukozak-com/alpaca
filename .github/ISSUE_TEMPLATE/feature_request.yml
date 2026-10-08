@@ -7,10 +7,6 @@ body:
     attributes:
       value: |
         Thanks for suggesting a feature! Please describe your idea in detail.
-        
-        **Note:** Issues will be automatically labeled based on their content. You can help by:
-        - Mentioning the component (Parser/Lexer) if applicable
-        - Being specific about what you want to improve
 
   - type: dropdown
     id: component
