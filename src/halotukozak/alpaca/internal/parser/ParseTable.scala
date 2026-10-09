@@ -48,8 +48,8 @@ private[parser] object ParseTable:
      * LALR(1) merges lookaheads of states with the same core, so a state may reduce on a terminal that cannot follow
      * there. Each candidate is kept only if replaying the reductions on it reaches a shift or the accept.
      */
-    def expectedTerminals(stateStack: Iterable[Int]): List[String] =
-      val reversedStack = stateStack.toList.reverse
+    def expectedTerminals(stateStack: collection.IndexedSeq[Int]): List[String] =
+      val reversedStack = stateStack.reverseIterator.toList
       table(reversedStack.head).keysIterator
         .collect:
           case terminal: Terminal
@@ -70,8 +70,8 @@ private[parser] object ParseTable:
           else table.leadsToShift(table.goto(rest.head, production.lhs) :: rest, terminal)
 
     private def goto(state: Int, nonTerminal: NonTerminal): Int =
-      val Shift(gotoState) = table(state, nonTerminal).runtimeChecked
-      gotoState
+      table(state, nonTerminal).runtimeChecked match
+        case Shift(gotoState) => gotoState
 
     private def allSymbols: List[Symbol] =
       table.iterator.flatMap(_.keysIterator).distinct.toList
