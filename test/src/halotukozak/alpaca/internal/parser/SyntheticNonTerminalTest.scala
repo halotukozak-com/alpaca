@@ -13,18 +13,18 @@ final class SyntheticNonTerminalTest extends AnyFunSuite with Matchers:
   private val comma = Terminal(Printable("Comma"))
 
   test("every use of an extractor on the same symbols gets the same name") {
-    NonTerminal.synthetic(num, "List") shouldBe NonTerminal.synthetic(num, "List")
-    NonTerminal.synthetic(num, "SeparatedBy", Some(comma)) shouldBe NonTerminal.synthetic(num, "SeparatedBy", Some(comma))
+    NonTerminal.synthetic("List", num) shouldBe NonTerminal.synthetic("List", num)
+    NonTerminal.synthetic("SeparatedBy", num, comma) shouldBe NonTerminal.synthetic("SeparatedBy", num, comma)
   }
 
   test("different extractors and symbols get different names, all shown as base.extractor") {
     val fresh = List(
-      NonTerminal.synthetic(num, "List"),
-      NonTerminal.synthetic(NonTerminal(Printable("Num")), "List"),
-      NonTerminal.synthetic(num, "Option"),
-      NonTerminal.synthetic(num, "SeparatedBy", Some(comma)),
-      NonTerminal.synthetic(num, "SeparatedBy", Some(NonTerminal(Printable("Comma")))),
-      NonTerminal.synthetic(num, "SeparatedBy.nonEmpty", Some(comma)),
+      NonTerminal.synthetic("List", num),
+      NonTerminal.synthetic("List", NonTerminal(Printable("Num"))),
+      NonTerminal.synthetic("Option", num),
+      NonTerminal.synthetic("SeparatedBy", num, comma),
+      NonTerminal.synthetic("SeparatedBy", num, NonTerminal(Printable("Comma"))),
+      NonTerminal.synthetic("SeparatedBy.nonEmpty", num, comma),
     )
     fresh.distinct should have size fresh.size
     fresh.map(symbol => show"${symbol: Symbol}") shouldBe

@@ -133,8 +133,8 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
           ),
         ) =>
       val source = Source(pattern.pos)
-      val synthetic = NonTerminal.synthetic(element, "SeparatedBy", Some(separator))
-      val nonEmpty = NonTerminal.synthetic(element, "SeparatedBy.nonEmpty", Some(separator))
+      val synthetic = NonTerminal.synthetic("SeparatedBy", element, separator)
+      val nonEmpty = NonTerminal.synthetic("SeparatedBy.nonEmpty", element, separator)
       (
         symbol = synthetic,
         binding = (bind = bind, adapt = identity),
@@ -170,7 +170,7 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
 
     case pattern @ Extractor.Symbol(symbol, bind, Names.Option) =>
       val source = Source(pattern.pos)
-      val synthetic = NonTerminal.synthetic(symbol, "Option")
+      val synthetic = NonTerminal.synthetic("Option", symbol)
       (
         symbol = synthetic,
         binding = (bind = bind, adapt = identity),
@@ -186,7 +186,7 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
 
     case pattern @ Extractor.Symbol(symbol, bind, Names.List) =>
       val source = Source(pattern.pos)
-      val synthetic = NonTerminal.synthetic(symbol, "List")
+      val synthetic = NonTerminal.synthetic("List", symbol)
       (
         symbol = synthetic,
         binding = (bind = bind, adapt = v => '{ $v.asInstanceOf[List[?]].reverse }),

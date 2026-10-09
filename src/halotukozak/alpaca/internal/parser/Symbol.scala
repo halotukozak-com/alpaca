@@ -59,13 +59,13 @@ private[alpaca] sealed case class NonTerminal(name: Printable) extends AnyVal, S
    * This is used internally to create the non-terminals for EBNF operators like optional and repeated patterns. Every
    * use of the same extractor on the same symbols gets the same non-terminal, so its productions are added once.
    *
-   * @param base      the symbol the extractor is applied to
    * @param extractor the extractor the non-terminal stands for, e.g. `List`
-   * @param separator the separator of a `SeparatedBy`
+   * @param base      the symbol the extractor is applied to
+   * @param others    the extractor's other symbols, e.g. the separator of a `SeparatedBy`
    * @return a non-terminal shown as `base.extractor`, with a name the same on every compilation
    */
-  def synthetic(base: Symbol, extractor: String, separator: Option[Symbol] = None): NonTerminal & Symbol.NonEmpty =
-    val key = (base :: separator.toList).map(symbol => s"${symbol.kind}:${symbol.name.raw}").mkString(",")
+  def synthetic(extractor: String, base: Symbol, others: Symbol*): NonTerminal & Symbol.NonEmpty =
+    val key = (base +: others).map(symbol => s"${symbol.kind}:${symbol.name.raw}").mkString(",")
     NonTerminal(Printable(s"${base.name.raw}.${extractor}_${SyntheticInfix}_$key"))
 
   /**
