@@ -7,7 +7,7 @@ By default, the lexer uses `LexerCtx.Default`, which gives you line and column t
 <details>
 <summary>Under the hood: how tracking fields update</summary>
 
-When you write `lexer[MyCtx]:`, the Alpaca macro inspects `MyCtx`'s case fields at compile time. For every field whose type provides a `given Tracking`, it wires the corresponding per-token update into the generated tokenizer. After each match the engine threads a single functional `copy` of the context through those updates -- so tracked fields stay immutable `val`s and still advance automatically.
+When you write `lexer[MyCtx]:`, the Alpaca macro inspects `MyCtx`'s case fields at compile time. For every field whose type's companion provides a `given Tracking`, it wires the corresponding per-token update into the generated tokenizer. After each match the engine threads a single functional `copy` of the context through those updates -- so tracked fields stay immutable `val`s and still advance automatically.
 
 </details>
 
@@ -29,7 +29,7 @@ final case class Default(
 
 Newlines are counted wherever they appear in a match, so `case "\\s+" => Token.Ignored` matching `" \n  "` advances `line` by one and leaves `column` at 3. A Windows line ending `\r\n` counts once, through its `\n`.
 
-`Column` and `Line` are opaque subtypes of `Int`, so `ctx.column` and `ctx.line` read as plain `Int`s everywhere. Each carries a `given Tracking` that the lexer macro finds and applies after every match.
+`Column` and `Line` are opaque subtypes of `Int`, so `ctx.column` and `ctx.line` read as plain `Int`s everywhere. Each has a `given Tracking` in its companion, which the lexer macro finds and applies after every match.
 
 ```scala
 import halotukozak.alpaca.*
@@ -193,7 +193,7 @@ Steps 1 and 3 are derived by the `lexer` macro from the context's case fields --
 <details>
 <summary>Under the hood: custom tracking fragments</summary>
 
-A tracking fragment is any field type that provides a `given Tracking[F]`. `Tracking[F]` is a single-method function `(matched: String, field: F) => F`: given the raw text just matched and the field's current value, return its next value. The `lexer` macro finds one for each case field and threads a functional `copy` through them after every match.
+A field is tracked when its type's companion provides a `given Tracking`. For an opaque type, that is the object of the same name next to it. `Tracking[F]` is a single-method function `(matched: String, field: F) => F`: given the raw text just matched and the field's current value, return its next value. The `lexer` macro looks one up for each case field and threads a functional `copy` through them after every match.
 
 ```scala
 import halotukozak.alpaca.*
@@ -220,6 +220,21 @@ val Lexer = lexer[MyCtx]:
 ```
 
 No inheritance, no trait companion, no composition macro: a fragment is just a field type plus its `given`.
+
+Only the companion counts. A `given Tracking[Int]` elsewhere in scope does not track `Int` fields, so to count something like a character offset, give it its own type:
+
+```scala
+import halotukozak.alpaca.*
+
+opaque type Offset <: Int = Int
+object Offset:
+  val Start: Offset = 0
+  given Tracking[Offset] = (matched, offset) => offset + matched.length
+
+case class OffsetCtx(offset: Offset = Offset.Start, words: Int = 0) extends LexerCtx
+```
+
+`offset` advances after every match; `words` is a plain `Int` and changes only where a rule body assigns it. Two fields of the same fragment type are tracked independently.
 
 </details>
 

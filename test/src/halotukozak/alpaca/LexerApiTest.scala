@@ -5,6 +5,8 @@ import alpaca.internal.lexer.Token
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.unused
+
 final class LexerApiTest extends AnyFunSuite with Matchers {
   val Lexer = lexer:
     case "#.*" => Token.Ignored
@@ -115,6 +117,59 @@ final class LexerApiTest extends AnyFunSuite with Matchers {
     finalCtx.depth shouldBe 2
   }
 
+  test("a given Tracking in lexical scope does not track fields of its type") {
+    @unused given Tracking[Int] = (_, count) => count + 100
+    case class CountCtx(count: Int = 0) extends LexerCtx
+
+    val Lexer = lexer[CountCtx]:
+      case "a" => Token["a"]
+
+    Lexer.tokenize("aaa").ctx.count shouldBe 0
+  }
+
+  test("a given Tracking in lexical scope does not replace the fragment's own") {
+    @unused given Tracking[NestDepth.Depth] = (_, depth) => depth
+    val Lexer = lexer[NestDepth.Ctx]:
+      case brace @ ("\\{" | "\\}") => Token[brace.type]
+
+    Lexer.tokenize("{{}{").ctx.depth shouldBe 2
+  }
+
+  test("two fields of the same fragment type are both tracked") {
+    case class TwoDepths(outer: NestDepth.Depth = NestDepth.Depth.Start, inner: NestDepth.Depth = NestDepth.Depth.Start)
+      extends LexerCtx
+
+    val Lexer = lexer[TwoDepths]:
+      case "\\{" => Token["open"]
+      case "\\}" =>
+        ctx.inner = NestDepth.Depth.Start
+        Token["close"]
+
+    val finalCtx = Lexer.tokenize("{{}{").ctx
+    finalCtx.outer shouldBe 2
+    finalCtx.inner shouldBe 1
+  }
+
+  test("a generic context's fragment field is tracked") {
+    case class GenericCtx[Payload](depth: NestDepth.Depth = NestDepth.Depth.Start, payload: Option[Payload] = None)
+      extends LexerCtx
+
+    val Lexer = lexer[GenericCtx[String]]:
+      case brace @ ("\\{" | "\\}") => Token[brace.type]
+
+    Lexer.tokenize("{{}{").ctx.depth shouldBe 2
+  }
+
+  test("a case class fragment is tracked through its companion's given") {
+    case class WordCtx(tokens: TokenCount = TokenCount(0)) extends LexerCtx
+
+    val Lexer = lexer[WordCtx]:
+      case "[a-z]+" => Token["word"]
+      case " " => Token.Ignored
+
+    Lexer.tokenize("ab cd ef").ctx.tokens shouldBe TokenCount(5)
+  }
+
   test("Line and Column track independently when both are tracked on the same context") {
     val Lexer = lexer[LexerCtx.Default]:
       case "\n" => Token.Ignored
@@ -133,3 +188,8 @@ object NestDepth:
     given Tracking[Depth] = (matched, d) => if matched == "{" then d + 1 else if matched == "}" then d - 1 else d
 
   final case class Ctx(depth: Depth = Depth.Start) extends LexerCtx
+
+final case class TokenCount(value: Int)
+
+object TokenCount:
+  given Tracking[TokenCount] = (_, count) => TokenCount(count.value + 1)

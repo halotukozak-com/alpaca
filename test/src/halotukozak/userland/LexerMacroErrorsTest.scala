@@ -88,3 +88,20 @@ final class LexerMacroErrorsTest extends AnyFunSuite with Matchers with LoneElem
     error.message shouldBe NotALiteral
     error.lineContent.trim shouldBe "case x @ (\"a\" | _) => Token[x.type]"
   }
+
+  test("a fragment whose companion provides two Tracking givens is reported at the companion") {
+    val error: Error = typeCheckErrors("""
+    lexer[TwiceTrackedCtx]:
+      case "a" => Token["A"]
+    """).loneElement
+    error.message shouldBe "Ambiguous Tracking for TwiceTracked: TwiceTracked provides first, second"
+    error.lineContent.trim shouldBe "object TwiceTracked:"
+  }
+
+final case class TwiceTracked(value: Int)
+
+object TwiceTracked:
+  given first: Tracking[TwiceTracked] = (_, tracked) => tracked
+  given second: Tracking[TwiceTracked] = (_, tracked) => tracked
+
+final case class TwiceTrackedCtx(tracked: TwiceTracked = TwiceTracked(0)) extends LexerCtx
