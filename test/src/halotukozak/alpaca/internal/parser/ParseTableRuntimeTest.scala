@@ -67,7 +67,7 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers with LoneEle
 
     val one = CalcLexer.tokenize("1").getOrThrow
     val error = errorsOf(CalcParser.parse(one :+ one.head)).loneElement
-    error.expected shouldBe List(EndOfInput, "+")
+    error.expected shouldBe List[String | EndOfInput](EndOfInput, "+")
     error.message should endWith("Expected one of: end of input, +")
   }
 

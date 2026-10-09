@@ -74,7 +74,7 @@ final class ReservedSymbolNamesTest extends AnyFunSuite with Matchers with LoneE
     tooLong.message shouldBe "Unexpected $ \"$\". Expected one of: end of input"
 
     val either = error("aa")
-    either.expected shouldBe List(EndOfInput, "$")
+    either.expected shouldBe List[String | EndOfInput](EndOfInput, "$")
     either.message should endWith(". Expected one of: end of input, $")
 
     error("").message shouldBe "Unexpected end of input. Expected one of: A, ε"
