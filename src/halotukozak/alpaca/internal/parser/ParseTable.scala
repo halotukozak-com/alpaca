@@ -42,13 +42,13 @@ private[parser] object ParseTable:
       case None => null
 
     /**
-     * Names of the terminals the input may continue with on `stateStack` (bottom first), sorted, with the end of the
-     * input shown as `$`, ahead of a token named `$`.
+     * The terminals the input may continue with on `stateStack` (bottom first), sorted by name, with the end of the
+     * input ahead of a token named `$`.
      *
      * LALR(1) merges lookaheads of states with the same core, so a state may reduce on a terminal that cannot follow
      * there. Each candidate is kept only if replaying the reductions on it reaches a shift or the accept.
      */
-    def expectedTerminals(stateStack: collection.IndexedSeq[Int]): List[String] =
+    def expectedTerminals(stateStack: collection.IndexedSeq[Int]): List[Terminal] =
       val reversedStack = stateStack.reverseIterator.toList
       table(reversedStack.head).keysIterator
         .collect:
@@ -57,7 +57,6 @@ private[parser] object ParseTable:
             terminal
         .toList
         .sortBy(terminal => (terminal.displayName, terminal != Symbol.EOF))
-        .map(_.displayName.raw)
 
     /** Whether `terminal` is shifted or accepted after the reductions it triggers on `reversedStack` (top first). */
     @tailrec private def leadsToShift(reversedStack: List[Int], terminal: Terminal): Boolean =

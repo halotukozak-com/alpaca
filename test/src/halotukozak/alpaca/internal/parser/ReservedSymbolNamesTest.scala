@@ -1,6 +1,7 @@
 package halotukozak
 package alpaca.internal.parser
 
+import halotukozak.alpaca.ParserError.EndOfInput
 import halotukozak.alpaca.{lexer, parse, rule, Result, Rule, Token}
 import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
@@ -69,12 +70,12 @@ final class ReservedSymbolNamesTest extends AnyFunSuite with Matchers with LoneE
 
     val tooLong = error("a$$")
     tooLong.unexpected.map(_.name: String) shouldBe Some("$")
-    tooLong.expected shouldBe List("$")
+    tooLong.expected shouldBe List(EndOfInput)
     tooLong.message shouldBe "Unexpected $ \"$\". Expected one of: end of input"
 
     val either = error("aa")
-    either.expected shouldBe List("$", "$")
-    either.message should endWith(". Expected one of: end of input, end of input")
+    either.expected shouldBe List[String | EndOfInput](EndOfInput, "$")
+    either.message should endWith(". Expected one of: end of input, $")
 
     error("").message shouldBe "Unexpected end of input. Expected one of: A, ε"
   }

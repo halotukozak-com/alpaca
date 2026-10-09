@@ -3,6 +3,7 @@ package alpaca
 package internal
 package parser
 
+import halotukozak.alpaca.ParserError.EndOfInput
 import halotukozak.alpaca.{lexer, rule, ParserCtx, ParserException, Result, Rule, Token}
 import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
@@ -66,7 +67,7 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers with LoneEle
 
     val one = CalcLexer.tokenize("1").getOrThrow
     val error = errorsOf(CalcParser.parse(one :+ one.head)).loneElement
-    error.expected shouldBe List("$", "+")
+    error.expected shouldBe List[String | EndOfInput](EndOfInput, "+")
     error.message should endWith("Expected one of: end of input, +")
   }
 
@@ -79,7 +80,8 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers with LoneEle
     val one = CalcLexer.tokenize("1").getOrThrow
     errorsOf(SumParser.parse(one :+ one.head)).loneElement.expected shouldBe List("+")
     errorsOf(SumParser.parse(one)).loneElement.expected shouldBe List("+")
-    errorsOf(SumParser.parse(CalcLexer.tokenize("1+2").getOrThrow :+ one.head)).loneElement.expected shouldBe List("$")
+    errorsOf(SumParser.parse(CalcLexer.tokenize("1+2").getOrThrow :+ one.head)).loneElement.expected shouldBe
+      List(EndOfInput)
   }
 
   test("a successful Result gives the value through every accessor") {
