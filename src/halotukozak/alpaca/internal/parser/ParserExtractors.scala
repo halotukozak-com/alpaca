@@ -133,19 +133,19 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
           ),
         ) =>
       val source = Source(pattern.pos)
-      val fresh = NonTerminal.fresh(element, "SeparatedBy", Some(separator))
-      val nonEmpty = NonTerminal.fresh(element, "SeparatedBy.nonEmpty", Some(separator))
+      val synthetic = NonTerminal.synthetic(element, "SeparatedBy", Some(separator))
+      val nonEmpty = NonTerminal.synthetic(element, "SeparatedBy.nonEmpty", Some(separator))
       (
-        symbol = fresh,
+        symbol = synthetic,
         binding = (bind = bind, adapt = identity),
         others = List(
           (
-            production = Production.Empty(fresh),
+            production = Production.Empty(synthetic),
             source = source,
             action = '{ emptyRepeatedAction },
           ),
           (
-            production = Production.NonEmpty(fresh, NEL(nonEmpty)),
+            production = Production.NonEmpty(synthetic, NEL(nonEmpty)),
             source = source,
             action = '{ reverseAction },
           ),
@@ -170,14 +170,14 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
 
     case pattern @ Extractor.Symbol(symbol, bind, Names.Option) =>
       val source = Source(pattern.pos)
-      val fresh = NonTerminal.fresh(symbol, "Option")
+      val synthetic = NonTerminal.synthetic(symbol, "Option")
       (
-        symbol = fresh,
+        symbol = synthetic,
         binding = (bind = bind, adapt = identity),
         others = List(
-          (production = Production.Empty(fresh), source = source, action = '{ noneAction }),
+          (production = Production.Empty(synthetic), source = source, action = '{ noneAction }),
           (
-            production = Production.NonEmpty(fresh, NEL(symbol)),
+            production = Production.NonEmpty(synthetic, NEL(symbol)),
             source = source,
             action = '{ someAction },
           ),
@@ -186,14 +186,14 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
 
     case pattern @ Extractor.Symbol(symbol, bind, Names.List) =>
       val source = Source(pattern.pos)
-      val fresh = NonTerminal.fresh(symbol, "List")
+      val synthetic = NonTerminal.synthetic(symbol, "List")
       (
-        symbol = fresh,
+        symbol = synthetic,
         binding = (bind = bind, adapt = v => '{ $v.asInstanceOf[List[?]].reverse }),
         others = List(
-          (production = Production.Empty(fresh), source = source, action = '{ emptyRepeatedAction }),
+          (production = Production.Empty(synthetic), source = source, action = '{ emptyRepeatedAction }),
           (
-            production = Production.NonEmpty(fresh, NEL(fresh, symbol)),
+            production = Production.NonEmpty(synthetic, NEL(synthetic, symbol)),
             source = source,
             action = '{ repeatedAction },
           ),

@@ -21,6 +21,25 @@ private[parser] trait Symbol extends Any:
   type IsEmpty <: Boolean
   def name: Printable
 
+  private[parser] def kind: String = this match
+    case _: NonTerminal => "nonterminal"
+    case _: Terminal => "terminal"
+
+  /** Whether the symbol is made by the parser rather than written by the user, e.g. `S'` or `Expr.List`. */
+  private[parser] def isSynthetic: Boolean = name.raw.contains(SyntheticInfix)
+
+  /**
+   * The name as the user wrote it: unencoded (`+`, not `$plus`), without the synthetic suffix (`$`, `ε`, `S'`),
+   * and EBNF-synthesized non-terminals without their uniqueness suffix (`Operation.List`).
+   */
+  private[parser] def displayName: Printable =
+    val raw = name.raw
+    if raw.endsWith(SyntheticInfix) then Printable(raw.dropRight(SyntheticInfix.length))
+    else
+      raw.indexOf(s"_${SyntheticInfix}_") match
+        case -1 => name
+        case end => Printable(raw.substring(0, end))
+
 /**
  * Represents a non-terminal symbol in the grammar.
  *
@@ -45,7 +64,7 @@ private[alpaca] sealed case class NonTerminal(name: Printable) extends AnyVal, S
    * @param separator the separator of a `SeparatedBy`
    * @return a non-terminal shown as `base.extractor`, with a name the same on every compilation
    */
-  def fresh(base: Symbol, extractor: String, separator: Option[Symbol] = None): NonTerminal & Symbol.NonEmpty =
+  def synthetic(base: Symbol, extractor: String, separator: Option[Symbol] = None): NonTerminal & Symbol.NonEmpty =
     val key = (base :: separator.toList).map(symbol => s"${symbol.kind}:${symbol.name.raw}").mkString(",")
     NonTerminal(Printable(s"${base.name.raw}.${extractor}_${SyntheticInfix}_$key"))
 
@@ -103,27 +122,6 @@ private[alpaca] sealed case class Terminal(name: Printable) extends AnyVal, Symb
    * (spontaneous generation).
    */
   val Dummy: Terminal { type IsEmpty = false } = Terminal(Printable("#" + SyntheticInfix))
-
-  extension (symbol: Symbol) {
-    private[parser] def kind: String = symbol match
-      case _: NonTerminal => "nonterminal"
-      case _: Terminal => "terminal"
-
-    /** Whether the symbol is made by the parser rather than written by the user, e.g. `S'` or `Expr.List`. */
-    private[parser] def isSynthetic: Boolean = symbol.name.raw.contains(SyntheticInfix)
-
-    /**
-     * The name as the user wrote it: unencoded (`+`, not `$plus`), without the synthetic suffix (`$`, `ε`, `S'`),
-     * and EBNF-synthesized non-terminals without their uniqueness suffix (`Operation.List`).
-     */
-    private[parser] def displayName: Printable =
-      val name = symbol.name.raw
-      if name.endsWith(SyntheticInfix) then Printable(name.dropRight(SyntheticInfix.length))
-      else
-        name.indexOf(s"_${SyntheticInfix}_") match
-          case -1 => symbol.name
-          case end => Printable(name.substring(0, end))
-  }
 
   /**
    * Symbols are shown by their [[displayName]], with characters that would not show up in a message escaped (see
