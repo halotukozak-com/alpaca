@@ -263,7 +263,7 @@ val lexemes =
 
 `LazyReader.from(path)` accepts an optional `Charset` parameter (defaults to UTF-8). Always close the reader in a `finally` block (or use `scala.util.Using.resource`) so the file handle is released even if tokenization throws.
 
-`tokenize` reads the file in chunks and drops consumed characters in 64K steps, so memory does not grow with the file size. Tokenizing consumes the reader: a second `tokenize` on the same `LazyReader` throws `IllegalStateException`, so create a new one per run.
+`tokenize` reads the file in chunks and drops consumed characters in 64K steps, so memory does not grow with the file size. Like the `Reader` it wraps, a `LazyReader` is consumed as it is read, so create a new one per run.
 
 ## Token Value Types
 

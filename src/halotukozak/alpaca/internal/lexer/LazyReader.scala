@@ -17,7 +17,7 @@ import scala.util.Using
  * entirely into memory. It buffers characters as they are accessed and
  * can efficiently skip over processed characters.
  *
- * Tokenizing consumes the reader, so it can be tokenized only once; create it with [[LazyReader.from]].
+ * Like the `Reader` it wraps, it is consumed as it is read. Create it with [[LazyReader.from]].
  *
  * @param reader the underlying Reader to read from
  * @param size   the exact number of chars `reader` yields
@@ -27,7 +27,6 @@ final class LazyReader private[alpaca] (private val reader: Reader, private var 
   private val buffer = mutable.ArrayDeque.empty[Char]
   private val chunk = new Array[Char](8192)
   private var offset: Int = 0 // logical offset into buffer
-  private var tokenized = false
 
   /**
    * Gets the character at the specified position.
@@ -81,16 +80,6 @@ final class LazyReader private[alpaca] (private val reader: Reader, private var 
     if offset > 65536 then
       buffer.remove(0, offset)
       offset = 0
-    this
-
-  /**
-   * Marks this reader as taken by a `tokenize` call.
-   *
-   * @throws IllegalStateException if it has already been tokenized
-   */
-  private[alpaca] def claim(): LazyReader =
-    if tokenized then throw IllegalStateException("A LazyReader can be tokenized only once")
-    tokenized = true
     this
 
   override def toString: String = subSequence(0, length).toString
