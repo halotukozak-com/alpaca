@@ -42,15 +42,39 @@ private[parser] object ParseTable:
       case None => null
 
     /**
-     * Names of the terminals that have an action in `state` -- what the input may continue with there -- sorted, with
-     * the end of the input shown as `$`, ahead of a token named `$`.
+     * Names of the terminals the input may continue with on `stateStack` (bottom first), sorted, with the end of the
+     * input shown as `$`, ahead of a token named `$`.
+     *
+     * LALR(1) merges lookaheads of states with the same core, so a state may reduce on a terminal that cannot follow
+     * there. Each candidate is kept only if replaying the reductions on it reaches a shift or the accept.
      */
-    def expectedTerminals(state: Int): List[String] =
-      table(state).keysIterator
-        .collect { case terminal: Terminal if terminal != Symbol.Dummy && terminal != Symbol.Empty => terminal }
+    def expectedTerminals(stateStack: Iterable[Int]): List[String] =
+      val reversedStack = stateStack.toList.reverse
+      table(reversedStack.head).keysIterator
+        .collect:
+          case terminal: Terminal
+              if terminal != Symbol.Dummy && terminal != Symbol.Empty && table.leadsToShift(reversedStack, terminal) =>
+            terminal
         .toList
         .sortBy(terminal => (terminal.displayName, terminal != Symbol.EOF))
         .map(_.displayName.raw)
+
+    /** Whether `terminal` is shifted or accepted after the reductions it triggers on `reversedStack` (top first). */
+    @tailrec private def leadsToShift(reversedStack: List[Int], terminal: Terminal): Boolean =
+      table.get(reversedStack.head, terminal) match
+        case null => false
+        case Shift(_) => true
+        case Reduction(Production.NonEmpty(lhs, rhs, _)) =>
+          val rest = reversedStack.drop(rhs.size)
+          if lhs == Symbol.Start && rest.head == 0 then true
+          else table.leadsToShift(table.goto(rest.head, lhs) :: rest, terminal)
+        case Reduction(Production.Empty(lhs, _)) =>
+          if lhs == Symbol.Start && reversedStack.head == 0 then true
+          else table.leadsToShift(table.goto(reversedStack.head, lhs) :: reversedStack, terminal)
+
+    private def goto(state: Int, nonTerminal: NonTerminal): Int =
+      val Shift(gotoState) = table(state, nonTerminal).runtimeChecked
+      gotoState
 
     private def allSymbols: List[Symbol] =
       table.iterator.flatMap(_.keysIterator).distinct.toList

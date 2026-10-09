@@ -83,7 +83,7 @@ abstract class Parser[Ctx <: ParserCtx](
       val action = tables.parseTable.get(stateStack.last, nextSymbol)
       if action == null then {
         val last = if remaining.isEmpty then lexemes.lastOption else None
-        val error = ParserError(remaining.headOption, tables.parseTable.expectedTerminals(stateStack.last), last)
+        val error = ParserError(remaining.headOption, tables.parseTable.expectedTerminals(stateStack), last)
         errors += error
         // the end of the input cannot be skipped
         errorHandling(ctx, error) match
