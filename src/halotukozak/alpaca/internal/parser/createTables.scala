@@ -170,7 +170,7 @@ object Tables:
         .collect:
           case rule: ValOrDefDef if rule.tpt.tpe <:< TypeRepr.of[Rule[?]] => rule
 
-      val table = rules
+      val definitions = rules
         .flatMap:
           case rule: DefDef =>
             error(
@@ -198,6 +198,9 @@ object Tables:
           // a rule reported as unreadable stops the expansion before the errors that would only follow from its
           // productions missing (e.g. "No root rule defined")
           abortOnErrors()
+
+      val table = definitions
+        .distinctBy(_.production)
         .tap: table =>
           // csv may be not the best format for this due to the commas
           logger.toFile(s"${parserName.raw}/actionTable.dbg.csv", true)(
@@ -214,9 +217,24 @@ object Tables:
           given MCodec[Production] = Production.exportCodec(sources)
           JsonExport.maybeWrite(exportName, "productions", productions)
 
+      // two equal productions would share one action, so each one the user writes must be new; the ones desugared from
+      // the same EBNF extractor are equal by design
+      for
+        case first :: others <- definitions
+          .filter(definition => definition.production.name == null && !definition.production.lhs.isSynthetic)
+          .groupBy(_.production)
+          .values
+          .toList
+        duplicate <- others
+      do
+        error(
+          show"Production ${duplicate.production} is already defined at line ${first.source.line + 1}",
+          duplicate.source.toPosition.getOrElse(Position.ofMacroExpansion),
+        )
+
       // a name has to pick out a single production whether or not the resolutions refer to it
       for
-        case first :: others <- table.filter(_.production.name != null).groupBy(_.production.name).values.toList
+        case first :: others <- definitions.filter(_.production.name != null).groupBy(_.production.name).values.toList
         duplicate <- others
       do
         error(

@@ -43,3 +43,15 @@ final class ProductionNameDuplicatesTest extends AnyFunSuite with Matchers with 
     """).loneElement.message shouldBe
       "Production name 'op' is already used by root -> root PLUS root (op); give each production its own name"
   }
+
+  test("a production defined twice is reported at the second definition") {
+    val error = typeCheckErrors("""
+    object DuplicateProductionParser extends Parser:
+      val root: Rule[Int] = rule(
+        { case DuplicateNameLexer.NUM(_) => 1 },
+        { case DuplicateNameLexer.NUM(_) => 2 },
+      )
+    """).loneElement
+    error.message shouldBe "Production root -> NUM is already defined at line 4"
+    error.lineContent.trim shouldBe "{ case DuplicateNameLexer.NUM(_) => 2 },"
+  }

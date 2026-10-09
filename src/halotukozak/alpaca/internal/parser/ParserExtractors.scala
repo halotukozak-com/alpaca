@@ -122,7 +122,8 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
       case Extractor.Terminal(name, bind, extractor) => (parser.Terminal(Printable(name)), bind, extractor)
       case Extractor.NonTerminal(name, bind, extractor) => (parser.NonTerminal(Printable(name)), bind, extractor)
 
-  // helper productions desugared from EBNF are sourced at the pattern they come from
+  // helper productions desugared from EBNF are sourced at the pattern they come from; repeated uses of an extractor
+  // repeat them, and only the first is kept
   {
     case pattern @ skipTypedOrTest(
           Unapply(
@@ -132,8 +133,8 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
           ),
         ) =>
       val source = Source(pattern.pos)
-      val fresh = NonTerminal.fresh(element, "SeparatedBy", pattern.pos.start)
-      val nonEmpty = NonTerminal.fresh(element, "SeparatedBy.nonEmpty", pattern.pos.start)
+      val fresh = NonTerminal.fresh(element, "SeparatedBy", Some(separator))
+      val nonEmpty = NonTerminal.fresh(element, "SeparatedBy.nonEmpty", Some(separator))
       (
         symbol = fresh,
         binding = (bind = bind, adapt = identity),
@@ -169,7 +170,7 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
 
     case pattern @ Extractor.Symbol(symbol, bind, Names.Option) =>
       val source = Source(pattern.pos)
-      val fresh = NonTerminal.fresh(symbol, "Option", pattern.pos.start)
+      val fresh = NonTerminal.fresh(symbol, "Option")
       (
         symbol = fresh,
         binding = (bind = bind, adapt = identity),
@@ -185,7 +186,7 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
 
     case pattern @ Extractor.Symbol(symbol, bind, Names.List) =>
       val source = Source(pattern.pos)
-      val fresh = NonTerminal.fresh(symbol, "List", pattern.pos.start)
+      val fresh = NonTerminal.fresh(symbol, "List")
       (
         symbol = fresh,
         binding = (bind = bind, adapt = v => '{ $v.asInstanceOf[List[?]].reverse }),

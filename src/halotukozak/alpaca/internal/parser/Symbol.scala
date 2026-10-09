@@ -35,19 +35,19 @@ private[alpaca] sealed case class NonTerminal(name: Printable) extends AnyVal, S
 @publicInBinary private[alpaca] object NonTerminal:
 
   /**
-   * Creates a fresh non-terminal symbol with a unique name.
+   * Creates the non-terminal an EBNF extractor stands for.
    *
-   * This is used internally to create temporary non-terminals for
-   * EBNF operators like optional and repeated patterns.
+   * This is used internally to create the non-terminals for EBNF operators like optional and repeated patterns. Every
+   * use of the same extractor on the same symbols gets the same non-terminal, so its productions are added once.
    *
    * @param base      the symbol the extractor is applied to
    * @param extractor the extractor the non-terminal stands for, e.g. `List`
-   * @param offset    the offset of the extractor's pattern in the parser's source file
-   * @return a non-terminal shown as `base.extractor`, with a name unique within the parser and the same on every
-   *         compilation
+   * @param separator the separator of a `SeparatedBy`
+   * @return a non-terminal shown as `base.extractor`, with a name the same on every compilation
    */
-  def fresh(base: Symbol, extractor: String, offset: Int): NonTerminal & Symbol.NonEmpty =
-    NonTerminal(Printable(s"${base.name.raw}.${extractor}_${SyntheticInfix}_$offset"))
+  def fresh(base: Symbol, extractor: String, separator: Option[Symbol] = None): NonTerminal & Symbol.NonEmpty =
+    val key = (base :: separator.toList).map(symbol => s"${symbol.kind}:${symbol.name.raw}").mkString(",")
+    NonTerminal(Printable(s"${base.name.raw}.${extractor}_${SyntheticInfix}_$key"))
 
   /**
    * Creates a non-terminal symbol from a name.
@@ -104,7 +104,14 @@ private[alpaca] sealed case class Terminal(name: Printable) extends AnyVal, Symb
    */
   val Dummy: Terminal { type IsEmpty = false } = Terminal(Printable("#" + SyntheticInfix))
 
-  extension (symbol: Symbol)
+  extension (symbol: Symbol) {
+    private[parser] def kind: String = symbol match
+      case _: NonTerminal => "nonterminal"
+      case _: Terminal => "terminal"
+
+    /** Whether the symbol is made by the parser rather than written by the user, e.g. `S'` or `Expr.List`. */
+    private[parser] def isSynthetic: Boolean = symbol.name.raw.contains(SyntheticInfix)
+
     /**
      * The name as the user wrote it: unencoded (`+`, not `$plus`), without the synthetic suffix (`$`, `ε`, `S'`),
      * and EBNF-synthesized non-terminals without their uniqueness suffix (`Operation.List`).
@@ -116,6 +123,7 @@ private[alpaca] sealed case class Terminal(name: Printable) extends AnyVal, Symb
         name.indexOf(s"_${SyntheticInfix}_") match
           case -1 => symbol.name
           case end => Printable(name.substring(0, end))
+  }
 
   /**
    * Symbols are shown by their [[displayName]], with characters that would not show up in a message escaped (see
