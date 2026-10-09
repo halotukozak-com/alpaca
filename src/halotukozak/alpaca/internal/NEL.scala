@@ -2,6 +2,7 @@ package halotukozak
 package alpaca.internal
 
 import scala.annotation.publicInBinary
+import scala.quoted.*
 
 /**
  * An opaque type representing a non-empty sequence.

@@ -11,6 +11,7 @@ import halotukozak.alpaca.internal.parser.{Tables, *}
 import scala.NamedTuple.AnyNamedTuple
 import scala.annotation.{compileTimeOnly, publicInBinary, tailrec}
 import scala.collection.mutable
+import scala.quoted.*
 
 /**
  * Base class for parsers.

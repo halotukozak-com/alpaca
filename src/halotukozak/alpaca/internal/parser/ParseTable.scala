@@ -8,6 +8,7 @@ import halotukozak.mcodec.MCodec
 
 import scala.annotation.tailrec
 import scala.collection.mutable
+import scala.quoted.*
 
 /**
  * An opaque type representing the LR parse table.

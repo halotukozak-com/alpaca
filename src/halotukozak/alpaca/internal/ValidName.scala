@@ -1,6 +1,8 @@
 package halotukozak
 package alpaca.internal
 
+import scala.quoted.*
+
 /**
  * Type alias for valid token names.
  *

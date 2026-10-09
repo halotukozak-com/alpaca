@@ -5,7 +5,7 @@ import halotukozak.mcodec.MCodec
 
 import scala.NamedTuple.{AnyNamedTuple, NamedTuple}
 import scala.collection.mutable
-import scala.quoted.{FromExprFactory, ToExprFactory}
+import scala.quoted.*
 
 // $COVERAGE-OFF$
 
