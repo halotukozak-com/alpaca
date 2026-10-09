@@ -60,6 +60,16 @@ Patterns use Java-style regex syntax, but they are parsed by Alpaca's own [`rege
 Invalid regex pattern for token "T": unsupported regex feature `lookbehind` (at position 3 in "(?<=a)b")
 ```
 
+### Empty Matches
+
+A pattern that can match the empty string, such as `"a*"` or `"[0-9]*"`, would let the lexer match without moving forward. It is a compile-time error at its rule, for ignored tokens too:
+
+```
+Token "A" can match the empty string ("a*"); a token must consume at least one character
+```
+
+Require at least one character, e.g. `"a+"` instead of `"a*"`.
+
 ### Guards Not Supported
 
 Pattern guards (`case "regex" if condition =>`) are not supported in lexer rules. The workaround is to move the condition into the rule body:

@@ -31,6 +31,7 @@ enum Result[+Ctx, +A, +E]:
   /**
    * Some input was not accepted; `errors` says what and where, in input order. `recovered` is the value produced
    * anyway when an error-handling strategy skipped past the errors, `None` when the run stopped at the first one.
+   * `errors` is never empty, and as a `::` it is a plain `List`.
    */
   case Failure(ctx: Ctx, recovered: Option[A], errors: ::[E])
 

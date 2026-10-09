@@ -28,7 +28,5 @@ object Line:
 
   def apply(n: Int): Line = n
 
-  /** Increments on a newline match; other matches leave it unchanged. */
-  given Tracking[Line] =
-    case ("\n", line) => line + 1
-    case (_, line) => line
+  /** Advances by the number of `\n`s in the match, so `\r\n` and newlines inside a longer match count too. */
+  given Tracking[Line] = (matched, line) => line + matched.count(_ == '\n')
