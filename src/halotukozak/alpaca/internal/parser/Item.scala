@@ -5,6 +5,8 @@ package parser
 
 import halotukozak.alpaca.internal.{AlgorithmError, DebugSettings, Showable}
 
+import scala.annotation.tailrec
+
 /**
  * Represents an LR(1) item in the parser's state machine.
  *
@@ -57,16 +59,20 @@ private[parser] final case class Item(
     case _: Production.Empty => true
 
   /**
-   * Computes the set of possible next terminals for this item.
+   * Computes the set of possible next terminals for this item: FIRST of the symbols after the next one, followed by the
+   * lookahead. Never contains [[Symbol.Empty]].
    *
    * @param firstSet the FIRST set calculator
    * @return the set of terminals that could appear next
    */
   def nextTerminals(firstSet: FirstSet): Set[Terminal] = production match
     case Production.NonEmpty(lhs, rhs, name) =>
-      rhs.lift(dotPosition + 1) match
-        case Some(symbol: Symbol) => firstSet.first(symbol)
-        case None => Set(lookAhead)
+      @tailrec def loop(rest: Seq[Symbol], acc: Set[Terminal]): Set[Terminal] = rest match
+        case symbol +: tail =>
+          val first = firstSet.first(symbol)
+          if first.contains(Symbol.Empty) then loop(tail, acc ++ (first - Symbol.Empty)) else acc ++ first
+        case _ => acc + lookAhead
+      loop(rhs.drop(dotPosition + 1), Set.empty)
     case _: Production.Empty => throw AlgorithmError(show"$this is an empty production, has no next terminals")
 
 private[parser] object Item:
