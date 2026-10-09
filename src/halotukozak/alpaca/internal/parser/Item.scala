@@ -67,12 +67,12 @@ private[parser] final case class Item(
    */
   def nextTerminals(firstSet: FirstSet): Set[Terminal] = production match
     case Production.NonEmpty(lhs, rhs, name) =>
-      @tailrec def loop(rest: Seq[Symbol], acc: Set[Terminal]): Set[Terminal] = rest match
-        case symbol +: tail =>
-          val first = firstSet.first(symbol)
-          if first.contains(Symbol.Empty) then loop(tail, acc ++ (first - Symbol.Empty)) else acc ++ first
-        case _ => acc + lookAhead
-      loop(rhs.drop(dotPosition + 1), Set.empty)
+      @tailrec def loop(index: Int, acc: Set[Terminal]): Set[Terminal] =
+        if index >= rhs.size then acc + lookAhead
+        else
+          val first = firstSet.first(rhs(index))
+          if first.contains(Symbol.Empty) then loop(index + 1, acc ++ (first - Symbol.Empty)) else acc ++ first
+      loop(dotPosition + 1, Set.empty)
     case _: Production.Empty => throw AlgorithmError(show"$this is an empty production, has no next terminals")
 
 private[parser] object Item:
