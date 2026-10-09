@@ -7,7 +7,7 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.compiletime.testing.{typeCheckErrors, Error}
 
-final case class AssigningCtx(count: Int = 0) extends LexerCtx
+final case class AssigningCtx(count: Int = 0, other: Int = 0) extends LexerCtx
 
 final class LexerMacroErrorsTest extends AnyFunSuite with Matchers with LoneElement:
 
@@ -89,6 +89,22 @@ final class LexerMacroErrorsTest extends AnyFunSuite with Matchers with LoneElem
     """).loneElement
     error.message shouldBe NotALiteral
     error.lineContent.trim shouldBe "case x @ (\"a\" | _) => Token[x.type]"
+  }
+
+  test("an assignment nested in another one inside a token's value is reported too") {
+    val errors = typeCheckErrors("""
+    lexer[AssigningCtx]:
+      case "a" =>
+        Token["A"]({
+          ctx.count = {
+            ctx.other = 1
+            2
+          }
+          ctx.count
+        })
+    """)
+    errors.map(_.message).distinct shouldBe List("Assign context fields before `Token[...]`, not inside its value")
+    errors.map(_.lineContent.trim) should contain theSameElementsAs List("ctx.count = {", "ctx.other = 1")
   }
 
   test("assigning a context field inside a token's value is reported at the assignment") {
