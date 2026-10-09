@@ -135,3 +135,15 @@ final class LazyReaderTest extends AnyFunSuite:
       assert(Lexer.tokenize(lazyReader).getOrThrow.map(_.text) == List("ab", "cd"))
       assert(lazyReader.length == 0)
   }
+
+  test("tokenizing a LazyReader a second time throws") {
+    val Lexer = lexer:
+      case w @ "[a-z]+" => Token["WORD"](w)
+      case " " => Token.Ignored
+
+    withLazyReader("ab cd"): lazyReader =>
+      Lexer.tokenize(lazyReader): Unit
+      val exception = intercept[IllegalStateException]:
+        Lexer.tokenize(lazyReader)
+      assert(exception.getMessage == "A LazyReader can be tokenized only once")
+  }

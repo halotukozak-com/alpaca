@@ -55,12 +55,16 @@ import scala.reflect.NameTransformer
  * inlined away and dropped (see the `aliases` set built up in the `Block` case
  * below) rather than left in place with a now-stale declared type.
  *
+ * A mutation can only be threaded through a `var`: when `ctxVar` is a `val`, as the context parameter of a token's
+ * value is, each one is reported as an error instead, since the value can't hand an updated context back.
+ *
  * @param ctxVar the local `var` (of type `Ctx`) that accumulates the updates
  * @param body the rule statements to rewrite
  * @param owner the owner to use when transforming the body
  */
-private[lexer] def rewriteCtxMutations(
-  using quotes: Quotes,
+private[lexer] def rewriteCtxMutations(using
+  Quotes,
+  Diagnostics,
 )(
   ctxVar: quotes.reflect.Symbol,
 )(
@@ -118,6 +122,9 @@ private[lexer] def rewriteCtxMutations(
 
   object rewriter extends TreeMap:
     override def transformTerm(tree: Term)(owner: Symbol): Term = tree match
+      case SetterCall(_, _) if !ctxVar.flags.is(Flags.Mutable) =>
+        error(show"Assign context fields before `Token[...]`, not inside its value", tree.pos)
+        Literal(UnitConstant())
       case SetterCall(field, rhs) =>
         // `carry` builds its result via a fresh `'{...}` quote, which re-homes the whole
         // spliced-in subtree (including any lambda nested in `rhs`, e.g. `s.count(_ == '\n')`)

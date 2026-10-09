@@ -54,11 +54,12 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
    * @param input the input to tokenize
    * @return the lexemes and the final lexer context, or the errors if any input did not match; with a recovering
    *         strategy the lexemes collected despite the errors are the failure's `recovered` value
+   * @throws IllegalStateException if `input` is a [[LazyReader]] that has already been tokenized
    */
   final def tokenize(input: CharSequence): Result[Ctx, List[Lexeme], LexerError] = {
     var globalCtx = initialCtx()
     globalCtx.text = input match
-      case reader: LazyReader => reader
+      case reader: LazyReader => reader.claim()
       case _ => OffsetCharSequence(input)
 
     val acc = mutable.ListBuffer.empty[Lexeme]
