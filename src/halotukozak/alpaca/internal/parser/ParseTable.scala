@@ -64,13 +64,10 @@ private[parser] object ParseTable:
       table.get(reversedStack.head, terminal) match
         case null => false
         case Shift(_) => true
-        case Reduction(Production.NonEmpty(lhs, rhs, _)) =>
-          val rest = reversedStack.drop(rhs.size)
-          if lhs == Symbol.Start && rest.head == 0 then true
-          else table.leadsToShift(table.goto(rest.head, lhs) :: rest, terminal)
-        case Reduction(Production.Empty(lhs, _)) =>
-          if lhs == Symbol.Start && reversedStack.head == 0 then true
-          else table.leadsToShift(table.goto(reversedStack.head, lhs) :: reversedStack, terminal)
+        case Reduction(production) =>
+          val rest = reversedStack.drop(production.size)
+          if production.lhs == Symbol.Start && rest.head == 0 then true
+          else table.leadsToShift(table.goto(rest.head, production.lhs) :: rest, terminal)
 
     private def goto(state: Int, nonTerminal: NonTerminal): Int =
       val Shift(gotoState) = table(state, nonTerminal).runtimeChecked
