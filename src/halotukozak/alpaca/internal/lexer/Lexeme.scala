@@ -38,6 +38,19 @@ final class Lexeme[+Name <: ValidName, +Value] private[alpaca] (
 
   def selectDynamic(name: String): Any = contextField(fieldNames, fieldValues, name)
 
+  override def equals(that: Any): Boolean = that match
+    case that: Lexeme[?, ?] =>
+      name == that.name && value == that.value && text == that.text && fieldNames.sameElements(that.fieldNames) &&
+      fieldValues.sameElements(that.fieldValues)
+    case _ => false
+
+  override def hashCode: Int = (name, value, text, fieldNames.toSeq, fieldValues.toSeq).##
+
+  override def toString: String =
+    val fields =
+      fieldNames.lazyZip(fieldValues).map((fieldName, fieldValue) => s"$fieldName = ${String.valueOf(fieldValue)}")
+    (Array(name, String.valueOf(value), s"\"$text\"") ++ fields).mkString("Lexeme(", ", ", ")")
+
 private[alpaca] object Lexeme:
   /**
    * A special end-of-file lexeme used to signal the end of input.

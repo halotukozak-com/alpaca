@@ -20,6 +20,27 @@ import scala.reflect.NameTransformer
   given diagnostics: Diagnostics = Diagnostics()
   val initialCtx = fromDefaults[Ctx]
 
+  // a context field is read by name on lexemes and lexer errors, so a public member with its name would shadow it
+  val shadowingMembers = List(TypeRepr.of[Lexeme[?, ?]].typeSymbol, TypeRepr.of[alpaca.LexerError].typeSymbol)
+    .flatMap: owner =>
+      (owner.declaredFields ++ owner.declaredMethods)
+        .filterNot(member =>
+          member.flags.is(Flags.Private) || member.flags.is(Flags.Protected) || member.privateWithin.isDefined ||
+            member.flags.is(Flags.Override) || member.flags.is(Flags.Synthetic) || member.isClassConstructor,
+        )
+        .map(member => member.name -> show"${owner.name.showRaw}.${member.name.showRaw}")
+    .distinctBy(_._1)
+    .toMap
+
+  for
+    field <- TypeRepr.of[Ctx].typeSymbol.caseFields
+    member <- shadowingMembers.get(field.name)
+  do
+    error(
+      show"Context field `${Printable(field.name)}` clashes with `$member`; rename it",
+      field.pos.getOrElse(Position.ofMacroExpansion),
+    )
+
   val Lambda(oldScope :: Nil, Lambda(_, Match(_, cases: List[CaseDef]))) = rules.asTerm.underlying.runtimeChecked
 
   if cases.isEmpty then errorAndAbort(show"Lexer definition must contain at least one case", rules.asTerm.pos)
@@ -33,7 +54,7 @@ import scala.reflect.NameTransformer
         override def transformTerm(t: Term)(owner: Symbol): Term = t match
           case _ if t.symbol == oldScope.symbol => '{ LexerScope.refl[Ctx](${ newCtx.asExprOf[Ctx] }) }.asTerm
           case _ if !tree.symbol.isNoSymbol && t.symbol == tree.symbol =>
-            '{ ${ newCtx.asExprOf[Ctx] }.lastRawMatched }.asTerm
+            '{ ${ newCtx.asExprOf[Ctx] }.engineLastRawMatched }.asTerm
           case block: Block => super.transformTerm(block.changeOwner(owner))(owner)
           case t if t.isExpr =>
             t.asExpr match
@@ -94,7 +115,7 @@ import scala.reflect.NameTransformer
                   DefinedToken[name, Ctx, String, Lexeme[name, String] withFields NamedTuple.From[Ctx]](
                     ${ Expr(tokenInfo) },
                     $ctxManipulation,
-                    _.lastRawMatched,
+                    _.engineLastRawMatched,
                   )
                 },
                 regex = regex,

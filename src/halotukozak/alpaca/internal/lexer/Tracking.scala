@@ -104,7 +104,7 @@ object Tracking:
             val values = c.productIterator.toArray
             steps.foreach(step => values(step.index) = ctx.productElement(step.index))
             val name = info.name.raw
-            c.lastLexeme = Lexeme(
+            c.engineLastLexeme = Lexeme(
               name = name,
               value = remapping(c),
               text = raw,

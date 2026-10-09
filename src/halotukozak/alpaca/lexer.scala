@@ -173,21 +173,21 @@ trait LexerCtx extends Product, Selectable:
    * @note This is for internal use only and should not be accessed directly.
    */
   @publicInBinary
-  private[alpaca] var lastLexeme: Lexeme[?, ?] | Null = compiletime.uninitialized
+  private[alpaca] var engineLastLexeme: Lexeme[?, ?] | Null = compiletime.uninitialized
 
   /**
    * The raw string that was matched for the last token.
    * @note This is for internal use only and should not be accessed directly.
    */
   @publicInBinary
-  private[alpaca] var lastRawMatched: String = compiletime.uninitialized
+  private[alpaca] var engineLastRawMatched: String = compiletime.uninitialized
 
   /**
    * The remaining text to be tokenized.
    * @note This is for internal use only and should not be accessed directly.
    */
   @publicInBinary
-  private[alpaca] var text: CharSequence = compiletime.uninitialized
+  private[alpaca] var engineInput: CharSequence = compiletime.uninitialized
 
   /**
    * A copy of at most the next `n` characters of the input still to be tokenized, fewer at its end.
@@ -201,7 +201,7 @@ trait LexerCtx extends Product, Selectable:
    */
   final def peek(n: Int): String =
     require(n >= 0, s"peek length must be non-negative, got $n")
-    text.subSequence(0, math.min(n, text.length)).toString
+    engineInput.subSequence(0, math.min(n, engineInput.length)).toString
 
   /**
    * Propagates the engine-internal bookkeeping fields above from `prev` onto
@@ -214,9 +214,9 @@ trait LexerCtx extends Product, Selectable:
    */
   @publicInBinary
   private[alpaca] def carryEngineStateFrom(prev: LexerCtx): this.type =
-    text = prev.text
-    lastRawMatched = prev.lastRawMatched
-    lastLexeme = prev.lastLexeme
+    engineInput = prev.engineInput
+    engineLastRawMatched = prev.engineLastRawMatched
+    engineLastLexeme = prev.engineLastLexeme
     this
 
   /**
@@ -246,7 +246,7 @@ object LexerCtx:
    * tracking fragments.
    *
    * This is the most commonly used context and provides useful information
-   * for error reporting. The `text` field is inherited from [[LexerCtx]].
+   * for error reporting.
    *
    * `column` and `line` are immutable `val`s of a subtype of `Int`:
    * `Tracking.materialize` finds each fragment's `given Tracking` and threads a
