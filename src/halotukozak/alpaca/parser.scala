@@ -299,33 +299,33 @@ type ConflictResolution
 extension (@unused inline first: Production | Token[?, ?, ?]) {
 
   /**
-   * Resolves the conflicts between this production or token and each of `second` in favour of `second`: the
+   * Resolves the conflicts between this production or token and each of `others` in favour of `others`: the
    * reverse of [[before]]. `production.plus.after(CalcLexer.TIMES)` shifts `*` instead of reducing `plus`, so `*`
    * binds tighter than `+`.
    *
    * This is compile-time only and can be used only inside [[resolutions]].
    *
-   * @param second the productions and tokens that win over this one
+   * @param others the productions and tokens that win over this one
    * @return a conflict resolution rule
    */
   @compileTimeOnly(RuleOnly)
-  inline infix def after[P <: parser.Parser[?]: ResolutionScope](@unused inline second: (Production | Token[?, ?, ?])*)
+  inline infix def after[P <: parser.Parser[?]: ResolutionScope](@unused inline others: (Production | Token[?, ?, ?])*)
     : ConflictResolution =
     null.asInstanceOf[ConflictResolution]
 
   /**
-   * Resolves the conflicts between this production or token and each of `second` in favour of this one: a production
-   * is reduced rather than shifting a token of `second` or reducing a production of `second`; a token is shifted
-   * rather than reducing a production of `second`. `production.plus.before(CalcLexer.PLUS)` reduces `1 + 2` before
+   * Resolves the conflicts between this production or token and each of `others` in favour of this one: a production
+   * is reduced rather than shifting a token of `others` or reducing a production of `others`; a token is shifted
+   * rather than reducing a production of `others`. `production.plus.before(CalcLexer.PLUS)` reduces `1 + 2` before
    * shifting the next `+`, so `+` is left-associative.
    *
    * This is compile-time only and can be used only inside [[resolutions]].
    *
-   * @param second the productions and tokens this one wins over
+   * @param others the productions and tokens this one wins over
    * @return a conflict resolution rule
    */
   @compileTimeOnly(RuleOnly)
-  inline infix def before[P <: parser.Parser[?]: ResolutionScope](@unused inline second: (Production | Token[?, ?, ?])*)
+  inline infix def before[P <: parser.Parser[?]: ResolutionScope](@unused inline others: (Production | Token[?, ?, ?])*)
     : ConflictResolution =
     null.asInstanceOf[ConflictResolution]
 }

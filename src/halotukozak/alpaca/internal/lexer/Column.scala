@@ -5,8 +5,8 @@ package lexer
 
 /**
  * A context fragment that tracks the current 1-based column within the line,
- * counted in Unicode code points (an emoji is one column), resetting to 1 on a
- * newline.
+ * counted in Unicode code points (an emoji is one column), restarting after
+ * every `\n`.
  *
  * Use it as a field of a lexer context:
  * {{{
@@ -33,7 +33,11 @@ object Column:
 
   def apply(n: Int): Column = n
 
-  /** Resets to 1 on a newline, otherwise advances by the number of code points matched. */
-  given Tracking[Column] =
-    case ("\n", _) => 1
-    case (matched, column) => column + matched.codePointCount(0, matched.length)
+  /**
+   * After a match containing a `\n`: 1 plus the code points after its last `\n`. Otherwise advances by the number of
+   * code points matched.
+   */
+  given Tracking[Column] = (matched, column) =>
+    matched.lastIndexOf('\n') match
+      case -1 => column + matched.codePointCount(0, matched.length)
+      case lastNewline => 1 + matched.codePointCount(lastNewline + 1, matched.length)

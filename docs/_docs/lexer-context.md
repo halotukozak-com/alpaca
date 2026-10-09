@@ -24,10 +24,10 @@ final case class Default(
 ) extends LexerCtx
 ```
 
-- `column` -- 1-based column within the current line, counted in Unicode code points (an emoji is one column), advanced by the matched text and reset to 1 when a token matches exactly `"\n"`
-- `line` -- 1-based line number, incremented when a token matches exactly `"\n"`
+- `column` -- 1-based column within the current line, counted in Unicode code points (an emoji is one column), advanced by the matched text and restarted after every `\n` in it
+- `line` -- 1-based line number, advanced by every `\n` in the matched text
 
-> **Note:** the built-in trackers look at the whole matched text, not at individual characters. A token that matches `"\n"` together with other characters (e.g. `case "\\s+" => Token.Ignored` matching `" \n  "`) does not advance `line`. If you need line numbers, give newlines their own pattern -- `case "\n" => Token.Ignored` -- before any broader whitespace pattern, and keep that pattern from matching `\n` (e.g. `"[ \t]+"`).
+Newlines are counted wherever they appear in a match, so `case "\\s+" => Token.Ignored` matching `" \n  "` advances `line` by one and leaves `column` at 3. A Windows line ending `\r\n` counts once, through its `\n`.
 
 `Column` and `Line` are opaque subtypes of `Int`, so `ctx.column` and `ctx.line` read as plain `Int`s everywhere. Each carries a `given Tracking` that the lexer macro finds and applies after every match.
 
@@ -162,9 +162,9 @@ val lexemes = BrainLexer.tokenize("[+[+]]").getOrThrow
 
 Alpaca ships two ready-made tracking fields, both re-exported from `halotukozak.alpaca`:
 
-**`Column`** -- an opaque `Int` that advances by the number of code points matched after each token and resets to 1 when the matched text is exactly `"\n"`.
+**`Column`** -- an opaque `Int` that advances by the number of code points matched after each token; when the match contains a `\n`, it becomes 1 plus the code points after the last one.
 
-**`Line`** -- an opaque `Int` that increments when the matched text is exactly `"\n"`.
+**`Line`** -- an opaque `Int` that advances by the number of `\n`s in each match.
 
 Each is a plain case-class field with a `given Tracking` in its companion. Use either one, both, or neither. `LexerCtx.Default` uses both. Like any context field, they can be called anything, and lexemes and `LexerError`s carry them under that name. To add them to a custom context:
 

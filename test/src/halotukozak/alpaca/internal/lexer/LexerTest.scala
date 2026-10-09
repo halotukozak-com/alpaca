@@ -324,6 +324,71 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
     lexed.ctx.column shouldBe 4
   }
 
+  test("line and column count every newline inside a longer match, including \\r\\n") {
+    val Lexer = lexer:
+      case id @ "[a-zA-Z]+" => Token["IDENTIFIER"](id)
+      case "\\s+" => Token.Ignored
+
+    val lexed = Lexer.tokenize("abc \n\r\n  def\r\nghi  ")
+
+    assert(
+      lexed.getOrThrow.map(_.shape) == List[Shape](
+        ("IDENTIFIER", "abc", fields("abc", 1, 1)),
+        ("IDENTIFIER", "def", fields("def", 3, 3)),
+        ("IDENTIFIER", "ghi", fields("ghi", 1, 4)),
+      ),
+    )
+    lexed.ctx.line shouldBe 4
+    lexed.ctx.column shouldBe 6
+  }
+
+  test("column after a multi-line match counts code points after its last newline") {
+    val Lexer = lexer:
+      case comment @ "/\\*[^*]*\\*/" => Token["COMMENT"](comment)
+      case id @ "[a-z]+" => Token["IDENTIFIER"](id)
+
+    val lexed = Lexer.tokenize("/*😀\nżółć😀*/x")
+
+    assert(
+      lexed.getOrThrow.map(_.shape) == List[Shape](
+        ("COMMENT", "/*😀\nżółć😀*/", fields("/*😀\nżółć😀*/", 1, 1)),
+        ("IDENTIFIER", "x", fields("x", 8, 2)),
+      ),
+    )
+    lexed.ctx.line shouldBe 2
+    lexed.ctx.column shouldBe 9
+  }
+
+  test("a pattern that can match the empty string is reported at its rule") {
+    val error: scala.compiletime.testing.Error = typeCheckErrors("""
+    val EmptyLexer = lexer:
+      case "b" => Token["B"]
+      case "a*" => Token["A"]
+    """).loneElement
+    error.message shouldBe
+      """Token "A" can match the empty string ("a*"); a token must consume at least one character"""
+    error.lineContent.trim shouldBe "case \"a*\" => Token[\"A\"]"
+  }
+
+  test("an ignored pattern that can match the empty string is reported at its rule") {
+    val error: scala.compiletime.testing.Error = typeCheckErrors("""
+    val EmptyLexer = lexer:
+      case "b" => Token["B"]
+      case "x" | " *" => Token.Ignored
+    """).loneElement
+    error.message shouldBe
+      """Token " *" can match the empty string (" *"); a token must consume at least one character"""
+    error.lineContent.trim shouldBe "case \"x\" | \" *\" => Token.Ignored"
+  }
+
+  test("selectDynamic with an unknown token name throws NoSuchElementException") {
+    val Lexer = lexer:
+      case "a" => Token["A"]
+
+    Lexer.selectDynamic("A").info.name.raw shouldBe "A"
+    intercept[NoSuchElementException](Lexer.selectDynamic("missing")).getMessage shouldBe "No token named \"missing\""
+  }
+
   test("tokenize file") {
     val Lexer = lexer:
       case number @ "[0-9]+" => Token["NUMBER"](number)
