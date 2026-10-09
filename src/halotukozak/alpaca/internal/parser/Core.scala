@@ -41,7 +41,7 @@ private[parser] object Core:
   /** The core of a production with the dot at position 0. */
   def apply(production: Production): Core = Core(production, 0)
 
-  given Ordering[Core] = Ordering.by[Core, Int](_.production.hashCode).orElseBy(_.dotPosition)
+  given Ordering[Core] = Ordering.by[Core, Production](_.production).orElseBy(_.dotPosition)
 
   given Showable[Core] =
     case Core(Production.NonEmpty(lhs, rhs, name), dotPosition) =>
