@@ -17,11 +17,12 @@ import scala.util.Using
  * entirely into memory. It buffers characters as they are accessed and
  * can efficiently skip over processed characters.
  *
+ * Like the `Reader` it wraps, it is consumed as it is read. Create it with [[LazyReader.from]].
+ *
  * @param reader the underlying Reader to read from
- * @param size   the total size of the input (if known)
+ * @param size   the exact number of chars `reader` yields
  */
-//todo: use Ox
-final class LazyReader(private val reader: Reader, private var size: Long) extends CharSequence, Closeable:
+final class LazyReader private[alpaca] (reader: Reader, private var size: Long) extends CharSequence, Closeable:
   private val buffer = mutable.ArrayDeque.empty[Char]
   private val chunk = new Array[Char](8192)
   private var offset: Int = 0 // logical offset into buffer
