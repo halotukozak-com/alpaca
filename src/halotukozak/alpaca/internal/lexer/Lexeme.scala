@@ -47,9 +47,12 @@ final class Lexeme[+Name <: ValidName, +Value] private[alpaca] (
   override def hashCode: Int = (name, value, text, fieldNames.toSeq, fieldValues.toSeq).##
 
   override def toString: String =
-    val fields =
-      fieldNames.lazyZip(fieldValues).map((fieldName, fieldValue) => s"$fieldName = ${String.valueOf(fieldValue)}")
-    (Array(name, String.valueOf(value), s"\"$text\"") ++ fields).mkString("Lexeme(", ", ", ")")
+    // Scala.js prints `()` as `undefined`
+    def show(any: Any): String = any match
+      case _: Unit => "()"
+      case other => String.valueOf(other)
+    val fields = fieldNames.lazyZip(fieldValues).map((fieldName, fieldValue) => s"$fieldName = ${show(fieldValue)}")
+    (Array(name, show(value), s"\"$text\"") ++ fields).mkString("Lexeme(", ", ", ")")
 
 private[alpaca] object Lexeme:
   /**
