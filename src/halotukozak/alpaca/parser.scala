@@ -220,15 +220,15 @@ sealed abstract class ParserError:
   /** The lexeme the parser could not accept; `None` when the input ended too early. */
   val unexpected: Option[Lexeme[?, ?] withFields Fields]
 
-  /** What the grammar would have accepted at that point, sorted by name. */
-  val expected: List[ParserError.Expected]
+  /** What the grammar would have accepted at that point: token names and [[ParserError.EndOfInput]], sorted. */
+  val expected: List[String | ParserError.EndOfInput]
 
   /** At the end of the input, the last lexeme before it; `None` when the input is empty or the error is not at the end. */
   val last: Option[Lexeme[?, ?] withFields Fields]
 
   def copy(
     unexpected: Option[Lexeme[?, ?] withFields Fields] = unexpected,
-    expected: List[ParserError.Expected] = expected,
+    expected: List[String | ParserError.EndOfInput] = expected,
     last: Option[Lexeme[?, ?] withFields Fields] = last,
   ): ParserError withFields Fields = ParserError(unexpected, expected, last)
 
@@ -240,8 +240,8 @@ sealed abstract class ParserError:
       case Some(lexeme) => describe(lexeme)
       case None => show"end of input${last.fold(show"")(lexeme => show" after ${describe(lexeme)}")}"
     val names = expected.map:
-      case ParserError.Expected.Token(name) => Printable(name).show
-      case ParserError.Expected.EndOfInput => show"end of input"
+      case ParserError.EndOfInput => show"end of input"
+      case name: String => Printable(name).show
     show"Unexpected $what. Expected one of: ${names.mkShow(", ")}"
   }
 
@@ -256,7 +256,7 @@ sealed abstract class ParserError:
 object ParserError:
   private[alpaca] def apply[LexemeFields <: AnyNamedTuple](
     unexpectedLexeme: Option[Lexeme[?, ?] withFields LexemeFields],
-    expectedInput: List[Expected],
+    expectedInput: List[String | EndOfInput],
     lastLexeme: Option[Lexeme[?, ?] withFields LexemeFields],
   ): ParserError withFields LexemeFields = new ParserError:
     type Fields = LexemeFields
@@ -266,18 +266,16 @@ object ParserError:
 
   def unapply(error: ParserError): (
     Option[Lexeme[?, ?] withFields error.Fields],
-    List[Expected],
+    List[String | EndOfInput],
     Option[Lexeme[?, ?] withFields error.Fields],
   ) =
     (error.unexpected, error.expected, error.last)
 
-  /** Something the grammar would have accepted where a [[ParserError]] occurred. */
-  enum Expected:
-    /** A token, by its name. */
-    case Token(name: String)
+  /** In [[ParserError.expected]], the end of the input. */
+  object EndOfInput:
+    override def toString: String = "EndOfInput"
 
-    /** The end of the input. */
-    case EndOfInput
+  type EndOfInput = EndOfInput.type
 
   extension [Ctx, A](result: Result[Ctx, A, ParserError])
     /** The value; throws the errors as a [[ParserException]] if parsing failed. */

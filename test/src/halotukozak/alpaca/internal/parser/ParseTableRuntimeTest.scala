@@ -3,7 +3,7 @@ package alpaca
 package internal
 package parser
 
-import halotukozak.alpaca.ParserError.Expected
+import halotukozak.alpaca.ParserError.EndOfInput
 import halotukozak.alpaca.{lexer, rule, ParserCtx, ParserException, Result, Rule, Token}
 import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
@@ -47,7 +47,7 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers with LoneEle
 
     val error = errorsOf(CalcParser.parse(lexemes)).loneElement
     error.unexpected.map(l => (l.name: String, l.text)) shouldBe Some(("+", "+"))
-    error.expected shouldBe List(Expected.Token("Num"))
+    error.expected shouldBe List("Num")
     error.message shouldBe """Unexpected + "+". Expected one of: Num"""
   }
 
@@ -56,18 +56,18 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers with LoneEle
 
     val error = errorsOf(CalcParser.parse(lexemes)).loneElement
     error.unexpected shouldBe None
-    error.expected shouldBe List(Expected.Token("Num"))
+    error.expected shouldBe List("Num")
     error.last.map(_.text) shouldBe Some("+")
     error.message shouldBe """Unexpected end of input after + "+". Expected one of: Num"""
   }
 
   test("ParserError lists only terminals, with the end of input among them when it is accepted") {
     val leading = CalcLexer.tokenize("+").getOrThrow
-    errorsOf(CalcParser.parse(leading)).loneElement.expected shouldBe List(Expected.Token("Num"))
+    errorsOf(CalcParser.parse(leading)).loneElement.expected shouldBe List("Num")
 
     val one = CalcLexer.tokenize("1").getOrThrow
     val error = errorsOf(CalcParser.parse(one :+ one.head)).loneElement
-    error.expected shouldBe List(Expected.EndOfInput, Expected.Token("+"))
+    error.expected shouldBe List(EndOfInput, "+")
     error.message should endWith("Expected one of: end of input, +")
   }
 

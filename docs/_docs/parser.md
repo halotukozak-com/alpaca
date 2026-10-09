@@ -330,7 +330,7 @@ parsed.toOption                   // Some(ast), or None
 parsed.toEither                   // Right(ast), or Left(errors)
 ```
 
-A `ParserError` is plain data: it carries the lexeme the parser could not accept (`unexpected`, `None` when the input ended too early), what the grammar would have accepted there (`expected`, a list of `ParserError.Expected.Token(name)` and `ParserError.Expected.EndOfInput`), and, at the end of the input, the last lexeme before it (`last`, otherwise `None`). The errors `parse` returns have a `Fields` type member, the lexer context's fields that the lexemes carry, so the error's position is in the lexer context's fields: `error.unexpected.map(_.line)` and `error.unexpected.map(_.column)` with `LexerCtx.Default`, a compile error when the context has no such field. At the end of the input, read the position from `error.last` instead. Its `message` names the lexemes but no position, e.g. for `1 + + 2` in a grammar of numbers and `+`:
+A `ParserError` is plain data: it carries the lexeme the parser could not accept (`unexpected`, `None` when the input ended too early), what the grammar would have accepted there (`expected`, token names and `ParserError.EndOfInput`), and, at the end of the input, the last lexeme before it (`last`, otherwise `None`). The errors `parse` returns have a `Fields` type member, the lexer context's fields that the lexemes carry, so the error's position is in the lexer context's fields: `error.unexpected.map(_.line)` and `error.unexpected.map(_.column)` with `LexerCtx.Default`, a compile error when the context has no such field. At the end of the input, read the position from `error.last` instead. Its `message` names the lexemes but no position, e.g. for `1 + + 2` in a grammar of numbers and `+`:
 
 ```
 Unexpected PLUS "+". Expected one of: NUMBER
@@ -341,7 +341,7 @@ BrainParser.parse(BrainLexer.tokenize("[+").getOrThrow) match
   case Result.Failure(_, _, errors) =>
     println(errors.head.message)    // Unexpected end of input after inc "+". Expected one of: ...
     println(errors.head.last.map(last => (last.line, last.column))) // Some((1,2))
-    println(errors.head.expected)   // what the grammar would have accepted, e.g. Token(jumpBack)
+    println(errors.head.expected)   // what the grammar would have accepted, e.g. List(jumpBack)
   case Result.Success(_, _) => ()
 ```
 

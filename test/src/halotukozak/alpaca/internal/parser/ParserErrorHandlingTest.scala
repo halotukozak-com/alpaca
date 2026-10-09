@@ -79,7 +79,7 @@ final class ParserErrorHandlingTest extends AnyFunSuite with Matchers:
     val result = SkippingParser.parse(CalcLexer.tokenize("1++2").getOrThrow).failure
     result.recovered shouldBe Some(3)
     result.errors.map(_.at) shouldBe List(("+", 3))
-    result.errors.head.expected shouldBe List(ParserError.Expected.Token("Num"))
+    result.errors.head.expected shouldBe List("Num")
   }
 
   test("SkipOne reports every skipped lexeme in input order") {

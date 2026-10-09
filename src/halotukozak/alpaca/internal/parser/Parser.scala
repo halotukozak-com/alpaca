@@ -85,9 +85,9 @@ abstract class Parser[Ctx <: ParserCtx](
         val last = if remaining.isEmpty then lexemes.lastOption else None
         val expected = tables.parseTable
           .expectedTerminals(stateStack.last)
-          .map:
-            case Symbol.EOF => ParserError.Expected.EndOfInput
-            case terminal => ParserError.Expected.Token(terminal.displayName.raw)
+          .map[String | ParserError.EndOfInput]:
+            case Symbol.EOF => ParserError.EndOfInput
+            case terminal => terminal.displayName.raw
         val error = ParserError(remaining.headOption, expected, last)
         errors += error
         // the end of the input cannot be skipped
