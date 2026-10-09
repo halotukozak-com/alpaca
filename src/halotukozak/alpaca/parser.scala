@@ -239,10 +239,7 @@ sealed abstract class ParserError:
     val what = unexpected match
       case Some(lexeme) => describe(lexeme)
       case None => show"end of input${last.fold(show"")(lexeme => show" after ${describe(lexeme)}")}"
-    val names = expected.map:
-      case ParserError.EndOfInput => show"end of input"
-      case name: String => Printable(name).show
-    show"Unexpected $what. Expected one of: ${names.mkShow(", ")}"
+    show"Unexpected $what. Expected one of: ${expected.mkShow(", ")}"
   }
 
   override def equals(that: Any): Boolean = that match
@@ -254,6 +251,10 @@ sealed abstract class ParserError:
   override def toString: String = "ParserError" + (unexpected, expected, last).toString
 
 object ParserError:
+  private given Showable[String | EndOfInput] =
+    case EndOfInput => show"end of input"
+    case name: String => Printable(name).show
+
   private[alpaca] def apply[LexemeFields <: AnyNamedTuple](
     unexpectedLexeme: Option[Lexeme[?, ?] withFields LexemeFields],
     expectedInput: List[String | EndOfInput],
