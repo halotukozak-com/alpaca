@@ -42,15 +42,14 @@ private[parser] object ParseTable:
       case None => null
 
     /**
-     * Names of the terminals that have an action in `state` -- what the input may continue with there -- sorted, with
-     * the end of the input shown as `$`, ahead of a token named `$`.
+     * The terminals that have an action in `state` -- what the input may continue with there -- sorted by name, with
+     * the end of the input ahead of a token named `$`.
      */
-    def expectedTerminals(state: Int): List[String] =
+    def expectedTerminals(state: Int): List[Terminal] =
       table(state).keysIterator
         .collect { case terminal: Terminal if terminal != Symbol.Dummy && terminal != Symbol.Empty => terminal }
         .toList
         .sortBy(terminal => (terminal.displayName, terminal != Symbol.EOF))
-        .map(_.displayName.raw)
 
     private def allSymbols: List[Symbol] =
       table.iterator.flatMap(_.keysIterator).distinct.toList

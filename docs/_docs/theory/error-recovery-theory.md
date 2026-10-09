@@ -86,7 +86,7 @@ Alpaca's lexer stops at the first unmatched character by default (`ErrorHandling
 
 Alpaca's parser has basic error recovery:
 
-- On a parse table miss (no action for the current state and token), the parser records a `ParserError` carrying the unexpected lexeme and the token names that were expected, with a message like `Unexpected PLUS "+". Expected one of: NUMBER`, and `parse()` returns a `Result.Failure` listing the errors
+- On a parse table miss (no action for the current state and token), the parser records a `ParserError` carrying the unexpected lexeme and what was expected (tokens and possibly the end of the input), with a message like `Unexpected PLUS "+". Expected one of: NUMBER`, and `parse()` returns a `Result.Failure` listing the errors
 - The context's `ErrorHandling` (the same type the lexer uses) decides what happens next: `Stop` (the default) ends parsing there, `SkipOne` skips the unexpected lexeme, and `SkipToNextMatch` skips ahead to the next lexeme the parser can accept -- a simple form of panic mode that fixes extra tokens but not missing ones (see [Parser](../parser.md#error-recovery))
 - No phrase-level recovery or error productions
 
