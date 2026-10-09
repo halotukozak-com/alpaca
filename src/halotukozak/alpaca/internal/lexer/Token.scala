@@ -85,9 +85,10 @@ private[lexer] object TokenInfo:
       .when(invalidAlternatives.isEmpty)(RegexParser.parse(pattern))
       .flatMap:
         case Right(regex) if regex.nullable =>
-          val (token, regexPattern) = (Printable(name), Printable(pattern))
           error(
-            show"""Token "$token" can match the empty string ("$regexPattern"); a token must consume at least one character""",
+            //format: off
+            show"""Token "${Printable(name)}" can match the empty string ("${Printable(pattern)}"); a token must consume at least one character""",
+            //format: on
             pos,
           )
           None
