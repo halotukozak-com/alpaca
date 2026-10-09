@@ -235,7 +235,7 @@ val Lexer = lexer[LexerCtx.Empty]:
   case "." => Token.Ignored
 
 val lexemes = Lexer.tokenize("+ +").getOrThrow
-// lexemes(0).text == "+"  -- the only snapshot field: no column, no line
+// lexemes(0).text == "+"  -- no context fields: no column, no line
 ```
 
 See [Between Stages](on-token-match.md) to learn how context snapshots in lexemes flow into the parser.
