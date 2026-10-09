@@ -122,8 +122,9 @@ private[lexer] def rewriteCtxMutations(using
 
   object rewriter extends TreeMap:
     override def transformTerm(tree: Term)(owner: Symbol): Term = tree match
-      case SetterCall(_, _) if !ctxVar.flags.is(Flags.Mutable) =>
+      case SetterCall(_, rhs) if !ctxVar.flags.is(Flags.Mutable) =>
         error(show"Assign context fields before `Token[...]`, not inside its value", tree.pos)
+        transformTerm(rhs)(owner): Unit
         Literal(UnitConstant())
       case SetterCall(field, rhs) =>
         // `carry` builds its result via a fresh `'{...}` quote, which re-homes the whole
