@@ -22,8 +22,7 @@ import scala.util.Using
  * @param reader the underlying Reader to read from
  * @param size   the exact number of chars `reader` yields
  */
-final class LazyReader private[alpaca] (private val reader: Reader, private var size: Long)
-  extends CharSequence, Closeable:
+final class LazyReader private[alpaca] (reader: Reader, private var size: Long) extends CharSequence, Closeable:
   private val buffer = mutable.ArrayDeque.empty[Char]
   private val chunk = new Array[Char](8192)
   private var offset: Int = 0 // logical offset into buffer
