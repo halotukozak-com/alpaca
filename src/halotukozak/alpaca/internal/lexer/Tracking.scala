@@ -21,16 +21,16 @@ import halotukozak.commons.{containsOnly, toArrayOf}
  * type and a `given Tracking[YourType]` in its companion, then use it as a
  * context field.
  *
- * @tparam F the fragment field type
+ * @tparam Field the fragment field type
  */
-@implicitNotFound("No Tracking instance for the context fragment ${F}")
-trait Tracking[F]:
+@implicitNotFound("No Tracking instance for the context fragment ${Field}")
+trait Tracking[Field]:
   /**
    * @param matched the raw text of the token just matched
    * @param field   the fragment's current value
    * @return the fragment's new value
    */
-  def apply(matched: String, field: F): F
+  def apply(matched: String, field: Field): Field
 
 object Tracking:
 

@@ -37,7 +37,7 @@ object Column:
    * After a match containing a `\n`: 1 plus the code points after its last `\n`. Otherwise advances by the number of
    * code points matched.
    */
-  given Tracking[Column] = (matched, column) =>
+  given tracking: Tracking[Column] = (matched, column) =>
     matched.lastIndexOf('\n') match
       case -1 => column + matched.codePointCount(0, matched.length)
       case lastNewline => 1 + matched.codePointCount(lastNewline + 1, matched.length)

@@ -126,10 +126,10 @@ object Token:
 // assignment mutates in place, exactly as before, and in fact never gains a
 // refinement member in the first place.
 //
-// `C` is inferred as a fresh, unbound type parameter from whatever context
+// `Context` is inferred as a fresh, unbound type parameter from whatever context
 // function currently binds the `LexerScope` — deliberately *not* `scope.ctx.type`: refining the
 // singleton type of the specific enclosing lambda parameter, rather than the
-// nominal class `C`, is what a `lexer` rule's own macro (which tears the
+// nominal class `Context`, is what a `lexer` rule's own macro (which tears the
 // rule apart and rebuilds its pieces as fresh lambdas — see `createLexer.scala`)
 // empirically stumbles on downstream, even though the two only differ in
 // which stable path they're attached to.
@@ -137,7 +137,7 @@ object Token:
  * The lexer context inside a `lexer` rule body. Read its fields, or assign them (`ctx.count += 1`) to change the
  * context for the tokens that follow: the assignment is rewritten into a `copy`, so the fields can stay `val`s.
  */
-transparent inline def ctx[C <: LexerCtx: LexerScope.Of as scope]: C = ${ ctxImpl[C]('scope) }
+transparent inline def ctx[Context <: LexerCtx: LexerScope.Of as scope]: Context = ${ ctxImpl[Context]('scope) }
 
 // $COVERAGE-OFF$
 @publicInBinary private[alpaca] def ctxImpl[C <: LexerCtx: Type](scope: Expr[LexerScope.Of[C]])(using Quotes): Expr[C] = {
@@ -231,7 +231,7 @@ trait LexerCtx extends Product, Selectable:
 object LexerCtx:
 
   /** Default error handler for any [[LexerCtx]]: stop at the first unrecognised character and report it. */
-  given ErrorHandling[LexerCtx, LexerError] = (_, _) => ErrorHandling.Strategy.Stop
+  given defaultErrorHandling: ErrorHandling[LexerCtx, LexerError] = (_, _) => ErrorHandling.Strategy.Stop
 
   /**
    * An empty lexer context with no extra state tracking.
@@ -305,9 +305,9 @@ object LexerError:
   /** An error carrying the fields of the lexer context `Ctx`, as an [[ErrorHandling]] for `Ctx` is given it. */
   type Of[Ctx] = LexerError withFields NamedTuple.From[Ctx]
 
-  extension [Ctx, A](result: Result[Ctx, A, LexerError])
+  extension [Ctx, Value](result: Result[Ctx, Value, LexerError])
     /** The value; throws the errors as a [[LexerException]] if any input did not match a token. */
-    def getOrThrow: A = result match
+    def getOrThrow: Value = result match
       case Result.Success(_, value) => value
       case Result.Failure(_, _, errors) => throw LexerException(errors)
 

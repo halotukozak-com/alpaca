@@ -29,4 +29,4 @@ object Line:
   def apply(n: Int): Line = n
 
   /** Advances by the number of `\n`s in the match, so `\r\n` and newlines inside a longer match count too. */
-  given Tracking[Line] = (matched, line) => line + matched.count(_ == '\n')
+  given tracking: Tracking[Line] = (matched, line) => line + matched.count(_ == '\n')

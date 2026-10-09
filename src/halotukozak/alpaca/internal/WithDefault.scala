@@ -11,10 +11,10 @@ import scala.annotation.publicInBinary
  * argument infer `Ctx = D`, while an explicit `[MyCtx]` keeps `MyCtx`. The given is always found by the compiler;
  * this is an implementation detail and never needs to be written or provided by users.
  *
- * @tparam T the provided type
- * @tparam Q the default type
+ * @tparam Provided the provided type
+ * @tparam Fallback the default type
  */
-infix final class withDefault[T, Q] @publicInBinary private[alpaca] ()
+infix final class withDefault[Provided, Fallback] @publicInBinary private[alpaca] ()
 
 trait withDefaultLowImplicitPriority:
 
