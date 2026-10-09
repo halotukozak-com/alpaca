@@ -30,7 +30,7 @@ private[alpaca] enum Production(val rhs: NEL[Symbol.NonEmpty] | Symbol.Empty.typ
    * `Vector`-backed sequence, so the default (non-cached) hashCode would rehash it from scratch
    * every time; this only ever computes it once. Used by [[Item]]'s cached `hashCode` (see #506),
    * which in turn speeds up every `State` (a `SortedSet[Item]`) used as a `stateIndex` map key
-   * during LR construction -- and by [[State]]'s item `Ordering` as a tie-breaker (see #507),
+   * during LR construction -- and by the `Production` `Ordering` as its first comparison (see #507),
    * where unlike a per-instance counter it stays consistent with `equals` even if two
    * `Production` instances with identical fields are constructed separately.
    */
@@ -72,7 +72,20 @@ private[alpaca] object Production:
     case Empty(lhs, null) => show"$lhs -> ${Symbol.Empty}"
     case Empty(lhs, name) => show"$lhs -> ${Symbol.Empty} (${name.nn})"
 
-  given Ordering[Production] = Ordering.by(_.hashCode)
+  /**
+   * Orders by the cached `hashCode` first, then by content, so that productions sharing a hash stay distinct in a
+   * `SortedSet` (#722).
+   */
+  given Ordering[Production] =
+    given Ordering[Symbol] = Ordering.by(symbol => (symbol.name.raw, symbol.isInstanceOf[Terminal]))
+    Ordering
+      .by[Production, Int](_.hashCode)
+      .orElseBy(_.lhs.name.raw)
+      .orElseBy[List[Symbol]] {
+        case NonEmpty(_, rhs, _) => rhs.toList
+        case Empty(_, _) => Nil
+      }(using Ordering.Implicits.seqOrdering)
+      .orElseBy(production => Option(production.name).map(_.raw))
 
   // $COVERAGE-OFF$
   private given MCodec[Printable | Null] = MCodec[Printable].nullable
