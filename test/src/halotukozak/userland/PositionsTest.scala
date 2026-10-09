@@ -126,7 +126,7 @@ final class PositionsTest extends AnyFunSuite with Matchers with LoneElement:
         val error = errors.loneElement
         error.unexpected.map(l => (l.text, l.line, l.column)) shouldBe Some(("cd", 2, 3))
         error.last shouldBe None
-        error.message shouldBe """Unexpected WORD "cd". Expected one of: end of input, PLUS"""
+        error.message shouldBe """Unexpected WORD "cd". Expected one of: PLUS"""
       case Result.Success(_, _) => fail("expected a parse failure")
   }
 

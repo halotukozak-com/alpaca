@@ -84,6 +84,14 @@ private[lexer] object TokenInfo:
     val regex = Option
       .when(invalidAlternatives.isEmpty)(RegexParser.parse(pattern))
       .flatMap:
+        case Right(regex) if regex.nullable =>
+          error(
+            //format: off
+            show"""Token "${Printable(name)}" can match the empty string ("${Printable(pattern)}"); a token must consume at least one character""",
+            //format: on
+            pos,
+          )
+          None
         case Right(regex) => Some(regex)
         case Left(err) => reportInvalid(err); None
     (

@@ -47,6 +47,11 @@ private[alpaca] enum Production(val rhs: NEL[Symbol.NonEmpty] | Symbol.Empty.typ
    */
   def toItem(lookAhead: Terminal = Symbol.EOF)(using DebugSettings): Item = Item(this, 0, lookAhead)
 
+  /** The number of symbols on the right-hand side, 0 for an empty production. */
+  def size: Int = this match
+    case NonEmpty(_, rhs, _) => rhs.size
+    case Empty(_, _) => 0
+
   case NonEmpty(
     lhs: NonTerminal & Symbol.NonEmpty,
     override val rhs: NEL[Symbol.NonEmpty],

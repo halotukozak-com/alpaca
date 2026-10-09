@@ -113,11 +113,10 @@ val Lexer = lexer:
   // Character classes and quantifiers
   case "[0-9]+" => Token["NUM"]      // one or more digits
   case "[a-zA-Z_][a-zA-Z0-9_]*" => Token["ID"] // identifier
-  case "\\n" => Token.Ignored        // newline -- on its own so `line` tracking sees it
-  case "[ \\t\\r]+" => Token.Ignored   // other whitespace, including the \r of Windows line endings
+  case "\\s+" => Token.Ignored        // whitespace; `line` counts the newlines in it
 ```
 
-An invalid regex (unmatched parentheses, bad quantifiers) produces a compile-time error. A pattern that can never win -- because an earlier one always matches the same text at least as long -- produces a compile-time shadowing error; see [Shadowed Patterns](lexer-error-recovery.md#shadowed-patterns).
+An invalid regex (unmatched parentheses, bad quantifiers) produces a compile-time error, and so does a pattern that can match the empty string, like `"a*"`: every token must consume at least one character. A pattern that can never win -- because an earlier one always matches the same text at least as long -- produces a compile-time shadowing error; see [Shadowed Patterns](lexer-error-recovery.md#shadowed-patterns).
 
 ## Tokens
 

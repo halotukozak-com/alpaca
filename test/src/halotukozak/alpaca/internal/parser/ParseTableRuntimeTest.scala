@@ -71,6 +71,19 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers with LoneEle
     error.message should endWith("Expected one of: end of input, +")
   }
 
+  // Operand -> Num . is one LALR(1) state for both operands, so it reduces on `+` and on the end of the input
+  object SumParser extends Parser[CalcContext]:
+    val Operand: Rule[Int] = rule { case CalcLexer.Num(lexeme) => lexeme.value }
+    val root: Rule[Int] = rule { case (Operand(left), CalcLexer.`+`(_), Operand(right)) => left + right }
+
+  test("ParserError leaves out a terminal that only a merged LALR(1) lookahead reduces on") {
+    val one = CalcLexer.tokenize("1").getOrThrow
+    errorsOf(SumParser.parse(one :+ one.head)).loneElement.expected shouldBe List("+")
+    errorsOf(SumParser.parse(one)).loneElement.expected shouldBe List("+")
+    errorsOf(SumParser.parse(CalcLexer.tokenize("1+2").getOrThrow :+ one.head)).loneElement.expected shouldBe
+      List(EndOfInput)
+  }
+
   test("a successful Result gives the value through every accessor") {
     val lexemes = CalcLexer.tokenize("1+2").getOrThrow
     val result = CalcParser.parse(lexemes)

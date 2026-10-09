@@ -84,7 +84,7 @@ abstract class Parser[Ctx <: ParserCtx](
       if action == null then {
         val last = if remaining.isEmpty then lexemes.lastOption else None
         val expected = tables.parseTable
-          .expectedTerminals(stateStack.last)
+          .expectedTerminals(stateStack)
           .map[String | ParserError.EndOfInput]:
             case Symbol.EOF => ParserError.EndOfInput
             case terminal => terminal.displayName.raw
