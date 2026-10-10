@@ -26,7 +26,7 @@ None of this is per-language code: the plugin discovers grammars dynamically fro
 
 Every feature above is generic because it only ever looks at the exported grammar: a token's regex *pattern* (for highlighting, completion, comment detection, brackets, and quotes), the productions (for Quick Documentation and the tool window), and the shape of the parsed tree itself (for the Structure View, folding, breadcrumbs, and formatting, which only care that a node is composite and where it starts/ends). Nothing about a specific grammar's meaning is hardcoded.
 
-The parser is a hand-written shift-reduce driver that follows the exported table exactly like Alpaca's own `Parser.parseResult` does, except it builds `PsiBuilder` markers instead of your semantic AST. See [Conflict Resolution](conflict-resolution.md) for how that table gets its shift/reduce decisions in the first place.
+The parser is a hand-written shift-reduce driver that follows the exported table exactly like Alpaca's own runtime parser does, except it builds `PsiBuilder` markers instead of your semantic AST. See [Conflict Resolution](conflict-resolution.md) for how that table gets its shift/reduce decisions in the first place.
 
 </details>
 

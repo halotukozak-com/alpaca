@@ -65,7 +65,7 @@ Alpaca's `before`/`after` DSL lets you declare priorities directly in the parser
 - `production.name.before(tokens*)` — when the conflict is between reducing `name` and shifting one of those tokens, the reduction wins. Use this for left-associativity and higher-precedence reductions.
 - `production.name.after(tokens*)` — prefer shifting those tokens over reducing this production. Use this when another operator should bind more tightly.
 
-Priorities are transitive via BFS: if reducing `times` beats shifting `PLUS`, and reducing `plus` beats shifting `MINUS`, then the precedence relationships propagate through the graph.
+Priorities are transitive: if reducing `times` beats shifting `PLUS`, and reducing `plus` beats shifting `MINUS`, then the precedence relationships propagate through the graph.
 
 A minimal example — declaring left-associativity for the `plus` production:
 
@@ -99,8 +99,6 @@ The complete CalcParser resolution set — including `minus`, `times`, and `div`
 Conflicts are detected at compile time when the LALR(1) parse table is constructed by the `extends Parser` macro. A conflict causes a compile error (shift/reduce or reduce/reduce) — no conflict checking happens at runtime.
 
 When you add a `given Resolutions[MyParser.type] = resolutions(...)`, the macro incorporates your priority declarations into the table construction and re-checks for consistency. A cycle in your declarations ("Inconsistent conflict resolution detected") is also reported at compile time.
-
-> **Compile-time processing:** Alpaca builds the LALR(1) parse table when you define `object MyParser extends Parser`. Any conflict — shift/reduce or reduce/reduce — is reported as a compile error immediately, before your code runs. When you add a `given Resolutions[MyParser.type] = resolutions(...)`, the macro incorporates your priority declarations into the table construction and re-checks for consistency.
 
 ## Cross-links
 

@@ -23,7 +23,7 @@ val JsonLexer = lexer:
   case x @ """"(\\.|[^"])*"""" => Token["String"](x.slice(1, x.length - 1))
 ```
 
-Punctuation tokens (`{`, `}`, `[`, `]`, `:`, `,`) need backtick quoting when accessed in parser rules: `JsonLexer.\`{\`(_)`.
+Punctuation tokens (`{`, `}`, `[`, `]`, `:`, `,`) need backtick quoting when accessed in parser rules: ``JsonLexer.`{`(_)``.
 
 ## The Parser
 

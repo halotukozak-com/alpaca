@@ -25,8 +25,9 @@ remain. The language of a grammar G is the set of all terminal strings reachable
 ## BNF Notation
 
 Production rules are written in Backus-Naur Form (BNF): `A → α` means A can be rewritten as α. The vertical bar `|`
-separates alternatives, so `A → α | β` is shorthand for two rules. Non-terminals are written in CamelCase; terminals are
-UPPERCASE (matching Alpaca's token name conventions).
+separates alternatives, so `A → α | β` is shorthand for two rules. On this page non-terminals are written in CamelCase and
+terminals in UPPERCASE. That is only a convention: Alpaca token and rule names can use any case (the BrainFuck lexer's
+tokens are lowercase).
 
 EBNF (Extended BNF) adds optional elements `[...]`, repetition `{...}`, and grouping `(...)`. These shorthands can
 always be translated into plain BNF, but are useful for compact notation. This page uses BNF throughout for clarity;
