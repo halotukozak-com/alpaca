@@ -60,7 +60,7 @@ final class LazyReaderTest extends AnyFunSuite:
     }
   }
 
-  test("LazyReader.from should create LazyReader from file path") {
+  test("charAt and subSequence read across a whole sentence") {
     withLazyReader("test content for file reading."): lazyReader =>
       assert(lazyReader.length == 30)
       assert(lazyReader.charAt(0) == 't')
