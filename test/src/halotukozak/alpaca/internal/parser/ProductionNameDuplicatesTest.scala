@@ -52,7 +52,8 @@ final class ProductionNameDuplicatesTest extends AnyFunSuite with Matchers with 
         { case DuplicateNameLexer.NUM(_) => 2 },
       )
     """).loneElement
-    error.message shouldBe "Production root -> NUM is already defined at line 4\n(at line 5: case DuplicateNameLexer.NUM(_) => 2)"
+    error.message shouldBe
+      "Production root -> NUM is already defined at line 4\n(at line 5: case DuplicateNameLexer.NUM(_) => 2)"
     error.lineContent.trim shouldBe "{ case DuplicateNameLexer.NUM(_) => 2 },"
   }
 
