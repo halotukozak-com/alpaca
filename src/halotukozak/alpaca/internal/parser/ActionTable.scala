@@ -36,7 +36,7 @@ private[parser] type Action[-Ctx <: ParserCtx] = (Ctx, RevertedArray[Any]) => An
  * @tparam R the result type
  */
 opaque private[parser] type ActionTable[Ctx <: ParserCtx] =
-  Map[Production, Action[Ctx]] // todo: Action should be based on Production type
+  Map[Production, Action[Ctx]]
 
 @publicInBinary private[parser] object ActionTable:
 

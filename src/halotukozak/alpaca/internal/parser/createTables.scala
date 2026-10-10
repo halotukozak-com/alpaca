@@ -166,7 +166,7 @@ object Tables:
       }
 
       val rules = parserTpe.typeSymbol.declarations.iterator
-        .map(_.tree) // todo: can we avoid .tree?
+        .map(_.tree)
         .collect:
           case rule: ValOrDefDef if rule.tpt.tpe <:< TypeRepr.of[Rule[?]] => rule
 

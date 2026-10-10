@@ -125,9 +125,6 @@ abstract class Parser[Ctx <: ParserCtx](
               loop(remaining)
             }
 
-          case ParseAction.Reduction(Production.Empty(Symbol.Start, name)) if stateStack.last == 0 =>
-            Some(nodeStack.last)
-
           case ParseAction.Reduction(prod @ Production.Empty(lhs, name)) =>
             val ParseAction.Shift(gotoState) = tables.parseTable(stateStack.last, lhs).runtimeChecked
             val result = tables.actionTable(prod)(ctx, RevertedArray.empty)
@@ -138,9 +135,10 @@ abstract class Parser[Ctx <: ParserCtx](
       }
     }
 
-    val value = loop(lexemes).map:
-      case Node.Result(value) => value.asInstanceOf[R]
-      case Node.Token(_) => null.asInstanceOf[R]
+    // the accepted root is the start rule's value, never a token
+    val value = loop(lexemes).map: root =>
+      val Node.Result(result) = root.runtimeChecked
+      result.asInstanceOf[R]
 
     errors.toList match
       case Nil => Result.Success(ctx, value.get)
