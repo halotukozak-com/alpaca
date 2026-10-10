@@ -55,3 +55,26 @@ final class ProductionNameDuplicatesTest extends AnyFunSuite with Matchers with 
     error.message shouldBe "Production root -> NUM is already defined at line 4"
     error.lineContent.trim shouldBe "{ case DuplicateNameLexer.NUM(_) => 2 },"
   }
+
+  test("duplicate productions and production names are reported in source order") {
+    // typeCheckErrors lists the errors latest first
+    val errors = typeCheckErrors("""
+    object ManyDuplicatesParser extends Parser:
+      val root: Rule[Int] = rule(
+        "z" { case DuplicateNameLexer.NUM(_) => 1 },
+        "a" { case DuplicateNameLexer.PLUS(_) => 2 },
+        { case DuplicateNameLexer.TIMES(_) => 3 },
+        { case (DuplicateNameLexer.NUM(_), DuplicateNameLexer.NUM(_)) => 4 },
+        "z" { case (DuplicateNameLexer.PLUS(_), DuplicateNameLexer.NUM(_)) => 5 },
+        { case (DuplicateNameLexer.NUM(_), DuplicateNameLexer.NUM(_)) => 6 },
+        "a" { case (DuplicateNameLexer.TIMES(_), DuplicateNameLexer.NUM(_)) => 7 },
+        { case DuplicateNameLexer.TIMES(_) => 8 },
+      )
+    """).reverse
+    errors.map(_.message) shouldBe List(
+      "Production root -> TIMES is already defined at line 6",
+      "Production root -> NUM NUM is already defined at line 7",
+      "Production name 'z' is already used by root -> NUM (z); give each production its own name",
+      "Production name 'a' is already used by root -> PLUS (a); give each production its own name",
+    )
+  }

@@ -217,17 +217,12 @@ object Tables:
           given MCodec[Production] = Production.exportCodec(sources)
           JsonExport.maybeWrite(exportName, "productions", productions)
 
-      // the definitions sharing a key, grouped in the order of their first definition
-      def sharing[Definition, Key](selected: List[Definition])(key: Definition => Key): List[List[Definition]] =
-        val byKey = selected.groupBy(key)
-        selected.map(key).distinct.map(byKey)
-
       // two equal productions would share one action, so each one the user writes must be new; the ones desugared from
       // the same EBNF extractor are equal by design
       for
-        case first :: others <- sharing(
-          definitions.filter(definition => definition.production.name == null && !definition.production.lhs.isSynthetic),
-        )(_.production)
+        case first :: others <- definitions
+          .filter(definition => definition.production.name == null && !definition.production.lhs.isSynthetic)
+          .duplicatesBy(_.production)
         duplicate <- others
       do
         error(
@@ -237,7 +232,7 @@ object Tables:
 
       // a name has to pick out a single production whether or not the resolutions refer to it
       for
-        case first :: others <- sharing(definitions.filter(_.production.name != null))(_.production.name)
+        case first :: others <- definitions.filter(_.production.name != null).duplicatesBy(_.production.name)
         duplicate <- others
       do
         error(

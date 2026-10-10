@@ -172,8 +172,7 @@ import scala.reflect.NameTransformer
     quote(Printable(info.pattern.raw.replace("\\", "\\\\").replace("\"", "\\\"")))
 
   // every duplicated name, in the order of its first definition
-  val definitionsByName = tokens.groupBy(_.info.name)
-  val duplicated = tokens.map(_.info.name).distinct.map(definitionsByName).filter(_.sizeIs > 1)
+  val duplicated = tokens.duplicatesBy(_.info.name)
   duplicated.foreach: duplicates =>
     val alternatives = duplicates.map(token => literal(token.info)).mkShow(" | ")
     error(
