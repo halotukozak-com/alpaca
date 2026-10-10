@@ -28,6 +28,28 @@ object CollectingParser extends Parser[CollectingCtx]:
 
 final case class MyCtx() extends LexerCtx
 
+val MinusLexer = lexer:
+  case "-" => Token["MINUS"]
+  case number @ "[0-9]+" => Token["NUM"](number.toInt)
+  case "\\s+" => Token.Ignored
+
+// resolutions given as the parser object's last member: left- and right-associative minus
+object LeftMinusParser extends Parser:
+  val Expr: Rule[Int] = rule(
+    "minus" { case (Expr(left), MinusLexer.MINUS(_), Expr(right)) => left - right },
+    { case MinusLexer.NUM(number) => number.value },
+  )
+  val root: Rule[Int] = rule { case Expr(value) => value }
+  given Resolutions[LeftMinusParser.type] = resolutions(production.minus.before(MinusLexer.MINUS))
+
+object RightMinusParser extends Parser:
+  val Expr: Rule[Int] = rule(
+    "minus" { case (Expr(left), MinusLexer.MINUS(_), Expr(right)) => left - right },
+    { case MinusLexer.NUM(number) => number.value },
+  )
+  val root: Rule[Int] = rule { case Expr(value) => value }
+  given Resolutions[RightMinusParser.type] = resolutions(production.minus.after(MinusLexer.MINUS))
+
 final class PublicApiTest extends AnyFunSuite with Matchers:
 
   test("an empty input parses when the root rule accepts no tokens") {
@@ -155,6 +177,24 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     assert(typeChecks("""def resolve(selector: ProductionSelector, production: Production): Unit = ()"""))
     assert(!typeChecks("""val p: Production = "plus""""))
     assert(!typeChecks("""new ProductionSelector { def selectDynamic(name: String): Any = null }"""))
+  }
+
+  test("resolutions given as the parser's last member resolve its conflicts") {
+    val lexemes = MinusLexer.tokenize("5 - 2 - 1").getOrThrow
+    LeftMinusParser.parse(lexemes) shouldBe Result.Success(ParserCtx.Empty(), 2)
+    RightMinusParser.parse(lexemes) shouldBe Result.Success(ParserCtx.Empty(), 4)
+  }
+
+  test("resolutions given between the parser's rules are reported") {
+    typeCheckErrors("""
+    object MiddleMinusParser extends Parser:
+      val Expr: Rule[Int] = rule(
+        "minus" { case (Expr(left), MinusLexer.MINUS(_), Expr(right)) => left - right },
+        { case MinusLexer.NUM(number) => number.value },
+      )
+      given Resolutions[MiddleMinusParser.type] = resolutions(production.minus.before(MinusLexer.MINUS))
+      val root: Rule[Int] = rule { case Expr(value) => value }
+    """).map(_.message) shouldBe List("Define resolutions as the last field of the parser.")
   }
 
   test("the text peeked in ErrorHandling keeps its content after the callback") {
