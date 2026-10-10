@@ -10,6 +10,7 @@ import scala.compiletime.constValue
 import scala.quoted.*
 
 /** The factory of `T` built from its fields' default values, for a macro to splice in. */
+// $COVERAGE-OFF$
 private[alpaca] def fromDefaults[T: Type](using Quotes, Diagnostics): Expr[() => T] =
   import quotes.reflect.*
   Expr.summon[Made.Of[T]] match

@@ -125,9 +125,10 @@ abstract class Parser[Ctx <: ParserCtx](
       }
     }
 
-    val value = loop(lexemes).map:
-      case Node.Result(value) => value.asInstanceOf[R]
-      case Node.Token(_) => null.asInstanceOf[R]
+    // the accepted root is the start rule's value, never a token
+    val value = loop(lexemes).map: root =>
+      val Node.Result(result) = root.runtimeChecked
+      result.asInstanceOf[R]
 
     errors.toList match
       case Nil => Result.Success(ctx, value.get)
