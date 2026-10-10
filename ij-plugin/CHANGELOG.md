@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Reads export format version 3 (Alpaca 1.0.0): EBNF non-terminals are named after their symbols, not their source offset.
+
 ## [0.2.1] - 2026-10-06
 
 ### Fixed

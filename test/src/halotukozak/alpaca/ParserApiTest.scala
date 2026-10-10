@@ -220,6 +220,41 @@ final class ParserApiTest extends AnyFunSuite with Matchers:
       case Result.Success(_, (List("1", "COMMA", "2", "COMMA", "3"), List("4", "PLUS", "5"))) =>
   }
 
+  test("ebnf extractors used in several productions share their productions") {
+    object SharedExtractorsParser extends Parser[CalcContext]:
+      val root: Rule[String] = rule(
+        { case (CalcLexer.NUMBER.List(numbers), CalcLexer.PLUS(_)) => s"list plus ${numbers.map(_.value).mkString(",")}" },
+        { case (CalcLexer.NUMBER.List(numbers), CalcLexer.MINUS(_)) =>
+          s"list minus ${numbers.map(_.value).mkString(",")}"
+        },
+        { case (CalcLexer.TIMES(_), CalcLexer.NUMBER.Option(number), CalcLexer.PLUS(_)) =>
+          s"option plus ${number.fold("none")(_.value.toString)}"
+        },
+        { case (CalcLexer.TIMES(_), CalcLexer.NUMBER.Option(number), CalcLexer.MINUS(_)) =>
+          s"option minus ${number.fold("none")(_.value.toString)}"
+        },
+        { case (CalcLexer.DIVIDE(_), CalcLexer.NUMBER.SeparatedBy[CalcLexer.COMMA](items), CalcLexer.PLUS(_)) =>
+          s"separated plus ${items.size}"
+        },
+        { case (CalcLexer.DIVIDE(_), CalcLexer.NUMBER.SeparatedBy[CalcLexer.COMMA](items), CalcLexer.MINUS(_)) =>
+          s"separated minus ${items.size}"
+        },
+        { case (CalcLexer.ID(_), CalcLexer.NUMBER.SeparatedBy[CalcLexer.PLUS](items), CalcLexer.MINUS(_)) =>
+          s"separated by plus ${items.size}"
+        },
+      )
+
+    def parse(input: String) = SharedExtractorsParser.parse(CalcLexer.tokenize(input).getOrThrow).toOption
+
+    parse("1 2 +") shouldBe Some("list plus 1,2")
+    parse("-") shouldBe Some("list minus ")
+    parse("* +") shouldBe Some("option plus none")
+    parse("* 3 -") shouldBe Some("option minus 3")
+    parse("/ 1, 2 +") shouldBe Some("separated plus 3")
+    parse("/ -") shouldBe Some("separated minus 0")
+    parse("a 1 + 2 -") shouldBe Some("separated by plus 3")
+  }
+
   test("api") {
     object ApiParser extends Parser[CalcContext]:
       val Num = rule:
