@@ -245,20 +245,28 @@ object Tables:
       // findProduction runs once per `.after`/`.before` reference in the grammar's conflict
       // resolutions, and rebuilding both maps from the full production list on every one of
       // those calls is wasted work that scales with resolutions × productions for no reason.
-      val productionsByName = productions.iterator
-        .collect:
-          case p if p.name != null => (p.name, p)
-        .toMap
+      // keyed by the encoded name, since that is what `production.<name>` passes to `selectDynamic`; decoding the
+      // selected name instead would conflate a production named "-" with one named "$minus"
+      val productionsByName = productions
+        .filter(_.name != null)
+        .groupBy(production => NameTransformer.encode(production.name.nn.raw))
 
       val productionsByRhs = productions.groupBy(_.rhs)
 
       def findProduction(call: Expr[alpaca.Production]): Production = call match {
         case '{ ($_ : ProductionSelector).selectDynamic(${ Expr(name) }).$asInstanceOf$[i] } =>
-          val decodedName = Printable(NameTransformer.decode(name))
-          productionsByName.getOrElse(
-            decodedName,
-            errorAndAbort(show"Production with name '$decodedName' not found", call.asTerm.pos),
-          )
+          productionsByName.getOrElse(name, Nil) match
+            case production :: Nil => production
+            case Nil =>
+              errorAndAbort(
+                show"Production with name '${Printable(NameTransformer.decode(name))}' not found",
+                call.asTerm.pos,
+              )
+            case candidates =>
+              errorAndAbort(
+                show"Production names ${candidates.map(_.name.nn).mkShow("'", "', '", "'")} are the same Scala name, so `production.<name>` cannot tell them apart; rename all but one",
+                call.asTerm.pos,
+              )
 
         // `p` refers to the outer type: fresh type variables aren't inferred through opaque types (scala/scala3#21889)
         case '{ alpaca.Production[`p`](${ Varargs(rhs) }*)(using $_) } =>
@@ -272,10 +280,17 @@ object Tables:
                 NonTerminal(Printable(TypeRepr.of[ruleType].termSymbol.name))
               case arg @ '{ type ruleType <: Rule[?]; $_ : ruleType } if TypeRepr.of[ruleType].termSymbol.exists =>
                 val rule = TypeRepr.of[ruleType].termSymbol
-                errorAndAbort(
-                  show"Rule ${Printable(rule.name)} belongs to another parser, ${Printable(declaredName(rule.owner))}; `Production(...)` in the resolutions of $parserName can only refer to $parserName's rules",
-                  arg.asTerm.pos,
-                )
+                // an alias (`val someRule = OtherParser.Expr`) only carries its own symbol, not the rule it refers to
+                if rule.owner.isClassDef && rule.owner.typeRef <:< TypeRepr.of[Parser[?]] then
+                  errorAndAbort(
+                    show"Rule ${Printable(rule.name)} belongs to another parser, ${Printable(declaredName(rule.owner))}; `Production(...)` in the resolutions of $parserName can only refer to $parserName's rules",
+                    arg.asTerm.pos,
+                  )
+                else
+                  errorAndAbort(
+                    show"${Printable(rule.name)} is not declared in a parser; `Production(...)` in the resolutions of $parserName can only refer to $parserName's rules directly, as in `Production($parserName.<rule>, ...)`",
+                    arg.asTerm.pos,
+                  )
               case '{ type name <: ValidName; $_ : Token[name, ?, ?] } => Terminal(Printable(ValidName.from[name]))
               case other =>
                 errorAndAbort(

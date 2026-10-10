@@ -54,3 +54,23 @@ final class ProductionOtherParserRuleTest extends AnyFunSuite with Matchers with
     )
     """))
   }
+
+  test("a rule referred to through an alias in Production(...) is reported, naming this parser") {
+    val error = typeCheckErrors("""
+    object AliasedRuleParser extends Parser:
+      val Expr: Rule[Int] = rule(
+        { case (Expr(a), OtherRuleLexer.PLUS(_), Expr(b)) => a + b },
+        { case OtherRuleLexer.NUM(n) => n.value },
+      )
+      val root: Rule[Int] = rule { case Expr(e) => e }
+    val someRule: Rule[Int] = AliasedRuleParser.Expr
+    given Resolutions[AliasedRuleParser.type] = resolutions(
+      Production(someRule, OtherRuleLexer.PLUS, AliasedRuleParser.Expr).before(OtherRuleLexer.PLUS),
+    )
+    """).loneElement
+    error.message shouldBe
+      "someRule is not declared in a parser; `Production(...)` in the resolutions of AliasedRuleParser can only refer to AliasedRuleParser's rules directly, as in `Production(AliasedRuleParser.<rule>, ...)`\n(at line 10: someRule)"
+    error.lineContent.trim shouldBe
+      "Production(someRule, OtherRuleLexer.PLUS, AliasedRuleParser.Expr).before(OtherRuleLexer.PLUS),"
+    error.column shouldBe 17 // the `someRule` argument
+  }
