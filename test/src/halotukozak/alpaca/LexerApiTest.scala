@@ -92,7 +92,7 @@ final class LexerApiTest extends AnyFunSuite with Matchers {
   }
 
   test("Lexer tokenizes floats, ints and operators") {
-    Lexer.tokenize("a=3.14*2.+.5-42;").getOrThrow.map(lexeme => (lexeme.name, lexeme.value)) shouldBe List(
+    Lexer.tokenize("a=3.14*2.+.5-42;").getOrThrow.map(lexeme => (lexeme.name, lexeme.value)) shouldBe List[(String, Any)](
       ("id", "a"),
       ("=", ()),
       ("float", 3.14),
