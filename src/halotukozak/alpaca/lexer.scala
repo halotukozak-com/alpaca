@@ -231,7 +231,7 @@ trait LexerCtx extends Product, Selectable:
 object LexerCtx:
 
   /** Default error handler for any [[LexerCtx]]: stop at the first unrecognised character and report it. */
-  given defaultErrorHandling: ErrorHandling[LexerCtx, LexerError] = (_, _) => ErrorHandling.Strategy.Stop
+  given ErrorHandling[LexerCtx, LexerError] = (_, _) => ErrorHandling.Strategy.Stop
 
   /**
    * An empty lexer context with no extra state tracking.
