@@ -1,9 +1,6 @@
-package halotukozak
-package alpaca
+package halotukozak.userland
 
-import halotukozak.alpaca.internal.lexer.Lexeme
-import halotukozak.alpaca.internal.parser.Parser
-import halotukozak.alpaca.{ctx, lexer, resolutions, rule, ParserCtx, Production, Resolutions, Rule, Token}
+import halotukozak.alpaca.*
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -25,9 +22,7 @@ final class ParserApiTest extends AnyFunSuite with Matchers:
     case parenthesis @ ("\\(" | "\\)") => Token[parenthesis.type]
     case number @ "\\d+" => Token["NUMBER"](number.toInt)
     case "#.*" => Token.Ignored
-    case newline @ "\n+" =>
-      ctx.line = Line(ctx.line + newline.count(_ == '\n'))
-      Token.Ignored
+    case "\n+" => Token.Ignored
 
   case class CalcContext(
     names: mutable.Map[String, Int] = mutable.Map.empty,
@@ -87,7 +82,13 @@ final class ParserApiTest extends AnyFunSuite with Matchers:
       case Result.Success(_, 47) =>
   }
 
-  test("ebnf") {
+  test("an undefined name is reported on its line") {
+    CalcApiParser.parse(CalcLexer.tokenize("a +\n\nb").getOrThrow) should matchPattern:
+      case Result.Success(ctx: CalcContext, 0)
+          if ctx.errors.map(error => (error.tpe, error.line)) == List(("undefined", 1), ("undefined", 3)) =>
+  }
+
+  test("Option of a rule is None when absent and Some of its value when present") {
     CalcApiParser.parse(CalcLexer.tokenize("a()").getOrThrow) should matchPattern:
       case Result.Success(_, ("a", None)) =>
 
@@ -255,7 +256,7 @@ final class ParserApiTest extends AnyFunSuite with Matchers:
     parse("a 1 + 2 -") shouldBe Some("separated by plus 3")
   }
 
-  test("api") {
+  test("a rule can be used plain, as an Option and as a List in one production") {
     object ApiParser extends Parser[CalcContext]:
       val Num = rule:
         case CalcLexer.NUMBER(n) => n.value
@@ -287,7 +288,7 @@ final class ParserApiTest extends AnyFunSuite with Matchers:
       case lexeme: Lexeme[?, ?] if lexeme.value == 42 && lexeme.text == "42" =>
   }
 
-  test("parse error") {
+  test("a token where none can follow reports the token and the expected terminals") {
     CalcApiParser.parse(CalcLexer.tokenize("a 123 4 + 5").getOrThrow) match
       case Result.Failure(_, None, error :: Nil) =>
         error.unexpected.map(lexeme => (lexeme.name, lexeme.value)) shouldBe Some(("NUMBER", 123))

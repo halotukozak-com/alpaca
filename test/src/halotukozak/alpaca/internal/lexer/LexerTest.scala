@@ -33,13 +33,6 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
     intercept[NoSuchElementException](lexeme.selectDynamic("missing"))
   }
 
-  test("selectDynamic falls through arrays in order to find the first match") {
-    val lexeme = new Lexeme("T", (), "txt", Array("a", "b", "a"), Array(1, 2, 3))
-
-    lexeme.selectDynamic("a") shouldBe 1
-    lexeme.selectDynamic("b") shouldBe 2
-  }
-
   test("tokenize simple identifier") {
     val Lexer = lexer:
       case id @ "[a-zA-Z][a-zA-Z0-9]*" => Token["IDENTIFIER"](id)

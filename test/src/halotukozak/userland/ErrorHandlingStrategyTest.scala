@@ -1,7 +1,6 @@
-package halotukozak
-package alpaca.internal.lexer
+package halotukozak.userland
 
-import halotukozak.alpaca.{lexer, ErrorHandling, LexerCtx, LexerError, Result, Token}
+import halotukozak.alpaca.*
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -13,15 +12,19 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
       case Result.Success(_, _) => fail("expected a failure")
 
   test("Strategy.Stop stops tokenization, reports the error and recovers nothing") {
-    given ErrorHandling[LexerCtx.Default, LexerError] = (_, _) => ErrorHandling.Strategy.Stop
+    var strategyCalls = 0
+    given ErrorHandling[LexerCtx.Default, LexerError] = (_, _) =>
+      strategyCalls += 1
+      ErrorHandling.Strategy.Stop
 
     val L = lexer:
       case "a" => Token["A"]
 
-    val result = L.tokenize("aaabaa")
+    // the later "c" is neither handled nor reported
+    val result = L.tokenize("aaabaca")
     result.failure.recovered shouldBe None
     result.failure.errors.map(e => (e.unexpected, e.line, e.column)) shouldBe List(("b", 1, 4))
-    result.ctx.text.toString shouldBe "" // Stop currently sets text to empty string
+    strategyCalls shouldBe 1
   }
 
   test("Strategy.SkipOne skips one character, reports it and recovers the lexemes") {

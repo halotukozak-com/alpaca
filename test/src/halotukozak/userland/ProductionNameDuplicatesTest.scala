@@ -1,7 +1,6 @@
-package halotukozak
-package alpaca.internal.parser
+package halotukozak.userland
 
-import halotukozak.alpaca.{apply, before, lexer, production, resolutions, rule, Resolutions, Rule, Token}
+import halotukozak.alpaca.*
 import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -72,10 +71,10 @@ final class ProductionNameDuplicatesTest extends AnyFunSuite with Matchers with 
         { case DuplicateNameLexer.TIMES(_) => 8 },
       )
     """).reverse
-    errors.map(_.message.linesIterator.next()) shouldBe List(
-      "Production root -> TIMES is already defined at line 6",
-      "Production root -> NUM NUM is already defined at line 7",
-      "Production name 'z' is already used by root -> NUM (z); give each production its own name",
-      "Production name 'a' is already used by root -> PLUS (a); give each production its own name",
+    errors.map(_.message) shouldBe List(
+      "Production root -> TIMES is already defined at line 6\n(at line 11: case DuplicateNameLexer.TIMES(_) => 8)",
+      "Production root -> NUM NUM is already defined at line 7\n(at line 9: case (DuplicateNameLexer.NUM(_), DuplicateNameLexer.NUM(_)) => 6)",
+      "Production name 'z' is already used by root -> NUM (z); give each production its own name\n(at line 8: case (DuplicateNameLexer.PLUS(_), DuplicateNameLexer.NUM(_)) => 5)",
+      "Production name 'a' is already used by root -> PLUS (a); give each production its own name\n(at line 10: case (DuplicateNameLexer.TIMES(_), DuplicateNameLexer.NUM(_)) => 7)",
     )
   }
