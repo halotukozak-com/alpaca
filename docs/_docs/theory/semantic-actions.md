@@ -64,9 +64,7 @@ For the complete extractor reference — all extractor forms, EBNF operators (`.
 
 In Alpaca, the parse tree is an *implicit* data structure. It exists conceptually — the sequence of reduce steps IS the parse tree traversal, bottom-up — but it is never materialized as an object.
 
-From `Parser.scala` `loop()`: on each `Reduction(prod)`, the runtime pops `rhs.size` items, calls the action function immediately (`tables.actionTable(prod)(ctx, children)`), and pushes the typed result. No tree node is constructed.
-
-The action table entry is of type `(Ctx, Seq[Any]) => Any` — a function applied per production on each reduce. The typed value (a `Double` for CalcParser) is pushed directly onto the stack. The `Seq[Any]` argument holds the popped stack values; the action function casts and uses them according to the pattern match compiled into it at build time.
+On each reduction the runtime calls that production's action with the popped values and pushes the result (a `Double` for CalcParser). No tree node is constructed.
 
 This is why `CalcParser.parse(lexemes)` returns a `Result[Ctx, Double, ParserError]` holding the computed `Double` — not a tree. The semantic actions produce the final value during the parse itself.
 

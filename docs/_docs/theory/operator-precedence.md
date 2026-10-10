@@ -219,9 +219,41 @@ The resolutions establish: `*`/`/` bind tighter than `+`/`-`, and all operators 
 
 ## Transitivity and Cycle Detection
 
-Alpaca treats `before` and `after` constraints as a partial order over productions. The compiler computes the transitive closure: if `A.before(B)` and `B.before(C)` are both declared, then `A.before(C)` holds implicitly — you do not need to state it.
+Alpaca treats `before` and `after` constraints as an order over productions and tokens, and follows chains: if `A.before(B)` and `B.before(C)` are both declared, then `A` wins over `C` as well — you do not need to state it.
 
-This matters for grammars with many precedence levels. For C-like operators (`*`, `+`, `<`, `&&`, `||`), declaring `mul.before(add).before(cmp).before(and).before(or)` is enough; pairwise constraints between non-adjacent levels are derived.
+This matters for grammars with many precedence levels. A precedence conflict is always between shifting a token and reducing a production, so the chain alternates between them: each level's production comes before its own operator (left associativity) and after the operator of the level above. For `*`, `+` and `<`:
+
+```scala
+import halotukozak.alpaca.*
+
+val CmpLexer = lexer:
+  case "\\*" => Token["*"]
+  case "\\+" => Token["+"]
+  case "<" => Token["<"]
+  case n @ "[0-9]+" => Token["NUM"](n.toInt)
+  case "\\s+" => Token.Ignored
+
+object CmpParser extends Parser:
+  val root: Rule[Int] = rule:
+    case Expr(e) => e
+
+  val Expr: Rule[Int] = rule(
+    "mul" { case (Expr(a), CmpLexer.`*`(_), Expr(b)) => a * b },
+    "add" { case (Expr(a), CmpLexer.`+`(_), Expr(b)) => a + b },
+    "cmp" { case (Expr(a), CmpLexer.`<`(_), Expr(b)) => if a < b then 1 else 0 },
+    { case CmpLexer.NUM(n) => n.value },
+  )
+
+given Resolutions[CmpParser.type] = resolutions(
+  production.mul.before(CmpLexer.`*`),
+  production.add.after(CmpLexer.`*`),
+  production.add.before(CmpLexer.`+`),
+  production.cmp.after(CmpLexer.`+`),
+  production.cmp.before(CmpLexer.`<`),
+)
+```
+
+The five rules form one chain, `mul` → `*` → `add` → `+` → `cmp` → `<`, which settles all nine (production, operator) pairs: `mul` is reduced before a `+` or `<` is shifted, and a `*` is shifted before `cmp` is reduced, although no rule names that pair.
 
 Cycles in the constraint graph are contradictions. If the closure ever produces both `A.before(B)` and `A.after(B)` (directly or indirectly through other productions), the compiler rejects the resolution set with an "Inconsistent conflict resolution detected" error showing the full cycle path. This catches mistakes like declaring `mul.before(add)` together with `add.before(mul)` — even when the contradiction is not direct.
 

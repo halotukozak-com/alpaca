@@ -33,8 +33,8 @@ For every `object MyParser extends Parser` in your code, Alpaca writes one file 
 | File | Contents |
 |---|---|
 | `productions.dbg` | The grammar's productions, one per line |
-| `actionTable.dbg.csv` | The LR action table (state × symbol → shift/reduce), as CSV |
-| `parseTable.dbg.csv` | The full constructed parse table, as CSV |
+| `actionTable.dbg.csv` | Each production with its semantic action (your `case` body), as CSV |
+| `parseTable.dbg.csv` | The LALR(1) parse table (state × symbol → shift/reduce), as CSV |
 | `conflictResolutions.dbg` | Your `resolutions(...)` conflict-resolution table |
 | `conflictResolutions.mmd` | The same conflict-resolution table as a [Mermaid](https://mermaid.js.org/) diagram -- paste it into a Mermaid live editor or a Markdown file that renders Mermaid to visualize precedence/associativity relationships |
 
