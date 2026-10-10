@@ -63,7 +63,7 @@ object BrainParser extends Parser:
   )
 ```
 
-The macro reads both `val` and `def` declarations. `val` is the recommended form for grammar rules, but `def` also works.
+Declare every rule with `val`. A `def` rule is a compile error.
 
 ## Rules and Productions
 
@@ -339,9 +339,9 @@ Unexpected PLUS "+". Expected one of: NUMBER
 ```scala sc-compile-with:brain-tokenize
 BrainParser.parse(BrainLexer.tokenize("[+").getOrThrow) match
   case Result.Failure(_, _, errors) =>
-    println(errors.head.message)    // Unexpected end of input after inc "+". Expected one of: ...
+    println(errors.head.message)    // Unexpected end of input after inc "+". Expected one of: dec, inc, jumpBack, jumpForward, next, prev, print, read
     println(errors.head.last.map(last => (last.line, last.column))) // Some((1,2))
-    println(errors.head.expected)   // what the grammar would have accepted, e.g. List(jumpBack)
+    println(errors.head.expected)   // List(dec, inc, jumpBack, jumpForward, next, prev, print, read)
   case Result.Success(_, _) => ()
 ```
 

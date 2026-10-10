@@ -124,7 +124,7 @@ Tokens come in three forms.
 
 ### Named Tokens
 
-`Token["NAME"]` creates a token with a `Unit` value. The token name becomes both the lexeme's `.name` field and the accessor on the lexer object. To access the matched text, use `lexeme.text` from the context snapshot.
+`Token["NAME"]` creates a token with a `Unit` value. The token name becomes both the lexeme's `.name` field and the accessor on the lexer object. To access the matched text, use `lexeme.text`.
 
 ```scala
 import halotukozak.alpaca.*
@@ -186,7 +186,7 @@ val Lexer = lexer:
   case "\\s+" => Token.Ignored
 ```
 
-Without `@`, you cannot access the matched text for transformation. `Token["inc"]` without a binding creates a token with `Unit` value. If you need the raw match, use `lexeme.text` from the context snapshot, or bind and pass it: `case x @ "\\+" => Token["inc"](x)`.
+Without `@`, you cannot access the matched text for transformation. `Token["inc"]` without a binding creates a token with `Unit` value. If you need the raw match, use `lexeme.text`, or bind and pass it: `case x @ "\\+" => Token["inc"](x)`.
 
 ## Token Naming Rules
 
@@ -310,5 +310,3 @@ A lexeme's `text` is the **matched string**, not the remaining input.
 Fields are snapshotted after the rule body runs, except fields with a `given Tracking` (such as `Line` and `Column`), which keep their values from before the match, so `line` and `column` point at the **start** of the token: `"42"` has `column = 1`, while the context's `column` after it is 3.
 
 </details>
-
-The parser appends `Lexeme.EOF` (name `"$"`, value `""`, empty fields) internally before running. You do not need to handle EOF in your lexer rules.
