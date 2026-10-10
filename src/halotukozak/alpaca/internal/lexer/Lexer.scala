@@ -33,14 +33,7 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
   @publicInBinary
   private[alpaca] def tokens: List[Token[?, Ctx, ?]]
 
-  /**
-   * Provides dynamic access to tokens by name.
-   *
-   * This allows accessing tokens using dot notation, e.g., `myLexer.PLUS`.
-   *
-   * @param fieldName the token name
-   * @return the token definition
-   */
+  /** Backs token selection by name (`myLexer.PLUS`); not meant to be called directly. */
   def selectDynamic(fieldName: String): Token[?, Ctx, ?]
 
   /**
@@ -117,7 +110,8 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
   }
 
   /** Compiled token-matcher; built at macro time. */
-  protected def matcher: TokenMatcher
+  @publicInBinary
+  private[alpaca] def matcher: TokenMatcher
 
   private lazy val tokensArray: Vector[Token[?, Ctx, ?]] = tokens.toVector
 

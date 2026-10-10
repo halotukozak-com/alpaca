@@ -36,7 +36,8 @@ final class Lexeme[+Name <: ValidName, +Value] private[alpaca] (
 ) extends Selectable:
   type Fields <: AnyNamedTuple
 
-  def selectDynamic(name: String): Any = contextField(fieldNames, fieldValues, name)
+  /** Backs context field selection by name (`lexeme.NAME`); not meant to be called directly. */
+  final def selectDynamic(name: String): Any = contextField(fieldNames, fieldValues, name)
 
   override def equals(that: Any): Boolean = that match
     case that: Lexeme[?, ?] =>

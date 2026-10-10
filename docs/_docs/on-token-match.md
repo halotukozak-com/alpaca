@@ -73,7 +73,7 @@ val lexemes = lexed.getOrThrow
 val ast = BrainParser.parse(lexemes).getOrThrow
 ```
 
-The parser accepts `List[Lexeme[?, ?]]` and appends `Lexeme.EOF` internally before processing begins. You do not need to add an end-of-input marker yourself.
+The end of the list is the end of the input. You don't add an end-of-input marker yourself.
 
 The final context (the result's `ctx`) is useful for post-tokenization checks. For example, the BrainFuck lexer tracks bracket depth — after tokenization, you can verify all brackets are balanced:
 
@@ -115,7 +115,7 @@ Each call to `tokenize()` follows this sequence:
 4. The rule body's context changes (`ctx.field = ...`) are applied, again as a `copy`.
 5. For a `DefinedToken`, a `Lexeme` is built from the token name, value, and a snapshot of the context's case fields, with `text` set to the matched string. `Token.Ignored` (and text skipped by the `SkipOne`/`SkipToNextMatch` error strategies) still run steps 2–4 but emit no `Lexeme` — they are invisible to the parser.
 6. This repeats until the entire input is consumed. `tokenize()` then returns a `Result` with the final context state and the complete lexeme list (or, if some input matched no token, the `LexerError`s).
-7. `parse(lexemes)` receives the list, appends `Lexeme.EOF` internally, and runs the parser grammar against the sequence.
+7. `parse(lexemes)` runs the parser grammar over the list.
 
 The `Lexeme` list is immutable after `tokenize()` returns. The parser does not alter the lexeme data.
 

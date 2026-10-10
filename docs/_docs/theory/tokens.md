@@ -102,7 +102,7 @@ The `BrainLexer` running example defines these token classes:
 | `functionClose`| `\)`          | `Unit`     | `")"`                |
 | `functionCall` | `!`           | `Unit`     | `"!"`                |
 
-`functionName` is the only value-bearing token: the `@` binding captures the matched text and passes it to `Token["functionName"](name)`. The other tokens use `Token["NAME"]` without a value argument — they carry `Unit`. Their presence in the stream is enough; the matched text is accessible via `lexeme.text` from the context snapshot if needed.
+`functionName` is the only value-bearing token: the `@` binding captures the matched text and passes it to `Token["functionName"](name)`. The other tokens use `Token["NAME"]` without a value argument — they carry `Unit`. Their presence in the stream is enough; the matched text is accessible via `lexeme.text` if needed.
 
 ## Cross-links
 

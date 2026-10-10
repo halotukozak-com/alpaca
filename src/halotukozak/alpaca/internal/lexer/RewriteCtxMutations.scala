@@ -4,6 +4,7 @@ package internal
 package lexer
 
 import scala.annotation.tailrec
+import scala.quoted.*
 import scala.reflect.NameTransformer
 
 // $COVERAGE-OFF$

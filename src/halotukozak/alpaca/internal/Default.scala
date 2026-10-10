@@ -2,6 +2,7 @@ package halotukozak
 package alpaca.internal
 
 import scala.collection.Factory
+import scala.quoted.*
 
 /**
  * A type class for creating default values of types.

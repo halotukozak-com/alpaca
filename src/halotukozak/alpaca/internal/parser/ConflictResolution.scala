@@ -7,6 +7,7 @@ import halotukozak.alpaca.internal.Showable
 
 import scala.annotation.tailrec
 import scala.collection.mutable
+import scala.quoted.*
 
 /** A key in the conflict resolution table: the production a reduction uses, or the token a shift reads. */
 private[parser] enum ConflictKey:

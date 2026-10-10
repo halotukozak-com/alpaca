@@ -6,6 +6,7 @@ package parser
 import halotukozak.alpaca.internal.lexer.Token
 import halotukozak.alpaca.internal.parser.ParserExtractors.*
 
+import scala.quoted.*
 import scala.reflect.NameTransformer
 
 // $COVERAGE-OFF$

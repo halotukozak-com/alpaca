@@ -16,7 +16,7 @@ import scala.annotation.publicInBinary
  */
 infix final class withDefault[T, Q] @publicInBinary private[alpaca] ()
 
-trait withDefaultLowImplicitPriority:
+private[alpaca] trait withDefaultLowImplicitPriority:
 
   /**
    * Ignore default - use the provided type when explicitly specified.

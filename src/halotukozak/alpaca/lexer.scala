@@ -6,6 +6,8 @@ import alpaca.internal.lexer.{IgnoredToken as _, Token as _, *}
 
 import scala.NamedTuple.AnyNamedTuple
 import scala.annotation.{compileTimeOnly, publicInBinary, unused}
+import scala.deriving.Mirror
+import scala.quoted.*
 
 /**
  * Public re-exports of lexer types users are expected to reference directly
@@ -280,7 +282,8 @@ final class LexerError private[alpaca] (
 ) extends Selectable:
   type Fields <: AnyNamedTuple
 
-  def selectDynamic(name: String): Any = contextField(fieldNames, fieldValues, name)
+  /** Backs context field selection by name (`error.NAME`); not meant to be called directly. */
+  final def selectDynamic(name: String): Any = contextField(fieldNames, fieldValues, name)
 
   /** A readable description, e.g. `Unexpected character '@'`. */
   def message: String = {
@@ -323,7 +326,8 @@ object LexerError:
  *
  * @param errors the errors the lexer reported, in input order
  */
-final class LexerException(val errors: ::[LexerError]) extends RuntimeException(errors.map(_.message).mkString("\n"))
+final class LexerException private[alpaca] (val errors: ::[LexerError])
+  extends RuntimeException(errors.map(_.message).mkString("\n"))
 
 /**
  * Type alias for lexer rule definitions.
