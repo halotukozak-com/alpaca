@@ -130,6 +130,13 @@ final class PositionsTest extends AnyFunSuite with Matchers with LoneElement:
       case Result.Success(_, _) => fail("expected a parse failure")
   }
 
+  test("a lexer's types name its lexemes and errors with their typed fields") {
+    def where(lexeme: PositionLexer.Lexeme): (Int, Int) = (lexeme.line, lexeme.column)
+    def reported(error: PositionLexer.ParserError): Option[(Int, Int)] = error.unexpected.map(where)
+
+    reported(loneError(PlusParser.parse(PositionLexer.tokenize("ab\n  cd + e").getOrThrow))) shouldBe Some((2, 3))
+  }
+
   test("parser errors compare by their lexemes and expected input") {
     val lexemes = PositionLexer.tokenize("ab\n  cd + e").getOrThrow
     val error = loneError(PlusParser.parse(lexemes))
