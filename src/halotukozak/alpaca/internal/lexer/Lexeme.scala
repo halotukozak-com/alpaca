@@ -39,6 +39,22 @@ final class Lexeme[+Name <: ValidName, +Value] private[alpaca] (
   /** Backs context field selection by name (`lexeme.NAME`); not meant to be called directly. */
   final def selectDynamic(name: String): Any = contextField(fieldNames, fieldValues, name)
 
+  override def equals(that: Any): Boolean = that match
+    case that: Lexeme[?, ?] =>
+      name == that.name && value == that.value && text == that.text && fieldNames.sameElements(that.fieldNames) &&
+      fieldValues.sameElements(that.fieldValues)
+    case _ => false
+
+  override def hashCode: Int = (name, value, text, fieldNames.toSeq, fieldValues.toSeq).##
+
+  override def toString: String =
+    // Scala.js prints `()` as `undefined`
+    def show(any: Any): String = any match
+      case _: Unit => "()"
+      case other => String.valueOf(other)
+    val fields = fieldNames.lazyZip(fieldValues).map((fieldName, fieldValue) => s"$fieldName = ${show(fieldValue)}")
+    (Array(name, show(value), s"\"$text\"") ++ fields).mkString("Lexeme(", ", ", ")")
+
 private[alpaca] object Lexeme:
   /**
    * A special end-of-file lexeme used to signal the end of input.

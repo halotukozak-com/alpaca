@@ -91,6 +91,44 @@ final class LexerMacroErrorsTest extends AnyFunSuite with Matchers with LoneElem
     error.lineContent.trim shouldBe "case x @ (\"a\" | _) => Token[x.type]"
   }
 
+  test("context fields named like a public member of Lexeme or LexerError are reported at the field") {
+    val errors = typeCheckErrors("""
+    case class ClashingCtx(
+      name: String = "n",
+      value: Int = 7,
+      text: String = "t",
+      unexpected: Int = 0,
+      message: String = "m",
+      override val toString: String = "s",
+      count: Int = 0,
+    ) extends LexerCtx
+    lexer[ClashingCtx]:
+      case "a" => Token["A"]
+    """)
+    errors.map(error => (error.message.linesIterator.next(), error.lineContent.trim)) should contain theSameElementsAs
+      List(
+        ("Context field `name` clashes with `Lexeme.name`; rename it", """name: String = "n","""),
+        ("Context field `value` clashes with `Lexeme.value`; rename it", "value: Int = 7,"),
+        ("Context field `text` clashes with `Lexeme.text`; rename it", """text: String = "t","""),
+        ("Context field `unexpected` clashes with `LexerError.unexpected`; rename it", "unexpected: Int = 0,"),
+        ("Context field `message` clashes with `LexerError.message`; rename it", """message: String = "m","""),
+        (
+          "Context field `toString` clashes with `Lexeme.toString`; rename it",
+          """override val toString: String = "s",""",
+        ),
+      )
+  }
+
+  test("context fields named like the lexer's internal bookkeeping compile") {
+    typeCheckErrors("""
+    case class BookkeepingCtx(lastLexeme: Int = 0, lastRawMatched: String = "", fieldNames: Int = 0) extends LexerCtx
+    val L = lexer[BookkeepingCtx]:
+      case "a" => Token["A"]
+    val lexeme = L.tokenize("a").getOrThrow.head
+    val fields: (Int, String, Int) = (lexeme.lastLexeme, lexeme.lastRawMatched, lexeme.fieldNames)
+    """) shouldBe Nil
+  }
+
   test("an assignment nested in another one inside a token's value is reported too") {
     val errors = typeCheckErrors("""
     lexer[AssigningCtx]:
