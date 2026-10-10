@@ -45,26 +45,7 @@ Alpaca catches ambiguity at compile time: when building the LALR(1) parse table,
 
 ## How Alpaca Reports Ambiguity
 
-**Shift/reduce conflict:**
-
-```
-Shift "+" vs Reduce Expr -> Expr + Expr
-In situation like:
-Expr + Expr + ...
-Consider marking production Expr -> Expr + Expr to be before or after "+"
-```
-
-**Reduce/reduce conflict:**
-
-```
-Reduce Float -> NUMBER vs Reduce Integer -> NUMBER
-In situation like:
-NUMBER ...
-Conflicting production: Float -> NUMBER (line 11)
-Consider marking one of the productions to be before or after the other
-```
-
-Both are compile errors. The parser cannot be instantiated until all conflicts are resolved.
+Each ambiguity Alpaca finds is a shift/reduce or reduce/reduce conflict, reported as a compile error that names the competing actions and an input where they clash. The parser cannot be instantiated until all conflicts are resolved. [Conflicts and Disambiguation](conflicts.md) shows both kinds of message.
 
 ## Disambiguation Strategies
 

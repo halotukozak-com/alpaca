@@ -127,7 +127,7 @@ val ExampleLexer = lexer[BrainLexContext]:
     Token["jumpBack"]
 ```
 
-> **Note on guards:** Guards (`case "regex" if condition =>`) are not supported in lexer rules. Use the rule body to read context state and decide what to emit -- you cannot filter matches before they occur.
+Lexer rules cannot have guards; check the context in the rule body instead, as above (see [Guards Not Supported](lexer-error-recovery.md#guards-not-supported)).
 
 ## Context Snapshots in Lexemes
 

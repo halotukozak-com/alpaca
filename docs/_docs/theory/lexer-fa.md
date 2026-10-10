@@ -64,7 +64,7 @@ To lex a language with multiple token classes, the standard approach builds one 
 theory: construct an NFA for each token pattern, connect them all to a new start state with
 epsilon transitions, then convert the combined NFA to a single DFA.
 
-Alpaca follows exactly this principle, using its own [`regex`](https://github.com/halotukozak/regex)
+Alpaca follows exactly this principle, using its own [`regex`](https://github.com/halotukozak-com/regex)
 library instead of `java.util.regex`:
 
 - At compile time, the `lexer` macro parses every token pattern and builds **one DFA for all of
@@ -105,4 +105,4 @@ patterns together (`"[a-m]"` and `"[n-z]"` before `"[a-z]"`) and names all of th
 
 - See [Lexer](../lexer.md) for the complete `lexer` DSL reference.
 - See [Tokens and Lexemes](tokens.md) for what the lexer produces — the lexeme stream.
-- Next: [Context-Free Grammars](cfg.md) for how token streams are parsed.
+- Next: [Regular vs Context-Free](regular-vs-context-free.md) for why a lexer alone cannot parse nested structure.

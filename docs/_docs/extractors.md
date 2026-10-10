@@ -103,7 +103,7 @@ object TuplePatternParser extends Parser:
 
 ## EBNF Extractors: .List
 
-`Rule.List(binding)` binds to a `List[R]`. The macro generates a left-recursive accumulation production (empty → `Nil`, prepend → `elem :: list`); the accumulated list is reversed once where it is bound, so parsing stays linear in the number of elements.
+`Rule.List(binding)` matches zero or more occurrences and binds them as a `List[R]`, in source order.
 
 The BrainFuck parser uses `.List` for the root and for loop bodies:
 
@@ -134,7 +134,7 @@ object IncListParser extends Parser:
 
 ## EBNF Extractors: .Option
 
-`Rule.Option(binding)` binds to an `Option[R]`. The macro generates an empty production (→ `None`) and a single-element production (→ `Some`).
+`Rule.Option(binding)` matches zero or one occurrence and binds an `Option[R]`.
 
 ```scala sc-compile-with:ExtractorsCore
 object OptionRuleParser extends Parser:
@@ -149,7 +149,7 @@ object OptionRuleParser extends Parser:
 
 The type parameter `Separator` is the type of the separator symbol:
 
-- For a **token separator**, pass the token as a type (e.g. ``MyLexer.`,` ``). The refinement on the tokenization makes the token name a valid type.
+- For a **token separator**, pass the token as a type (e.g. ``MyLexer.`,` ``). Every token of a lexer is also a type, so it can be written where a type is expected.
 - For a **rule separator**, pass the rule's singleton type (e.g. `Sep.type`).
 
 ```scala sc-hidden sc-name:CommaLexer
@@ -186,7 +186,16 @@ object RuleSeparatorParser extends Parser:
 // For "1,2,3", items == List(1, ",", 2, ",", 3)
 ```
 
-The macro generates two synthetic non-terminals and four productions: an empty case (→ `Nil`), a bridge from the outer to the non-empty non-terminal, a singleton (→ `List(elem)`), and a left-recursive prepend (→ `elem :: separator :: list`). The bridge reverses the accumulated list once, so the binding sees the source order.
+<details>
+<summary>Under the hood: the productions behind EBNF extractors</summary>
+
+Each EBNF extractor adds hidden non-terminals and productions to the grammar:
+
+- `.Option` -- an empty production (→ `None`) and a single-element production (→ `Some`).
+- `.List` -- a left-recursive accumulation: empty → `Nil`, prepend → `elem :: list`. The list is reversed once where it is bound, so parsing stays linear in the number of elements.
+- `.SeparatedBy` -- two non-terminals and four productions: an empty case (→ `Nil`), a bridge from the outer to the non-empty non-terminal, a singleton (→ `List(elem)`), and a left-recursive prepend (→ `elem :: separator :: list`). The bridge reverses the accumulated list once.
+
+</details>
 
 ## Mixing EBNF Extractors
 

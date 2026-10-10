@@ -2,11 +2,13 @@ package halotukozak
 package alpaca.internal
 
 /**
- * Configuration for exporting a lexer's (and, eventually, a parser's) grammar
- * as JSON during compilation, for external tooling (e.g. an IDE plugin) that
- * needs a grammar's rules without running the compiled lexer/parser.
+ * Configuration for exporting a lexer's and a parser's grammar as JSON during
+ * compilation, for external tooling (e.g. an IDE plugin) that needs a grammar's
+ * rules without running the compiled lexer/parser. Read from the
+ * `ALPACA_GRAMMAR_EXPORT_DIR` environment variable.
  *
- * @param exportDirectory optional directory to write `<name>.tokens.json` files into
+ * @param exportDirectory directory to write the `<name>.tokens.json`, `<name>.productions.json` and
+ *   `<name>.table.json` files into; `None` writes nothing
  */
 // $COVERAGE-OFF$
 private[internal] final case class GrammarExportSettings(exportDirectory: Option[String])

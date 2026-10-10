@@ -5,7 +5,7 @@ The Alpaca lexer provides two layers of error feedback: compile-time validation 
 <details>
 <summary>Under the hood: compile-time validation</summary>
 
-The `lexer` macro validates token definitions at compile time. Pattern shadowing, invalid or unsupported regex syntax, and guards are caught during compilation. The macro checks every pattern against the ones declared before it -- each on its own, and together -- using Alpaca's own `regex` library (`SubsetChecker`), so that every pattern can produce a token.
+The `lexer` macro validates token definitions at compile time. Pattern shadowing, invalid or unsupported regex syntax, and guards are caught during compilation. The macro checks every pattern against the ones declared before it -- each on its own, and together -- using Alpaca's own `regex` library, so that every pattern can produce a token.
 
 </details>
 
@@ -165,8 +165,3 @@ given ErrorHandling[LexerCtx.Default, LexerError.Of[LexerCtx.Default]] = (_, err
 ```
 
 Note that the BrainFuck lexer from [Getting Started](getting-started.md) handles unknown characters with a `"." => Token.Ignored` catch-all pattern instead. That is the recommended approach when unknown input is not an error at all, as BrainFuck comments are: a catch-all produces no `LexerError`.
-
-## Limitations
-
-- **No skip-and-continue by default.** The default strategy stops at the first unmatched character. Use a custom `ErrorHandling` or a catch-all pattern for resilience.
-- **Guards are not supported.** Pattern guards in lexer rules are a compile-time error. Move conditions into rule bodies.

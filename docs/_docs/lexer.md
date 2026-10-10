@@ -230,23 +230,7 @@ The method returns a `Result` -- the same type `parse` returns (see [Parsing Inp
 - **`ctx`** -- the final lexer context after processing all input. With `LexerCtx.Default`, this includes `column` and `line`: the position after the last match.
 - **`getOrThrow`** -- the lexemes: matched tokens with `Token.Ignored` entries removed. Each `Lexeme` carries the token `name`, extracted `value`, and a snapshot of context fields at match time.
 
-If the input contains a character that matches no pattern, `tokenize` does not throw: it returns a `Result.Failure` listing `LexerError`s, and `getOrThrow` throws them as a `LexerException`. Match on the result to handle them yourself:
-
-```scala
-import halotukozak.alpaca.*
-
-val Digits = lexer:
-  case "[0-9]+" => Token["NUM"]
-
-Digits.tokenize("12a") match
-  case Result.Success(_, lexemes) => println(lexemes.size)
-  case Result.Failure(_, _, errors) =>
-    errors.foreach: error =>
-      println(error.message) // Unexpected character 'a'
-      println(error.column)  // 3
-```
-
-See [Error Recovery](lexer-error-recovery.md) for how to skip unmatched input instead of stopping.
+If the input contains a character that matches no pattern, `tokenize` does not throw: it returns a `Result.Failure` listing `LexerError`s, and `getOrThrow` throws them as a `LexerException`. See [Runtime Error Handling](lexer-error-recovery.md#runtime-error-handling) for how to handle the errors, or skip unmatched input instead of stopping.
 
 ### Tokenizing Files with LazyReader
 

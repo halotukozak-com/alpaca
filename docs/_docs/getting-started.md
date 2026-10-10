@@ -2,7 +2,7 @@
 
 This guide walks you through building an interpreter for an extended BrainFuck dialect with Alpaca. By the end, you will have a working lexer, parser, and evaluator — roughly 80 lines of code.
 
-BrainFuck is a minimal language, but we extend it with repeat counts, named cells, and functions. That makes it an ideal first project: the grammar is small enough to fit on screen, but rich enough to exercise value-bearing tokens, variable binding, context tracking, and AST construction.
+BrainFuck is a minimal language, but we extend it with repeat counts, named cells, and functions, and call the result **BrainFuck>**: the running example throughout these docs. It makes an ideal first project: the grammar is small enough to fit on screen, but rich enough to exercise value-bearing tokens, variable binding, context tracking, and AST construction.
 
 ## Prerequisites
 
@@ -297,7 +297,7 @@ This interpreter uses the simplest form of every Alpaca feature. The rest of the
 
 - [Lexer](lexer.md) — regex patterns, value extraction, token naming rules
 - [Lexer Context](lexer-context.md) — tracking state during tokenization
-- [Parser](parser.md) — rules, named productions, EBNF operators
+- [Parser](parser.md) — rules, named productions, parsing results
 - [Parser Context](parser-context.md) — shared state during parsing
 - [Extractors](extractors.md) — pattern matching on terminals and non-terminals
 - [Conflict Resolution](conflict-resolution.md) — resolving shift/reduce and reduce/reduce conflicts
