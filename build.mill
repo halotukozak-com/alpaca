@@ -144,6 +144,8 @@ object `package` extends Module:
       // that depends on it lives in `test/src-jvm` (picked up automatically,
       // unlike `test/src` which both platforms compile) instead of `test/src`.
       override def mvnDeps = super.mvnDeps() ++ Seq(mvn"org.scalameta::scalameta:4.17.4")
+      // tests that need a real filesystem, which Scala.js doesn't have; shared with native.test
+      override def sourcesFolders = super.sourcesFolders :+ os.sub / "src-jvm-native"
 
   object js extends Shared with ScalaJSModule:
     def scalaJSVersion = "1.22.0"
@@ -153,7 +155,9 @@ object `package` extends Module:
   object native extends Shared with ScalaNativeModule:
     def scalaNativeVersion = "0.5.12"
 
-    object test extends SharedTests with ScalaNativeTests
+    object test extends SharedTests with ScalaNativeTests:
+      // tests that need a real filesystem, which Scala.js doesn't have
+      override def sourcesFolders = super.sourcesFolders :+ os.sub / "src-jvm-native"
 
   object benchmarks extends Module:
 

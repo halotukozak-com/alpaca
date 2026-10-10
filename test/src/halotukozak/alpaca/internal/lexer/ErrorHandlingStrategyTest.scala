@@ -1,7 +1,7 @@
 package halotukozak
 package alpaca.internal.lexer
 
-import halotukozak.alpaca.{lexer, ErrorHandling, LexerCtx, LexerError, Result, Token}
+import halotukozak.alpaca.{lexer, ErrorHandling, LexerCtx, LexerError, LexerException, Result, Token}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -164,4 +164,15 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
     result.failure.recovered.map(_.map(_.name)) shouldBe Some(List("A", "A"))
     // Default context has column tracking
     result.ctx.column shouldBe 4 // 'a' (1) + '!' (2) + 'a' (3) -> next is 4
+  }
+
+  test("getOrThrow throws every error, one message per line") {
+    given ErrorHandling[LexerCtx.Default, LexerError] = (_, _) => ErrorHandling.Strategy.SkipOne
+
+    val Lexer = lexer:
+      case "a" => Token["A"]
+
+    val exception = intercept[LexerException](Lexer.tokenize("a!a?").getOrThrow)
+    exception.errors.map(_.unexpected) shouldBe List("!", "?")
+    exception.getMessage shouldBe "Unexpected character '!'\nUnexpected character '?'"
   }

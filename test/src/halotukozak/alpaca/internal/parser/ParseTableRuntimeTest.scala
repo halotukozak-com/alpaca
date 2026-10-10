@@ -4,7 +4,7 @@ package internal
 package parser
 
 import halotukozak.alpaca.ParserError.EndOfInput
-import halotukozak.alpaca.{lexer, rule, ParserCtx, ParserException, Result, Rule, Token}
+import halotukozak.alpaca.{lexer, production, resolutions, rule, ParserCtx, ParserException, Resolutions, Result, Rule, Token}
 import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -106,4 +106,31 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers with LoneEle
     val exception = intercept[ParserException](result.getOrThrow)
     exception.errors shouldBe List(error)
     exception.getMessage shouldBe error.message
+  }
+
+  // Integer -> Num and Float -> Num reduce on the same lookahead; the resolutions pick the production to reduce
+  object IntegerFirstParser extends Parser[CalcContext]:
+    val Integer: Rule[String] = rule("integer" { case CalcLexer.Num(_) => "integer" })
+    val Float: Rule[String] = rule("float" { case CalcLexer.Num(_) => "float" })
+    val root: Rule[String] = rule(
+      { case Integer(kind) => kind },
+      { case Float(kind) => kind },
+    )
+
+  given Resolutions[IntegerFirstParser.type] = resolutions(production.integer.before(production.float))
+
+  object FloatFirstParser extends Parser[CalcContext]:
+    val Integer: Rule[String] = rule("integer" { case CalcLexer.Num(_) => "integer" })
+    val Float: Rule[String] = rule("float" { case CalcLexer.Num(_) => "float" })
+    val root: Rule[String] = rule(
+      { case Integer(kind) => kind },
+      { case Float(kind) => kind },
+    )
+
+  given Resolutions[FloatFirstParser.type] = resolutions(production.integer.after(production.float))
+
+  test("a reduce/reduce conflict resolved with before or after reduces the winning production") {
+    val lexemes = CalcLexer.tokenize("1").getOrThrow
+    IntegerFirstParser.parse(lexemes) shouldBe Result.Success(CalcContext(), "integer")
+    FloatFirstParser.parse(lexemes) shouldBe Result.Success(CalcContext(), "float")
   }
