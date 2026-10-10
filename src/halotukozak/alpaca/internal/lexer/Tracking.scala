@@ -6,6 +6,7 @@ package lexer
 import scala.annotation.implicitNotFound
 import scala.compiletime.{constValueTuple, erasedValue, summonFrom}
 import scala.annotation.publicInBinary
+import scala.deriving.Mirror
 import halotukozak.commons.{containsOnly, toArrayOf}
 
 /**

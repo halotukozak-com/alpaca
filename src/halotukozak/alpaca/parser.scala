@@ -7,6 +7,7 @@ import halotukozak.alpaca.internal.parser.{Production as _, *}
 
 import scala.NamedTuple.AnyNamedTuple
 import scala.annotation.{compileTimeOnly, implicitNotFound, unused}
+import scala.quoted.*
 
 type Parser[Ctx <: ParserCtx] = parser.Parser[Ctx]
 
@@ -292,7 +293,8 @@ object ParserError:
  *
  * @param errors the errors the parser reported, in input order
  */
-final class ParserException(val errors: ::[ParserError]) extends RuntimeException(errors.map(_.message).mkString("\n"))
+final class ParserException private[alpaca] (val errors: ::[ParserError])
+  extends RuntimeException(errors.map(_.message).mkString("\n"))
 
 /**
  * Base trait for parser global context.

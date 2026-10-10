@@ -9,6 +9,8 @@ import halotukozak.mcodec.MCodec
 import halotukozak.mcodec.annotation.flatten
 
 import scala.annotation.publicInBinary
+import scala.quoted.*
+import scala.quoted.QuotedFactoryGivens.given
 
 /**
  * Represents a parse action in the LR parse table.

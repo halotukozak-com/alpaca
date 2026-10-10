@@ -7,6 +7,8 @@ import halotukozak.alpaca.Token as TokenDef
 import halotukozak.regex.{Regex, Subset, TokenMatcher}
 
 import scala.annotation.{publicInBinary, switch}
+import scala.quoted.*
+import scala.quoted.QuotedFactoryGivens.given
 import scala.reflect.NameTransformer
 
 // $COVERAGE-OFF$
@@ -246,7 +248,8 @@ import scala.reflect.NameTransformer
 
             override def selectDynamic(name: String): lexer.Token[?, Ctx, ?] = ${ selectDynamicImpl('{ name }) }
 
-            override protected val matcher: TokenMatcher = $matcherExpr
+            @publicInBinary
+            override private[alpaca] val matcher: TokenMatcher = $matcherExpr
         }.asInstanceOf[Lexer[Ctx] { type Fields = fields } & refinedTpe & types]
       }
   }

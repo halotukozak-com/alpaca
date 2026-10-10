@@ -2,6 +2,8 @@ package halotukozak.alpaca.internal
 
 import halotukozak.mcodec.MCodec
 
+import scala.quoted.*
+
 /**
  * Where a lexer or parser rule is defined in the grammar's source.
  *
@@ -10,7 +12,7 @@ import halotukozak.mcodec.MCodec
  * @param start the offset of the definition's first character in `file`
  * @param end   the offset just past the definition's last character in `file`
  */
-case class Source(line: Int, file: String, start: Int, end: Int) derives MCodec:
+private[alpaca] final case class Source(line: Int, file: String, start: Int, end: Int) derives MCodec:
 
   /**
    * The definition's position, for reporting compile errors at it.
@@ -23,6 +25,6 @@ case class Source(line: Int, file: String, start: Int, end: Int) derives MCodec:
     val sourceFile = Position.ofMacroExpansion.sourceFile
     Option.when(sourceFile.path == file)(Position(sourceFile, start, end))
 
-object Source:
+private[alpaca] object Source:
   def apply(using quotes: Quotes)(pos: quotes.reflect.Position): Source =
     Source(pos.startLine, pos.sourceFile.path, pos.start, pos.end)

@@ -9,6 +9,8 @@ import halotukozak.mcodec.MCodec
 
 import scala.annotation.publicInBinary
 import scala.collection.immutable.VectorMap
+import scala.quoted.*
+import scala.quoted.QuotedFactoryGivens.given
 import scala.reflect.NameTransformer
 
 /**

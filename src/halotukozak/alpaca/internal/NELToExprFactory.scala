@@ -1,7 +1,7 @@
 package halotukozak
 package alpaca.internal
 
-import scala.quoted.ToExprFactory
+import scala.quoted.*
 
 // $COVERAGE-OFF$
 private[internal] given [A: ToExprFactory] => ToExprFactory[NEL[A]]:

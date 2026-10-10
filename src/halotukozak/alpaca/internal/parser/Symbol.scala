@@ -8,6 +8,7 @@ import halotukozak.alpaca.internal.{Printable, Showable}
 import halotukozak.mcodec.MCodec
 
 import scala.annotation.publicInBinary
+import scala.quoted.*
 
 /**
  * Represents a grammar symbol (either terminal or non-terminal).
@@ -29,9 +30,9 @@ private[parser] trait Symbol extends Any:
  *
  * @param name the name of the non-terminal
  */
-sealed case class NonTerminal(name: Printable) extends AnyVal, Symbol
+private[alpaca] sealed case class NonTerminal(name: Printable) extends AnyVal, Symbol
 
-object NonTerminal:
+@publicInBinary private[alpaca] object NonTerminal:
 
   /**
    * Creates a fresh non-terminal symbol with a unique name.
@@ -54,7 +55,7 @@ object NonTerminal:
    * @param name the name of the non-terminal
    * @return a non-empty non-terminal symbol
    */
-  inline def apply(inline name: Printable): NonTerminal & Symbol.NonEmpty =
+  def apply(name: Printable): NonTerminal & Symbol.NonEmpty =
     new NonTerminal(name).asInstanceOf[NonTerminal & Symbol.NonEmpty]
 
 /**
@@ -66,16 +67,16 @@ object NonTerminal:
  *
  * @param name the name of the terminal (token name)
  */
-sealed case class Terminal(name: Printable) extends AnyVal, Symbol
+private[alpaca] sealed case class Terminal(name: Printable) extends AnyVal, Symbol
 
-object Terminal:
+@publicInBinary private[alpaca] object Terminal:
   /**
    * Creates a terminal symbol from a name.
    *
    * @param name the name of the terminal (token name)
    * @return a non-empty terminal symbol
    */
-  inline def apply(inline name: Printable): Terminal & Symbol.NonEmpty =
+  def apply(name: Printable): Terminal & Symbol.NonEmpty =
     new Terminal(name).asInstanceOf[Terminal & Symbol.NonEmpty]
 
 @publicInBinary private[parser] object Symbol:
