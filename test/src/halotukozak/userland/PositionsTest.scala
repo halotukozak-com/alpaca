@@ -55,6 +55,28 @@ val OffsetLexer = lexer[OffsetCtx]:
     Token["RESET"]
   case "[ \t]+" => Token.Ignored
 
+final case class TwoOffsetsCtx(fromStart: Offset = Offset(0), fromTen: Offset = Offset(10)) extends LexerCtx
+
+val TwoOffsetsLexer = lexer[TwoOffsetsCtx]:
+  case w @ "[a-z]+" => Token["WORD"](w)
+  case "[ \t]+" => Token.Ignored
+
+final case class CountingCtx(count: Int = 0) extends LexerCtx
+
+object IntTracking:
+  given Tracking[Int] = (_, count) => count + 100
+
+  val CountingLexer = lexer[CountingCtx]:
+    case w @ "[a-z]+" => Token["WORD"](w)
+    case "[ \t]+" => Token.Ignored
+
+object WideTabs:
+  given Tracking[Column] = (matched, column) => Column(column + matched.map(char => if char == '\t' then 4 else 1).sum)
+
+  val WideTabLexer = lexer:
+    case w @ "[a-z]+" => Token["WORD"](w)
+    case "[ \t]+" => Token.Ignored
+
 val UntrackedLexer = lexer[LexerCtx.Empty]:
   case w @ "[a-z]+" => Token["WORD"](w)
   case "\\+" => Token["PLUS"]
@@ -112,6 +134,20 @@ final class PositionsTest extends AnyFunSuite with Matchers with LoneElement:
 
   test("a tracked field assigned in the rule body is the token start in its lexeme and the assigned value after") {
     OffsetLexer.tokenize("ab ! cd").getOrThrow.map(l => (l.text, l.offset)) shouldBe List(("ab", 0), ("!", 3), ("cd", 1))
+  }
+
+  test("two fields of the same fragment type are both tracked") {
+    TwoOffsetsLexer.tokenize("ab cd").getOrThrow.map(l => (l.text, l.fromStart, l.fromTen)) shouldBe
+      List(("ab", 0, 10), ("cd", 3, 13))
+  }
+
+  test("a given Tracking in scope at the lexer call tracks every field of its type") {
+    IntTracking.CountingLexer.tokenize("ab cd").ctx.count shouldBe 300
+  }
+
+  test("a given Tracking in scope at the lexer call replaces the fragment's own, for that lexer only") {
+    WideTabs.WideTabLexer.tokenize("ab\tcd").getOrThrow.map(l => (l.text, l.column)) shouldBe List(("ab", 1), ("cd", 7))
+    PositionLexer.tokenize("ab\tcd").getOrThrow.map(l => (l.text, l.column)) shouldBe List(("ab", 1), ("cd", 4))
   }
 
   test("a lexer error has the lexer's typed fields where the input starts") {

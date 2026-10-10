@@ -7,7 +7,7 @@ By default, the lexer uses `LexerCtx.Default`, which gives you line and column t
 <details>
 <summary>Under the hood: how tracking fields update</summary>
 
-When you write `lexer[MyCtx]:`, the Alpaca macro inspects `MyCtx`'s case fields at compile time. For every field whose type provides a `given Tracking`, it wires the corresponding per-token update into the generated tokenizer. After each match the engine threads a single functional `copy` of the context through those updates -- so tracked fields stay immutable `val`s and still advance automatically.
+When you write `lexer[MyCtx]:`, the Alpaca macro inspects `MyCtx`'s case fields at compile time. For every field for which a `given Tracking` resolves (see [Which Tracking Is Used](#which-tracking-is-used)), it wires the corresponding per-token update into the generated tokenizer. After each match the engine threads a single functional `copy` of the context through those updates -- so tracked fields stay immutable `val`s and still advance automatically.
 
 </details>
 
@@ -222,6 +222,33 @@ val Lexer = lexer[MyCtx]:
 No inheritance, no trait companion, no composition macro: a fragment is just a field type plus its `given`.
 
 </details>
+
+## Which Tracking Is Used
+
+The `lexer` macro looks up a `given Tracking` for each field's type where `lexer` is called, by ordinary given resolution: a `given` in scope there wins, otherwise the one in the type's companion is used.
+
+So a `given Tracking[Int]` in scope tracks **every** `Int` field of the context. To track one field, give it its own type, an opaque type with the `given` in its companion, as `Indent` does above.
+
+The flip side: a local `given` replaces a fragment's tracking for the lexers defined in its scope. Here, a tab counts as 4 columns:
+
+```scala
+import halotukozak.alpaca.*
+
+object WideTabs:
+  given Tracking[Column] = (matched, column) =>
+    val lastLine = matched.substring(matched.lastIndexOf('\n') + 1)
+    val width = lastLine.map(char => if char == '\t' then 4 else 1).sum
+    if matched.contains('\n') then Column(1 + width) else Column(column + width)
+
+  val Lexer = lexer:
+    case id @ "[a-z]+" => Token["ID"](id)
+    case "\\s+" => Token.Ignored
+
+val lexemes = WideTabs.Lexer.tokenize("ab\tcd").getOrThrow
+// lexemes(1).column == 7
+```
+
+Lexers defined outside `WideTabs` keep the default `Column` tracking.
 
 ## LexerCtx.Empty
 
