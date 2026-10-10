@@ -13,8 +13,8 @@ import scala.annotation.{implicitNotFound, publicInBinary}
 opaque type LexerScope <: { type Ctx <: LexerCtx } = LexerCtx & { type Ctx <: LexerCtx }
 
 object LexerScope:
-  /** The scope of a lexer whose context type is `Context`. */
-  type Of[Context <: LexerCtx] = LexerScope { type Ctx = Context }
+  /** The scope of a lexer whose context type is `Ctx0`. */
+  type Of[Ctx0 <: LexerCtx] = LexerScope { type Ctx = Ctx0 }
 
   // At runtime the scope is the context itself, so neither direction allocates.
   @publicInBinary private[alpaca] def refl[C <: LexerCtx](ctx: C): Of[C] = ctx.asInstanceOf[Of[C]]
