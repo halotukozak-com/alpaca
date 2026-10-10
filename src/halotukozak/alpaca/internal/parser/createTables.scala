@@ -222,9 +222,7 @@ object Tables:
       for
         case first :: others <- definitions
           .filter(definition => definition.production.name == null && !definition.production.lhs.isSynthetic)
-          .groupBy(_.production)
-          .values
-          .toList
+          .duplicatesBy(_.production)
         duplicate <- others
       do
         error(
@@ -234,7 +232,7 @@ object Tables:
 
       // a name has to pick out a single production whether or not the resolutions refer to it
       for
-        case first :: others <- definitions.filter(_.production.name != null).groupBy(_.production.name).values.toList
+        case first :: others <- definitions.filter(_.production.name != null).duplicatesBy(_.production.name)
         duplicate <- others
       do
         error(
