@@ -129,7 +129,9 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     val name = "plus"
     object NamedParser extends Parser:
       val root: Rule[Int] = rule(name { case WordLexer.WORD(_) => 1 })
-    """).map(_.message) shouldBe List("A production name must be a string literal, as in `\"plus\" { case ... }`")
+    """).map(_.message) shouldBe List(
+      "A production name must be a string literal, as in `\"plus\" { case ... }`\n(at line 4: name)",
+    )
   }
 
   private val outsideParser =

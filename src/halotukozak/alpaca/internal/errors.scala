@@ -51,7 +51,7 @@ private[internal] final class Diagnostics:
  */
 private[internal] def error(using Quotes, Diagnostics)(message: Shown, pos: quotes.reflect.Position): Unit =
   summon[Diagnostics].markError()
-  quotes.reflect.report.error(message, pos)
+  quotes.reflect.report.error(withLocation(message, pos), pos)
 private[internal] def error(using Quotes, Diagnostics)(message: Shown, source: Source): Unit =
   val (located, pos) = locate(message, source)
   error(located, pos)
@@ -64,7 +64,7 @@ private[internal] def error(using Quotes, Diagnostics)(message: Shown, source: S
  */
 private[internal] def errorAndAbort(using Quotes, Diagnostics)(message: Shown, pos: quotes.reflect.Position): Nothing =
   summon[Diagnostics].markError()
-  quotes.reflect.report.errorAndAbort(message, pos)
+  quotes.reflect.report.errorAndAbort(withLocation(message, pos), pos)
 private[internal] def errorAndAbort(using Quotes, Diagnostics)(message: Shown, source: Source): Nothing =
   val (located, pos) = locate(message, source)
   errorAndAbort(located, pos)
@@ -85,5 +85,22 @@ private def locate(using quotes: Quotes)(message: Shown, source: Source): (Shown
     case Some(pos) => (message, pos)
     case None =>
       (show"$message\n(declared at ${source.file.showRaw}:${source.line + 1})", quotes.reflect.Position.ofMacroExpansion)
+
+/**
+ * `message`, naming where `pos` is when the compiler shows the error elsewhere.
+ *
+ * An error from a macro expansion is shown at the outermost inline call, unless that call encloses `pos`; the rest is
+ * only in the "Inline stack trace", which IDEs and build servers drop. A parser's tables are expanded at its
+ * `extends Parser`, so its errors at a production would show there with no hint of the production.
+ */
+private def withLocation(using quotes: Quotes)(message: Shown, pos: quotes.reflect.Position): Shown =
+  val expansion = quotes.reflect.Position.ofMacroExpansion
+  val enclosed =
+    pos.sourceFile.path == expansion.sourceFile.path && expansion.start <= pos.start && pos.end <= expansion.end
+  if enclosed then message
+  else
+    val code =
+      pos.sourceCode.flatMap(_.linesIterator.nextOption()).fold("".showRaw)(code => show": ${code.trim.showRaw}")
+    show"${message.stripLineEnd.showRaw}\n(at line ${pos.startLine + 1}$code)"
 
 // $COVERAGE-ON$
