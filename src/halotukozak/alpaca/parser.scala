@@ -47,7 +47,7 @@ object ParserScope:
 /**
  * Collects the conflict resolutions for the parser `ParserType`, each written with `before` or `after` (see [[Resolutions]]).
  *
- * @param elements the resolutions; inside them, `production.<name>` refers to `P`'s named productions
+ * @param elements the resolutions; inside them, `production.<name>` refers to `ParserType`'s named productions
  */
 def resolutions[ParserType <: parser.Parser[?]](elements: (ResolutionScope[ParserType] ?=> ConflictResolution)*)
   : Resolutions[ParserType] =

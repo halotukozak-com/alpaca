@@ -50,7 +50,7 @@ given Resolutions[CalcParser.type] = resolutions(
 
 It can also go inside the parser object, but only as its last member, after every rule. Declared any earlier in the object, it cannot see the rules: `production.plus` fails with "value plus is not a member of ...ProductionSelector", or the compiler asks you to "Define resolutions as the last field of the parser."
 
-`production.name` inside `resolutions(...)` still refers to productions by name without qualification -- it is resolved by the inferred parser type `P`, not by textual scope. Only bare non-terminal references passed to `Production(symbols*)` need to be qualified with the parser object's name (see [The Production(symbols*) Selector](#the-productionsymbols-selector)).
+`production.name` inside `resolutions(...)` still refers to productions by name without qualification -- it is resolved by the inferred parser type `ParserType`, not by textual scope. Only bare non-terminal references passed to `Production(symbols*)` need to be qualified with the parser object's name (see [The Production(symbols*) Selector](#the-productionsymbols-selector)).
 
 ## Reading the Error Messages
 
