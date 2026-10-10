@@ -227,12 +227,6 @@ sealed abstract class ParserError:
   /** At the end of the input, the last lexeme before it; `None` when the input is empty or the error is not at the end. */
   val last: Option[Lexeme[?, ?] withFields Fields]
 
-  def copy(
-    unexpected: Option[Lexeme[?, ?] withFields Fields] = unexpected,
-    expected: List[String | ParserError.EndOfInput] = expected,
-    last: Option[Lexeme[?, ?] withFields Fields] = last,
-  ): ParserError withFields Fields = ParserError(unexpected, expected, last)
-
   /** A readable description, e.g. `Unexpected PLUS "+". Expected one of: Num`. */
   def message: String = {
     def describe(lexeme: Lexeme[?, ?]): Shown = show"""${Printable(lexeme.name)} "${Printable(lexeme.text)}""""
@@ -265,13 +259,6 @@ object ParserError:
     val unexpected = unexpectedLexeme
     val expected = expectedInput
     val last = lastLexeme
-
-  def unapply(error: ParserError): (
-    Option[Lexeme[?, ?] withFields error.Fields],
-    List[String | EndOfInput],
-    Option[Lexeme[?, ?] withFields error.Fields],
-  ) =
-    (error.unexpected, error.expected, error.last)
 
   /** In [[ParserError.expected]], the end of the input. */
   object EndOfInput:
