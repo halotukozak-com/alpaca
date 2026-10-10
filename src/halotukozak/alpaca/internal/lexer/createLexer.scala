@@ -28,7 +28,7 @@ import scala.reflect.NameTransformer
       (owner.declaredFields ++ owner.declaredMethods)
         .filterNot(member =>
           member.flags.is(Flags.Private) || member.flags.is(Flags.Protected) || member.privateWithin.isDefined ||
-            member.flags.is(Flags.Override) || member.flags.is(Flags.Synthetic) || member.isClassConstructor,
+            member.flags.is(Flags.Synthetic) || member.isClassConstructor,
         )
         .map(member => member.name -> show"${owner.name.showRaw}.${member.name.showRaw}")
     .distinctBy(_._1)

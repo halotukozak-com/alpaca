@@ -99,6 +99,7 @@ final class LexerMacroErrorsTest extends AnyFunSuite with Matchers with LoneElem
       text: String = "t",
       unexpected: Int = 0,
       message: String = "m",
+      override val toString: String = "s",
       count: Int = 0,
     ) extends LexerCtx
     lexer[ClashingCtx]:
@@ -110,6 +111,7 @@ final class LexerMacroErrorsTest extends AnyFunSuite with Matchers with LoneElem
       ("Context field `text` clashes with `Lexeme.text`; rename it", """text: String = "t","""),
       ("Context field `unexpected` clashes with `LexerError.unexpected`; rename it", "unexpected: Int = 0,"),
       ("Context field `message` clashes with `LexerError.message`; rename it", """message: String = "m","""),
+      ("Context field `toString` clashes with `Lexeme.toString`; rename it", """override val toString: String = "s","""),
     )
   }
 

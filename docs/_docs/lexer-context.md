@@ -61,7 +61,7 @@ In the context, `column` and `line` are the position right after the last match.
 1. **It must be a case class** -- `LexerCtx` extends `Product` directly, and the auto-derivation machinery requires a `Product` instance.
 2. **All fields must have default values** -- The `lexer` macro reads default parameter values from the companion to construct the initial context. If any parameter lacks a default, the macro fails at compile time.
 
-> **Note:** Context fields are read by name on lexemes and lexer errors, so `name`, `value`, `text` (taken by `Lexeme`), `unexpected` and `message` (taken by `LexerError`) are reserved: the `lexer` macro reports a field with one of these names as a compile error.
+> **Note:** Context fields are read by name on lexemes and lexer errors, so the names of their public members are reserved, for example `name`, `value`, `text`, `toString` and `selectDynamic` (members of `Lexeme`), `unexpected` and `message` (members of `LexerError`). The `lexer` macro reports a field with one of these names as a compile error.
 
 State fields are ordinary immutable `val` case-class parameters. Writing `ctx.count += 1` in a rule body still type-checks and does the expected thing -- the `lexer` macro rewrites every such assignment into a functional `copy` before the rule is compiled. A field of a mutable collection type (e.g., `scala.collection.mutable.Stack`) works too: you mutate the collection in place and never reassign the field.
 
