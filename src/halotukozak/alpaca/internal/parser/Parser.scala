@@ -104,33 +104,23 @@ abstract class Parser[Ctx <: ParserCtx](
             nodeStack += Node.Token(current)
             loop(if remaining.isEmpty then Nil else remaining.tail)
 
-          case ParseAction.Reduction(prod @ Production.NonEmpty(lhs, rhs, name)) =>
-            val n = rhs.size
-            val newStateIdx = stateStack(stateStack.size - 1 - n)
+          case ParseAction.Reduction(production) =>
+            val size = production.size
+            val uncoveredState = stateStack(stateStack.size - 1 - size)
 
-            if lhs == Symbol.Start && newStateIdx == 0 then Some(nodeStack.last)
+            if production.lhs == Symbol.Start && uncoveredState == 0 then Some(nodeStack.last)
             else {
               val top = nodeStack.size - 1
-              val children = Array.better.tabulate(n)(i => nodeStack(top - i).get)
-              stateStack.dropRightInPlace(n)
-              nodeStack.dropRightInPlace(n)
+              val children = Array.better.tabulate(size)(index => nodeStack(top - index).get)
+              stateStack.dropRightInPlace(size)
+              nodeStack.dropRightInPlace(size)
 
-              val ParseAction.Shift(gotoState) = tables.parseTable(newStateIdx, lhs).runtimeChecked
-              val result = tables.actionTable(prod)(ctx, RevertedArray(children))
+              val gotoState = tables.parseTable.goto(uncoveredState, production.lhs)
+              val result = tables.actionTable(production)(ctx, RevertedArray(children))
               stateStack += gotoState
               nodeStack += Node.Result(result)
               loop(remaining)
             }
-
-          case ParseAction.Reduction(Production.Empty(Symbol.Start, name)) if stateStack.last == 0 =>
-            Some(nodeStack.last)
-
-          case ParseAction.Reduction(prod @ Production.Empty(lhs, name)) =>
-            val ParseAction.Shift(gotoState) = tables.parseTable(stateStack.last, lhs).runtimeChecked
-            val result = tables.actionTable(prod)(ctx, RevertedArray.empty)
-            stateStack += gotoState
-            nodeStack += Node.Result(result)
-            loop(remaining)
         }
       }
     }
