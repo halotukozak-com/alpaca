@@ -6,7 +6,7 @@ package lexer
 import halotukozak.alpaca.internal.{Default, Printable, RuleOnly, Showable, ValidName}
 import halotukozak.alpaca.{LexerCtx, SepValue}
 import halotukozak.mcodec.MCodec
-import halotukozak.regex.{RegexParseError, RegexParser}
+import halotukozak.regex.{CharSet, Regex, RegexParseError, RegexParser}
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.unchecked.uncheckedVariance as uv
@@ -84,21 +84,54 @@ private[lexer] object TokenInfo:
     val regex = Option
       .when(invalidAlternatives.isEmpty)(RegexParser.parse(pattern))
       .flatMap:
-        case Right(regex) if regex.nullable =>
-          error(
-            //format: off
-            show"""Token "${Printable(name)}" can match the empty string ("${Printable(pattern)}"); a token must consume at least one character""",
-            //format: on
-            pos,
-          )
-          None
-        case Right(regex) => Some(regex)
+        case Right(regex) =>
+          unimplementedConstruct(regex) match
+            case Some(construct) =>
+              error(
+                //format: off
+                show"""Token "${Printable(name)}" uses $construct ("${Printable(pattern)}"), which is not supported yet""",
+                //format: on
+                pos,
+              )
+              None
+            case None if regex.nullable =>
+              error(
+                //format: off
+                show"""Token "${Printable(name)}" can match the empty string ("${Printable(pattern)}"); a token must consume at least one character""",
+                //format: on
+                pos,
+              )
+              None
+            case None => Some(regex)
         case Left(err) => reportInvalid(err); None
     (
       tokenType = ConstantType(StringConstant(name)).asType.asInstanceOf[Type[? <: ValidName]],
       info = TokenInfo(Printable(name), nextRegexGroupName(), Printable(pattern), ignored),
       regex = regex,
     )
+
+  /**
+   * Finds a construct that the regex library parses but token matching does not implement yet:
+   * anchors are ignored and a lookahead never sees the input after the token, so a pattern using
+   * one would match other inputs than it says.
+   *
+   * @param regex the parsed pattern
+   * @return a description of the first such construct, or `None` if the pattern has none
+   */
+  private def unimplementedConstruct(regex: Regex): Option[Shown] = regex match
+    case Regex.StartAnchor => Some(show"a start anchor `^` or `\\A`")
+    // the parser encodes `$`, `\Z` and `\z` as a negative lookahead of any character
+    case Regex.Look(inner, false) if inner == Regex(CharSet.all) => Some(show"an end anchor `$$`, `\\Z` or `\\z`")
+    case Regex.Look(_, true) => Some(show"a lookahead `(?=...)`")
+    case Regex.Look(_, false) => Some(show"a negative lookahead `(?!...)`")
+    case Regex.Eps | Regex.Empty | Regex.Chars(_) => None
+    case Regex.Concat(first, second) => unimplementedConstruct(first).orElse(unimplementedConstruct(second))
+    case Regex.Alt(branches) => branches.iterator.flatMap(unimplementedConstruct).nextOption()
+    case Regex.Inter(parts) => parts.iterator.flatMap(unimplementedConstruct).nextOption()
+    case Regex.Star(inner) => unimplementedConstruct(inner)
+    case Regex.Repeat(inner, _, _) => unimplementedConstruct(inner)
+    case Regex.Compl(inner) => unimplementedConstruct(inner)
+    case Regex.Group(_, _, inner) => unimplementedConstruct(inner)
 
   /**
    * Generates a unique name for a regex capture group.
