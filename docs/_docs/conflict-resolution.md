@@ -21,7 +21,7 @@ Both are detected at compile time. They do not manifest as runtime errors.
 
 ## Where resolutions Live
 
-`Resolutions` is a type class, keyed by the parser type: `Resolutions[P <: Parser[?]]`. You provide an instance with `given Resolutions[MyParser.type] = resolutions(...)`, and Alpaca picks it up via implicit search when it builds `MyParser`'s parse table.
+`Resolutions` is a type class, keyed by the parser type: `Resolutions[ParserType <: Parser[?]]`. You provide an instance with `given Resolutions[MyParser.type] = resolutions(...)`, and Alpaca picks it up via implicit search when it builds `MyParser`'s parse table.
 
 The parse table is built when the parser object is compiled, so the `given` has to be visible there. Declare it next to the parser object -- after it, as the examples on this page do, or before it:
 
@@ -50,7 +50,7 @@ given Resolutions[CalcParser.type] = resolutions(
 
 It can also go inside the parser object, but only as its last member, after every rule. Declared any earlier in the object, it cannot see the rules: `production.plus` fails with "value plus is not a member of ...ProductionSelector", or the compiler asks you to "Define resolutions as the last field of the parser."
 
-`production.name` inside `resolutions(...)` still refers to productions by name without qualification -- it is resolved by the inferred parser type `P`, not by textual scope. Only bare non-terminal references passed to `Production(symbols*)` need to be qualified with the parser object's name (see [The Production(symbols*) Selector](#the-productionsymbols-selector)).
+`production.name` inside `resolutions(...)` still refers to productions by name without qualification -- it is resolved by the inferred parser type `ParserType`, not by textual scope. Only bare non-terminal references passed to `Production(symbols*)` need to be qualified with the parser object's name (see [The Production(symbols*) Selector](#the-productionsymbols-selector)).
 
 ## Reading the Error Messages
 

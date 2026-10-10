@@ -21,10 +21,10 @@ import scala.annotation.implicitNotFound
  * A lexer handler declared for `LexerError.Of[MyLexerCtx]` reads the context's fields with their types.
  *
  * @tparam Ctx the lexer or parser context this applies to
- * @tparam E   the error it is given: [[LexerError]] for the lexer, [[ParserError]] for the parser
+ * @tparam Err the error it is given: [[LexerError]] for the lexer, [[ParserError]] for the parser
  */
-@implicitNotFound("Define ErrorHandling[${Ctx}, ${E}].")
-trait ErrorHandling[-Ctx, -E] extends ((Ctx, E) => ErrorHandling.Strategy)
+@implicitNotFound("Define ErrorHandling[${Ctx}, ${Err}].")
+trait ErrorHandling[-Ctx, -Err] extends ((Ctx, Err) => ErrorHandling.Strategy)
 
 object ErrorHandling:
   /** What to do with input that is not accepted: one character for the lexer, one lexeme for the parser. */

@@ -88,7 +88,7 @@ val ast = BrainParser.parse(lexemes).getOrThrow
 
 The `lexer` macro derives the per-token update from the context's case fields. There is no hook to override; instead you compose behaviour from smaller pieces:
 
-- **Tracking fragments** — a field whose type provides a `given Tracking[F]` advances automatically after every match. `Column` and `Line` are built in; you can define your own (see [Lexer Context](lexer-context.md#the-post-match-update)).
+- **Tracking fragments** — a field whose type provides a `given Tracking[Field]` advances automatically after every match. `Column` and `Line` are built in; you can define your own (see [Lexer Context](lexer-context.md#the-post-match-update)).
 - **Rule bodies** — assignments like `ctx.squareBrackets += 1` are rewritten into a functional `copy`, so a field with no `Tracking` changes only where a rule says so.
 - **Post-tokenization checks** — read the final `ctx` returned by `tokenize()` for anything that only makes sense once the whole input is consumed.
 

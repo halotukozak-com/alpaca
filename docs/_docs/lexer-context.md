@@ -193,7 +193,7 @@ Steps 1 and 3 are derived by the `lexer` macro from the context's case fields --
 <details>
 <summary>Under the hood: custom tracking fragments</summary>
 
-A tracking fragment is any field type that provides a `given Tracking[F]`. `Tracking[F]` is a single-method function `(matched: String, field: F) => F`: given the raw text just matched and the field's current value, return its next value. The `lexer` macro finds one for each case field and threads a functional `copy` through them after every match.
+A tracking fragment is any field type that provides a `given Tracking[Field]`. `Tracking[Field]` is a single-method function `(matched: String, field: Field) => Field`: given the raw text just matched and the field's current value, return its next value. The `lexer` macro finds one for each case field and threads a functional `copy` through them after every match.
 
 ```scala
 import halotukozak.alpaca.*
