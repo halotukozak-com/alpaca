@@ -281,6 +281,44 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
     ambiguous.column shouldBe 7 // the point of `P(...)` is its argument list
   }
 
+  test("production referenced by an RHS no production has is reported at the reference") {
+    val missing: scala.compiletime.testing.Error = typeCheckErrors("""
+    object MissingRhsParser extends Parser[CalcContext]:
+      val Expr: Rule[Int] = rule(
+        { case (Expr(a), CalcLexer.`+`(_), Expr(b)) => a + b },
+        { case CalcLexer.Num(lexem) => lexem.value },
+      )
+      val root = rule:
+       case Expr(e) => e
+
+    given Resolutions[MissingRhsParser.type] = resolutions(
+      P(CalcLexer.Num, CalcLexer.Num).before(CalcLexer.`+`),
+    )
+    """).loneElement
+    missing.message shouldBe "Production with RHS 'Num Num' not found\n(at line 11: P(CalcLexer.Num, CalcLexer.Num))"
+    missing.lineContent.trim shouldBe "P(CalcLexer.Num, CalcLexer.Num).before(CalcLexer.`+`),"
+  }
+
+  test("an argument of P(...) that is not a rule or token reference is reported at the argument") {
+    val argument: scala.compiletime.testing.Error = typeCheckErrors("""
+    object ComputedArgumentParser extends Parser[CalcContext]:
+      val Expr: Rule[Int] = rule(
+        { case (Expr(a), CalcLexer.`+`(_), Expr(b)) => a + b },
+        { case CalcLexer.Num(lexem) => lexem.value },
+      )
+      val root = rule:
+       case Expr(e) => e
+
+    given Resolutions[ComputedArgumentParser.type] = resolutions(
+      P(if true then ComputedArgumentParser.Expr else ComputedArgumentParser.root).before(CalcLexer.`+`),
+    )
+    """).loneElement
+    argument.message shouldBe
+      """Arguments of `Production(...)` must be rules or tokens of this parser
+        |(at line 11: if true then ComputedArgumentParser.Expr else ComputedArgumentParser.root)""".stripMargin
+    argument.column shouldBe 8
+  }
+
   test("conflict resolution that is not a direct before/after call is reported at the resolution") {
     val indirect: scala.compiletime.testing.Error = typeCheckErrors("""
     object IndirectParser extends Parser[CalcContext]:

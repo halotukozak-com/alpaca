@@ -1,8 +1,6 @@
 package halotukozak
 package alpaca
 
-import scala.annotation.implicitNotFound
-
 /**
  * How tokenizing or parsing goes on after input that is not accepted.
  *
@@ -23,7 +21,6 @@ import scala.annotation.implicitNotFound
  * @tparam Ctx the lexer or parser context this applies to
  * @tparam Err the error it is given: [[LexerError]] for the lexer, [[ParserError]] for the parser
  */
-@implicitNotFound("Define ErrorHandling[${Ctx}, ${Err}].")
 trait ErrorHandling[-Ctx, -Err] extends ((Ctx, Err) => ErrorHandling.Strategy)
 
 object ErrorHandling:
