@@ -1,12 +1,12 @@
-package halotukozak
-package alpaca
+package halotukozak.userland
 
+import halotukozak.alpaca.*
 import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
 final class CtxRemappingTest extends AnyFunSuite with Matchers with LoneElement:
-  test("remapping maps matched text to custom values using ctx.text") {
+  test("remapping maps matched text to custom values") {
     val L = lexer:
       case "\\s+" => Token.Ignored
       case x @ "[0-9]+" => Token["int"](x.toInt)
