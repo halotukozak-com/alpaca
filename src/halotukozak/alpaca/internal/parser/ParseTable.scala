@@ -68,7 +68,8 @@ private[parser] object ParseTable:
           if production.lhs == Symbol.Start && rest.head == 0 then true
           else table.leadsToShift(table.goto(rest.head, production.lhs) :: rest, terminal)
 
-    private def goto(state: Int, nonTerminal: NonTerminal): Int =
+    /** The state the parser moves to after reducing to `nonTerminal` with `state` uncovered on top of the stack. */
+    private[parser] def goto(state: Int, nonTerminal: NonTerminal): Int =
       table(state, nonTerminal).runtimeChecked match
         case Shift(gotoState) => gotoState
 

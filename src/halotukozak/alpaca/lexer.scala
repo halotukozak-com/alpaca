@@ -319,8 +319,6 @@ object LexerError:
     : LexerError withFields CtxFields =
     new LexerError(unexpected, fieldNames, ctx.productIterator.toArray).asInstanceOf[LexerError withFields CtxFields]
 
-  def unapply(error: LexerError): Some[String] = Some(error.unexpected)
-
 /**
  * Thrown by `getOrThrow` on a lexer [[Result]] when some input did not match a token.
  *
