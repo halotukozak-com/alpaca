@@ -104,8 +104,6 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
     error("column", "line")(4, 1) should not be error("column", "line")(5, 1)
     error("column", "line")(4, 1) should not be error("col", "line")(4, 1)
     error("column", "line")(4, 1).toString shouldBe "LexerError(a, column = 4, line = 1)"
-    error()() match
-      case LexerError(unexpected) => unexpected shouldBe "a"
   }
 
   test("tokenize complex expression") {
