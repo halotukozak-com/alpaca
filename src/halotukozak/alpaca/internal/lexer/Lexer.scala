@@ -50,7 +50,7 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
    */
   final def tokenize(input: CharSequence): Result[Ctx, List[Lexeme], LexerError] = {
     var globalCtx = initialCtx()
-    globalCtx.engineInput = input match
+    globalCtx.input = input match
       case reader: LazyReader => reader
       case _ => OffsetCharSequence(input)
 
@@ -58,40 +58,40 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
     val errors = mutable.ListBuffer.empty[LexerError]
     var stopped = false
 
-    while !globalCtx.engineInput.isEmpty do {
-      val step: Step[Ctx] = matcher.matchAt(globalCtx.engineInput, 0) match {
+    while !globalCtx.input.isEmpty do {
+      val step: Step[Ctx] = matcher.matchAt(globalCtx.input, 0) match {
         case m if m != null && m.end > 0 =>
-          val matchedStr = globalCtx.engineInput.subSequence(0, m.end).toString
-          globalCtx.engineLastRawMatched = matchedStr
+          val matchedStr = globalCtx.input.subSequence(0, m.end).toString
+          globalCtx.lastRawMatched = matchedStr
           val found = tokensArray(m.priority)
-          globalCtx.engineInput = globalCtx.engineInput.from(m.end)
+          globalCtx.input = globalCtx.input.from(m.end)
           Step.Matched(found, matchedStr)
 
         case _ =>
-          val cpLen = Character.charCount(Character.codePointAt(globalCtx.engineInput, 0))
+          val cpLen = Character.charCount(Character.codePointAt(globalCtx.input, 0))
           val unexpected =
-            alpaca.LexerError[LexemeFields](globalCtx.engineInput.subSequence(0, cpLen).toString, fieldNames, globalCtx)
+            alpaca.LexerError[LexemeFields](globalCtx.input.subSequence(0, cpLen).toString, fieldNames, globalCtx)
           errorHandling(globalCtx, unexpected) match {
             case Strategy.SkipToNextMatch =>
               val skipped =
-                matcher.findFirst(globalCtx.engineInput, cpLen).fold(cpLen)((firstMatching, _, _) => firstMatching)
-              val matchedStr = globalCtx.engineInput.subSequence(0, skipped).toString
+                matcher.findFirst(globalCtx.input, cpLen).fold(cpLen)((firstMatching, _, _) => firstMatching)
+              val matchedStr = globalCtx.input.subSequence(0, skipped).toString
               errors += alpaca.LexerError[LexemeFields](matchedStr, fieldNames, globalCtx)
-              globalCtx.engineLastRawMatched = matchedStr
-              globalCtx.engineInput = globalCtx.engineInput.from(skipped)
+              globalCtx.lastRawMatched = matchedStr
+              globalCtx.input = globalCtx.input.from(skipped)
               Step.Matched(RecoveredToken(matchedStr), matchedStr)
 
             case Strategy.SkipOne =>
               val matchedStr = unexpected.unexpected
               errors += unexpected
-              globalCtx.engineLastRawMatched = matchedStr
-              globalCtx.engineInput = globalCtx.engineInput.from(cpLen)
+              globalCtx.lastRawMatched = matchedStr
+              globalCtx.input = globalCtx.input.from(cpLen)
               Step.Matched(RecoveredToken(matchedStr), matchedStr)
 
             case Strategy.Stop =>
               errors += unexpected
               stopped = true
-              globalCtx.engineInput = ""
+              globalCtx.input = ""
               Step.Stopped
           }
       }
@@ -100,7 +100,7 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
         case Step.Matched(token, matched) =>
           globalCtx = onTokenMatch(token, matched, globalCtx)
           if token.isInstanceOf[DefinedToken[?, Ctx, ?, ?]] then
-            acc.addOne(globalCtx.engineLastLexeme.nn.asInstanceOf[Lexeme])
+            acc.addOne(globalCtx.lastLexeme.nn.asInstanceOf[Lexeme])
         case Step.Stopped =>
     }
 

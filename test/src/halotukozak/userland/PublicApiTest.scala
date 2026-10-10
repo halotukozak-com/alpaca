@@ -51,7 +51,7 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
   }
 
   test("the lexer's internal bookkeeping cannot be overwritten from user code") {
-    assert(!typeChecks("""LexerCtx.Default().engineLastRawMatched = "x""""))
+    assert(!typeChecks("""LexerCtx.Default().lastRawMatched = "x""""))
   }
 
   test("ctx and its field assignments are compile errors outside a lexer rule") {

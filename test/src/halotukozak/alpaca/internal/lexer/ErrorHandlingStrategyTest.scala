@@ -21,7 +21,7 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
     val result = L.tokenize("aaabaa")
     result.failure.recovered shouldBe None
     result.failure.errors.map(e => (e.unexpected, e.line, e.column)) shouldBe List(("b", 1, 4))
-    result.ctx.engineInput.toString shouldBe "" // Stop currently sets text to empty string
+    result.ctx.input.toString shouldBe "" // Stop currently sets text to empty string
   }
 
   test("Strategy.SkipOne skips one character, reports it and recovers the lexemes") {

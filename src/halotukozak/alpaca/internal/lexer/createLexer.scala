@@ -56,7 +56,7 @@ import scala.reflect.NameTransformer
         override def transformTerm(t: Term)(owner: Symbol): Term = t match
           case _ if t.symbol == oldScope.symbol => '{ LexerScope.refl[Ctx](${ newCtx.asExprOf[Ctx] }) }.asTerm
           case _ if !tree.symbol.isNoSymbol && t.symbol == tree.symbol =>
-            '{ ${ newCtx.asExprOf[Ctx] }.engineLastRawMatched }.asTerm
+            '{ ${ newCtx.asExprOf[Ctx] }.lastRawMatched }.asTerm
           case block: Block => super.transformTerm(block.changeOwner(owner))(owner)
           case t if t.isExpr =>
             t.asExpr match
@@ -117,7 +117,7 @@ import scala.reflect.NameTransformer
                   DefinedToken[name, Ctx, String, Lexeme[name, String] withFields NamedTuple.From[Ctx]](
                     ${ Expr(tokenInfo) },
                     $ctxManipulation,
-                    _.engineLastRawMatched,
+                    _.lastRawMatched,
                   )
                 },
                 regex = regex,

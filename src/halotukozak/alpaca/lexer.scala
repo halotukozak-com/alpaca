@@ -174,7 +174,7 @@ trait LexerCtx extends Product, Selectable:
   // fields with the same names. The library reads and writes them through the `engine*` extensions in the companion.
   private var lastLexeme: Lexeme[?, ?] | Null = compiletime.uninitialized
   private var lastRawMatched: String = compiletime.uninitialized
-  private var text: CharSequence = compiletime.uninitialized
+  private var input: CharSequence = compiletime.uninitialized
 
   /**
    * A copy of at most the next `n` characters of the input still to be tokenized, fewer at its end.
@@ -188,7 +188,7 @@ trait LexerCtx extends Product, Selectable:
    */
   final def peek(n: Int): String =
     require(n >= 0, s"peek length must be non-negative, got $n")
-    text.subSequence(0, math.min(n, text.length)).toString
+    input.subSequence(0, math.min(n, input.length)).toString
 
   /**
    * Propagates the engine-internal bookkeeping fields above from `prev` onto
@@ -201,7 +201,7 @@ trait LexerCtx extends Product, Selectable:
    */
   @publicInBinary
   private[alpaca] def carryEngineStateFrom(prev: LexerCtx): this.type =
-    text = prev.text
+    input = prev.input
     lastRawMatched = prev.lastRawMatched
     lastLexeme = prev.lastLexeme
     this
@@ -220,16 +220,16 @@ object LexerCtx:
   extension (ctx: LexerCtx) {
 
     /** The input still to be tokenized. */
-    @publicInBinary private[alpaca] def engineInput: CharSequence = ctx.text
-    @publicInBinary private[alpaca] def engineInput_=(input: CharSequence): Unit = ctx.text = input
+    @publicInBinary private[alpaca] def input: CharSequence = ctx.input
+    @publicInBinary private[alpaca] def input_=(remaining: CharSequence): Unit = ctx.input = remaining
 
     /** The raw string the last token matched. */
-    @publicInBinary private[alpaca] def engineLastRawMatched: String = ctx.lastRawMatched
-    @publicInBinary private[alpaca] def engineLastRawMatched_=(matched: String): Unit = ctx.lastRawMatched = matched
+    @publicInBinary private[alpaca] def lastRawMatched: String = ctx.lastRawMatched
+    @publicInBinary private[alpaca] def lastRawMatched_=(matched: String): Unit = ctx.lastRawMatched = matched
 
     /** The last lexeme created. */
-    @publicInBinary private[alpaca] def engineLastLexeme: Lexeme[?, ?] | Null = ctx.lastLexeme
-    @publicInBinary private[alpaca] def engineLastLexeme_=(lexeme: Lexeme[?, ?] | Null): Unit = ctx.lastLexeme = lexeme
+    @publicInBinary private[alpaca] def lastLexeme: Lexeme[?, ?] | Null = ctx.lastLexeme
+    @publicInBinary private[alpaca] def lastLexeme_=(lexeme: Lexeme[?, ?] | Null): Unit = ctx.lastLexeme = lexeme
   }
 
   /** Default error handler for any [[LexerCtx]]: stop at the first unrecognised character and report it. */
