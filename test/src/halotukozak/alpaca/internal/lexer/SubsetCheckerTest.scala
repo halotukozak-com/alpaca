@@ -27,7 +27,7 @@ final class SubsetCheckerTest extends AnyFunSuite with Matchers:
       "[+-]?[0-9]+",
       "=",
       "[ \\t\\n]+",
-    ) shouldBe None
+    ) shouldBe empty
   }
 
   test("checkRegexes should report shadowing for overlapping patterns") {
@@ -37,7 +37,17 @@ final class SubsetCheckerTest extends AnyFunSuite with Matchers:
       "=",
       "[a-zA-Z]+",
       "[ \\t\\n]+",
-    ) shouldBe Some((first = "[a-zA-Z]+", second = List("[a-zA-Z_][a-zA-Z0-9_]*")))
+    ) shouldBe List((first = "[a-zA-Z]+", second = List("[a-zA-Z_][a-zA-Z0-9_]*")))
+  }
+
+  test("checkRegexes should report every shadowed pattern in declaration order") {
+    check("[a-z]+", "[0-9]+", "if", "[a-m]", "[n-z]", "42", "[a-z]") shouldBe List(
+      (first = "if", second = List("[a-z]+")),
+      (first = "[a-m]", second = List("[a-z]+")),
+      (first = "[n-z]", second = List("[a-z]+")),
+      (first = "42", second = List("[0-9]+")),
+      (first = "[a-z]", second = List("[a-z]+")),
+    )
   }
 
   test("checkRegexes should not report a pattern whose prefix an earlier one matches (longest match wins)") {
@@ -47,22 +57,22 @@ final class SubsetCheckerTest extends AnyFunSuite with Matchers:
       "if",
       "=",
       "[ \\t\\n]+",
-    ) shouldBe None
-    check("a", "ab") shouldBe None
-    check("[0-9]+", "[0-9]+(\\.[0-9]+)?") shouldBe None
+    ) shouldBe empty
+    check("a", "ab") shouldBe empty
+    check("[0-9]+", "[0-9]+(\\.[0-9]+)?") shouldBe empty
   }
 
   test("checkRegexes should report a pattern fully covered by an earlier one even when it is longer") {
-    check("[0-9]+(\\.[0-9]+)?", "[0-9]+") shouldBe Some((first = "[0-9]+", second = List("[0-9]+(\\.[0-9]+)?")))
-    check("[a-z]+", "if") shouldBe Some((first = "if", second = List("[a-z]+")))
+    check("[0-9]+(\\.[0-9]+)?", "[0-9]+") shouldBe List((first = "[0-9]+", second = List("[0-9]+(\\.[0-9]+)?")))
+    check("[a-z]+", "if") shouldBe List((first = "if", second = List("[a-z]+")))
   }
 
   test("checkRegexes should report a pattern covered only by the union of earlier ones") {
-    check("[a-m]", "[n-z]", "=", "[a-z]") shouldBe Some((first = "[a-z]", second = List("[a-m]", "[n-z]")))
+    check("[a-m]", "[n-z]", "=", "[a-z]") shouldBe List((first = "[a-z]", second = List("[a-m]", "[n-z]")))
   }
 
   test("checkRegexes should not report a pattern the union of earlier ones does not fully cover") {
-    check("[a-m]+", "[n-z]+", "[a-z]+") shouldBe None
+    check("[a-m]+", "[n-z]+", "[a-z]+") shouldBe empty
   }
 
   test("checkRegexes should report identical patterns as overlapping") {
@@ -72,7 +82,7 @@ final class SubsetCheckerTest extends AnyFunSuite with Matchers:
       "=",
       "[a-zA-Z_][a-zA-Z0-9_]*",
       "[ \\t\\n]+",
-    ) shouldBe Some((first = "[a-zA-Z_][a-zA-Z0-9_]*", second = List("[a-zA-Z_][a-zA-Z0-9_]*")))
+    ) shouldBe List((first = "[a-zA-Z_][a-zA-Z0-9_]*", second = List("[a-zA-Z_][a-zA-Z0-9_]*")))
   }
 
   test("checkRegexes should not report patterns in proper order") {
@@ -84,15 +94,15 @@ final class SubsetCheckerTest extends AnyFunSuite with Matchers:
       "=",
       "[a-zA-Z_][a-zA-Z0-9_]*",
       "[ \\t\\n]+",
-    ) shouldBe None
+    ) shouldBe empty
   }
 
   test("checkRegexes should handle empty pattern list") {
-    SubsetChecker.checkRegexes(Nil) shouldBe None
+    SubsetChecker.checkRegexes(Nil) shouldBe empty
   }
 
   test("checkRegexes should handle single pattern") {
-    check("[a-zA-Z_][a-zA-Z0-9_]*") shouldBe None
+    check("[a-zA-Z_][a-zA-Z0-9_]*") shouldBe empty
   }
 
   test("handles CalcLexer-like patterns") {
@@ -111,5 +121,5 @@ final class SubsetCheckerTest extends AnyFunSuite with Matchers:
       "\\d+",
       "#.*",
       "\n+",
-    ) shouldBe None
+    ) shouldBe empty
   }

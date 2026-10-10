@@ -22,13 +22,12 @@ private[lexer] object SubsetChecker:
   /**
    * Checks a priority-ordered sequence of pre-parsed regexes for shadowing.
    *
-   * @return the first shadowed pattern together with the earlier patterns that cover it, if any.
+   * @return every shadowed pattern, in declaration order, together with the earlier patterns that cover it.
    *         `second` holds a single name when one earlier pattern covers it on its own, otherwise
    *         every earlier pattern that overlaps it.
    */
-  def checkRegexes(items: List[(name: Printable, subset: Subset)])
-    : Option[(first: Printable, second: List[Printable])] =
-    items.indices.iterator
+  def checkRegexes(items: List[(name: Printable, subset: Subset)]): List[(first: Printable, second: List[Printable])] =
+    items.indices.toList
       .flatMap: i =>
         val (laterName, laterSub) = items(i)
         val earlier = items.take(i)
@@ -42,4 +41,3 @@ private[lexer] object SubsetChecker:
             Option.when(
               overlapping.sizeIs > 1 && laterSub.subset(Subset.of(Regex.alt(overlapping.map(_.subset.underlying)))),
             )((first = laterName, second = overlapping.map(_.name)))
-      .nextOption()
