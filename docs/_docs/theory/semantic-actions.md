@@ -10,7 +10,7 @@ This is the *S-attributed translation scheme*: each non-terminal has one *synthe
 
 For the calculator: every non-terminal produces a `Double`. Leaves (NUMBER tokens) contribute `n.value` (a Double from the lexer). Each binary operator reduction computes `a op b`.
 
-No top-down information flow is needed — the calculator is purely bottom-up. Each value is computed from the immediately reduced children. (For stateful parsing where context flows from parent to child, see [Parser](../parser.md).)
+No top-down information flow is needed — the calculator is purely bottom-up. Each value is computed from the immediately reduced children. (For information that flows from parent to child, see [Attribute Grammars](attribute-grammars.md).)
 
 > **Definition — Semantic Action:**
 > Given a production A → X₁ X₂ ... Xₙ, a semantic action is a function

@@ -83,3 +83,13 @@ final class ParserMacroErrorsTest extends AnyFunSuite with Matchers with LoneEle
       ),
     )
   }
+
+  test("a parser without a root rule is reported at its declaration") {
+    val error: Error = typeCheckErrors("""
+    object NoRootParser extends Parser:
+      val Num: Rule[Int] = rule({ case ErrLexer.NUM(n) => n.value })
+    """).loneElement
+    error.message shouldBe
+      "No root rule defined in NoRootParser. Define a root rule: val root: Rule[Any] = rule { ... }"
+    error.lineContent.trim shouldBe "object NoRootParser extends Parser:"
+  }

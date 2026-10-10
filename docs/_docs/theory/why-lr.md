@@ -75,11 +75,15 @@ merged states can no longer tell their reductions apart. Shift/reduce conflicts 
 by the merge. For the grammars in these docs (including the calculator) the LALR(1) and LR(1) tables
 make the same decisions.
 
-Concrete grounding from Alpaca's source: `ParseTable.scala` first builds the LR(0) automaton
-(`LR0Automaton`), then computes each state's lookaheads by propagation over it (`Lookaheads`, the
-spontaneous-generation-and-propagation algorithm of Aho, Lam, Sethi & Ullman, *Compilers*, 2nd ed.,
-section 4.7.5), and finally closes each state with its real
-lookaheads (`State.fromItem`) to read off the reduce actions.
+<details>
+<summary>Under the hood: how Alpaca builds the LALR(1) table</summary>
+
+Alpaca first builds the LR(0) automaton, then computes each state's lookaheads by propagation over
+it (the spontaneous-generation-and-propagation algorithm of Aho, Lam, Sethi & Ullman, *Compilers*,
+2nd ed., section 4.7.5), and finally closes each state with its real lookaheads to read off the
+reduce actions.
+
+</details>
 
 ## The LR(1) Item
 
@@ -87,13 +91,13 @@ lookaheads (`State.fromItem`) to read off the reduce actions.
 > An LR(1) item is a triple [A → α • β, a] where:
 > - A → αβ is a production rule
 > - the dot • marks how much of the right-hand side has been recognized
-    > (α is the part already on the stack; β is what remains to be shifted)
+>   (α is the part already on the stack; β is what remains to be shifted)
 > - a ∈ Σ ∪ {$} is the lookahead terminal
 >
 > The item [A → α •, a] (dot at the end) means A is fully recognized.
 > A reduction by A → α fires when the next input symbol is exactly a.
 
-Three example items using the dot notation from Alpaca's `Item.scala` docstring:
+Three example items in dot notation:
 
 ```
 [Expr → • NUMBER, PLUS]       — about to shift NUMBER; after reduction, PLUS follows
