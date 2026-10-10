@@ -22,7 +22,16 @@ import scala.reflect.NameTransformer
   given diagnostics: Diagnostics = Diagnostics()
   val initialCtx = fromDefaults[Ctx]
 
-  val Lambda(oldScope :: Nil, Lambda(_, Match(_, cases: List[CaseDef]))) = rules.asTerm.underlying.runtimeChecked
+  val (oldScope, cases) = rules.asTerm.underlying match
+    case Lambda(oldScope :: Nil, Lambda(_, Match(_, cases))) => (oldScope, cases)
+    case other =>
+      val definition = other match
+        case Lambda(_, body) => body
+        case _ => other
+      errorAndAbort(
+        show"Lexer rules must be a list of `case`s written directly in the `lexer` block, as in `case \"[0-9]+\" => Token[\"NUM\"]`",
+        definition.pos,
+      )
 
   // A token compiled from one case, with the case's position for error reporting.
   type CompiledRule = (info: TokenInfo, expr: Expr[lexer.Token[?, Ctx, ?]], regex: Option[Regex], pos: Position)
