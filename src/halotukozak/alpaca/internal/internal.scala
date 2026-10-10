@@ -217,3 +217,13 @@ extension [T](t: T)
   inline private[alpaca] def tap[U](inline f: T => U): T =
     f(t): Unit
     t
+
+extension [E](elements: Iterable[E])
+  /**
+   * The elements that share a key with another one, grouped by key: the groups in the order their keys first appear,
+   * the elements of a group in their order. Built in one pass.
+   */
+  private[alpaca] def duplicatesBy[Key](key: E => Key): List[List[E]] =
+    val groups = mutable.LinkedHashMap.empty[Key, mutable.ListBuffer[E]]
+    elements.foreach(element => groups.getOrElseUpdate(key(element), mutable.ListBuffer.empty) += element)
+    groups.valuesIterator.filter(_.sizeIs > 1).map(_.toList).toList

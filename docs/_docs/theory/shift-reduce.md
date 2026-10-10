@@ -4,7 +4,7 @@ The shift-reduce loop is the heart of LR parsing. Every LR parser — regardless
 
 ## The Parse Stack
 
-From Alpaca's `Parser.scala` runtime: the stack is kept as two parallel stacks, one of state indices (`stateStack`) and one of nodes (`nodeStack`) -- conceptually a stack of `(stateIndex, node)` pairs. The `stateIndex` is a number indexing into the pre-built parse table. The `node` is either a `Lexeme` (for shifted terminals) or a computed value (for reduced non-terminals, after the semantic action has been applied).
+The parser keeps a stack of `(state, value)` pairs. The `state` is a number indexing into the pre-built parse table. The `value` is either a `Lexeme` (for shifted terminals) or a computed value (for reduced non-terminals, after the semantic action has been applied).
 
 The parser starts with state 0 on an empty stack: `[0]`. Two actions drive the loop:
 
@@ -62,7 +62,7 @@ State numbers 0, 2, 3, 4, 5 are illustrative labels for this simplified 3-produc
 
 ## LR(1) Items and Lookahead
 
-The lookahead in each item determines when a reduce fires. Three example items in the dot notation used by Alpaca's `Item.scala`:
+The lookahead in each item determines when a reduce fires. Three example items in dot notation:
 
 ```
 [Expr → • NUMBER, PLUS]        — start state: about to shift NUMBER
@@ -74,7 +74,12 @@ In Step 2 of the trace, the item `[Expr → NUMBER •, PLUS]` is active. The lo
 
 ## Connection to Alpaca's Runtime
 
-In Alpaca, this trace corresponds directly to the `loop()` function in `Parser.scala`. Each iteration either calls `ParseAction.Shift(gotoState)` — pushing the lexeme and new state — or `ParseAction.Reduction(production)` — popping `rhs.size` items, calling the action table entry, and pushing the computed value and goto state. The accept condition fires when `lhs == Symbol.Start` and the new state index is 0.
+<details>
+<summary>Under the hood: the runtime loop</summary>
+
+The trace corresponds directly to the parser's runtime loop. Each iteration either shifts — pushing the lexeme and the new state — or reduces — popping `rhs.size` entries, calling the production's semantic action, and pushing the computed value with its goto state. Parsing is accepted when the start production is reduced.
+
+</details>
 
 No parse tree object is ever constructed. Each reduce immediately applies the semantic action and pushes the typed result. This is why `CalcParser.parse(CalcLexer.tokenize("1 + 2").getOrThrow)` returns the `Double` `3.0` directly (as the `value` of the returned `Result.Success`), not an intermediate tree.
 

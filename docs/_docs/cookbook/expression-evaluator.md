@@ -25,39 +25,9 @@ val CalcLexer = lexer:
 
 ## The Parser
 
-Named productions (`"plus"`, `"times"`, etc.) let us reference specific alternatives in conflict resolution:
+Named productions (`"plus"`, `"times"`, etc.) let us reference specific alternatives in conflict resolution.
 
-```scala sc-compile-with:calc-lexer sc:fail
-import halotukozak.alpaca.*
-
-object CalcParser extends Parser: // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error // error
-  val root: Rule[Double] = rule:
-    case Expr(v) => v
-
-  val Expr: Rule[Double] = rule(
-    "plus"   { case (Expr(a), CalcLexer.`\\+`(_), Expr(b)) => a + b },
-    "minus"  { case (Expr(a), CalcLexer.`-`(_), Expr(b)) => a - b },
-    "times"  { case (Expr(a), CalcLexer.`\\*`(_), Expr(b)) => a * b },
-    "divide" { case (Expr(a), CalcLexer.`/`(_), Expr(b)) => a / b },
-    "exp"    { case (Expr(a), CalcLexer.`exp`(_), Expr(b)) => math.pow(a, b) },
-    "uminus" { case (CalcLexer.`-`(_), Expr(a)) => -a },
-    "pi"     { case CalcLexer.pi(_) => math.Pi },
-    "sin"    { case (CalcLexer.sin(_), CalcLexer.`\\(`(_), Expr(a), CalcLexer.`\\)`(_)) => math.sin(a) },
-    "atan2"  {
-      case (CalcLexer.atan2(_), CalcLexer.`\\(`(_), Expr(y), CalcLexer.`,`(_), Expr(x), CalcLexer.`\\)`(_)) =>
-        math.atan2(y, x)
-    },
-    { case (CalcLexer.`\\(`(_), Expr(a), CalcLexer.`\\)`(_)) => a },
-    { case CalcLexer.float(x) => x.value },
-    { case CalcLexer.int(n) => n.value.toDouble },
-  )
-```
-
-Without conflict resolution, this grammar is ambiguous -- the compiler reports shift/reduce conflicts for every operator production (30 in total, one per `// error` marker above).
-
-## Conflict Resolution
-
-The parse table is built when `CalcParser` is compiled, so its `given Resolutions[CalcParser.type]` has to be declared together with it (see [Where resolutions Live](../conflict-resolution.md#where-resolutions-live)) -- resolving the grammar above means restating `CalcParser` with the `given` in one block:
+The grammar on its own is ambiguous: `1 - 2 * 3` can be read as `(1 - 2) * 3` or `1 - (2 * 3)`, and without help the compiler rejects the parser with 30 shift/reduce conflicts. The `given Resolutions[CalcParser.type]` below settles each of them. The parse table is built when `CalcParser` is compiled, so the `given` is declared together with it (see [Where resolutions Live](../conflict-resolution.md#where-resolutions-live)):
 
 ```scala sc-name:calc-resolved sc-compile-with:calc-lexer
 object CalcParser extends Parser:
@@ -102,11 +72,7 @@ given Resolutions[CalcParser.type] = resolutions(
 )
 ```
 
-The precedence hierarchy from highest to lowest: `**` > unary `-` > `*` `/` > `+` `-`.
-
-- `before(tokens)` = prefer reducing this production over shifting those tokens
-- `after(tokens)` = prefer shifting those tokens over reducing this production
-- `Token.before(productions)` = prefer shifting this token over reducing those productions
+The precedence hierarchy from highest to lowest: `**` > unary `-` > `*` `/` > `+` `-`. See [The before/after DSL](../conflict-resolution.md#the-beforeafter-dsl) for what each form means.
 
 ## Running It
 

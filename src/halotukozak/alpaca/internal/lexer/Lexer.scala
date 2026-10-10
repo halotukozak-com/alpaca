@@ -25,9 +25,18 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
 )(using errorHandling: ErrorHandling[Ctx, alpaca.LexerError.Of[Ctx]],
 ) extends Selectable:
   type Fields <: AnyNamedTuple
+
+  /** The context fields every lexeme and error of this lexer carries, as a named tuple. */
   final type LexemeFields = NamedTuple.From[Ctx]
+
+  /** A lexeme of this lexer, with its context fields: `def show(lexeme: MyLexer.Lexeme)`. */
   final type Lexeme = lexer.Lexeme[?, ?] withFields LexemeFields
+
+  /** An error of this lexer, with its context fields: `def report(error: MyLexer.LexerError)`. */
   final type LexerError = alpaca.LexerError withFields LexemeFields
+
+  /** An error of a parser run on this lexer's lexemes, with their context fields: `def report(error: MyLexer.ParserError)`. */
+  final type ParserError = alpaca.ParserError withFields LexemeFields
 
   /** List of all tokens defined in this lexer, including ignored tokens. */
   @publicInBinary

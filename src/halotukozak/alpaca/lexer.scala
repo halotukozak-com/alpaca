@@ -128,10 +128,10 @@ object Token:
 // assignment mutates in place, exactly as before, and in fact never gains a
 // refinement member in the first place.
 //
-// `C` is inferred as a fresh, unbound type parameter from whatever context
+// `Ctx` is inferred as a fresh, unbound type parameter from whatever context
 // function currently binds the `LexerScope` — deliberately *not* `scope.ctx.type`: refining the
 // singleton type of the specific enclosing lambda parameter, rather than the
-// nominal class `C`, is what a `lexer` rule's own macro (which tears the
+// nominal class `Ctx`, is what a `lexer` rule's own macro (which tears the
 // rule apart and rebuilds its pieces as fresh lambdas — see `createLexer.scala`)
 // empirically stumbles on downstream, even though the two only differ in
 // which stable path they're attached to.
@@ -139,7 +139,7 @@ object Token:
  * The lexer context inside a `lexer` rule body. Read its fields, or assign them (`ctx.count += 1`) to change the
  * context for the tokens that follow: the assignment is rewritten into a `copy`, so the fields can stay `val`s.
  */
-transparent inline def ctx[C <: LexerCtx: LexerScope.Of as scope]: C = ${ ctxImpl[C]('scope) }
+transparent inline def ctx[Ctx <: LexerCtx: LexerScope.Of as scope]: Ctx = ${ ctxImpl[Ctx]('scope) }
 
 // $COVERAGE-OFF$
 @publicInBinary private[alpaca] def ctxImpl[C <: LexerCtx: Type](scope: Expr[LexerScope.Of[C]])(using Quotes): Expr[C] = {
@@ -308,9 +308,9 @@ object LexerError:
   /** An error carrying the fields of the lexer context `Ctx`, as an [[ErrorHandling]] for `Ctx` is given it. */
   type Of[Ctx] = LexerError withFields NamedTuple.From[Ctx]
 
-  extension [Ctx, A](result: Result[Ctx, A, LexerError])
+  extension [Ctx, Value](result: Result[Ctx, Value, LexerError])
     /** The value; throws the errors as a [[LexerException]] if any input did not match a token. */
-    def getOrThrow: A = result match
+    def getOrThrow: Value = result match
       case Result.Success(_, value) => value
       case Result.Failure(_, _, errors) => throw LexerException(errors)
 
@@ -318,8 +318,6 @@ object LexerError:
   private[alpaca] def apply[CtxFields <: AnyNamedTuple](unexpected: String, fieldNames: Array[String], ctx: LexerCtx)
     : LexerError withFields CtxFields =
     new LexerError(unexpected, fieldNames, ctx.productIterator.toArray).asInstanceOf[LexerError withFields CtxFields]
-
-  def unapply(error: LexerError): Some[String] = Some(error.unexpected)
 
 /**
  * Thrown by `getOrThrow` on a lexer [[Result]] when some input did not match a token.

@@ -35,7 +35,7 @@ final class ProductionOtherParserRuleTest extends AnyFunSuite with Matchers with
     )
     """).loneElement
     error.message shouldBe
-      "Rule Expr belongs to another parser, OtherRuleParser; `Production(...)` in the resolutions of SameRuleNameParser can only refer to SameRuleNameParser's rules"
+      "Rule Expr belongs to another parser, OtherRuleParser; `Production(...)` in the resolutions of SameRuleNameParser can only refer to SameRuleNameParser's rules\n(at line 9: OtherRuleParser.Expr)"
     error.lineContent.trim shouldBe
       "Production(SameRuleNameParser.Expr, OtherRuleLexer.PLUS, OtherRuleParser.Expr).before(OtherRuleLexer.PLUS),"
     error.column shouldBe 79 // the `Expr` of `OtherRuleParser.Expr`

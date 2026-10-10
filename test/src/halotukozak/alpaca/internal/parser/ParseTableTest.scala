@@ -45,12 +45,13 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
 
       val root = rule:
        case Expr(expr) => expr 
-    """).loneElement.message should include("""
-                                              |Shift "+" vs Reduce Expr -> Expr + Expr
-                                              |In situation like:
-                                              |Expr + Expr + ...
-                                              |Consider marking production Expr -> Expr + Expr to be before or after "+"
-                                              |""".stripMargin)
+    """).loneElement.message should
+      include("""
+                |Shift "+" vs Reduce Expr -> Expr + Expr
+                |In situation like:
+                |Expr + Expr + ...
+                |Consider marking production Expr -> Expr + Expr to be before or after "+"
+                |(at line 4: case (Expr(expr1), CalcLexer.`+`(_), Expr(expr2)) => expr1 + expr2)""".stripMargin)
   }
 
   test("conflict messages escape non-printable token names") {
@@ -149,7 +150,7 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
                                       |Num ...
                                       |Conflicting production: Float -> Num (line 7)
                                       |Consider marking one of the productions to be before or after the other
-                                      |""".stripMargin)
+                                      |(at line 4: case CalcLexer.Num(lexem) => lexem.value)""".stripMargin)
     conflict.lineContent.trim shouldBe "case CalcLexer.Num(lexem) => lexem.value"
   }
 
@@ -199,6 +200,7 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
                                      |Consider revising the before/after rules to eliminate cycles
                                      |""".stripMargin)
     // points at the rule closing the cycle, not at the parser declaration
+    cycle.message should endWith("\n(at line 12: production.A)")
     cycle.lineContent.trim shouldBe "P(CalcLexer.`+`).before(production.A),"
     cycle.column shouldBe 32
   }
@@ -279,6 +281,44 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
     ambiguous.column shouldBe 7 // the point of `P(...)` is its argument list
   }
 
+  test("production referenced by an RHS no production has is reported at the reference") {
+    val missing: scala.compiletime.testing.Error = typeCheckErrors("""
+    object MissingRhsParser extends Parser[CalcContext]:
+      val Expr: Rule[Int] = rule(
+        { case (Expr(a), CalcLexer.`+`(_), Expr(b)) => a + b },
+        { case CalcLexer.Num(lexem) => lexem.value },
+      )
+      val root = rule:
+       case Expr(e) => e
+
+    given Resolutions[MissingRhsParser.type] = resolutions(
+      P(CalcLexer.Num, CalcLexer.Num).before(CalcLexer.`+`),
+    )
+    """).loneElement
+    missing.message shouldBe "Production with RHS 'Num Num' not found\n(at line 11: P(CalcLexer.Num, CalcLexer.Num))"
+    missing.lineContent.trim shouldBe "P(CalcLexer.Num, CalcLexer.Num).before(CalcLexer.`+`),"
+  }
+
+  test("an argument of P(...) that is not a rule or token reference is reported at the argument") {
+    val argument: scala.compiletime.testing.Error = typeCheckErrors("""
+    object ComputedArgumentParser extends Parser[CalcContext]:
+      val Expr: Rule[Int] = rule(
+        { case (Expr(a), CalcLexer.`+`(_), Expr(b)) => a + b },
+        { case CalcLexer.Num(lexem) => lexem.value },
+      )
+      val root = rule:
+       case Expr(e) => e
+
+    given Resolutions[ComputedArgumentParser.type] = resolutions(
+      P(if true then ComputedArgumentParser.Expr else ComputedArgumentParser.root).before(CalcLexer.`+`),
+    )
+    """).loneElement
+    argument.message shouldBe
+      """Arguments of `Production(...)` must be rules or tokens of this parser
+        |(at line 11: if true then ComputedArgumentParser.Expr else ComputedArgumentParser.root)""".stripMargin
+    argument.column shouldBe 8
+  }
+
   test("conflict resolution that is not a direct before/after call is reported at the resolution") {
     val indirect: scala.compiletime.testing.Error = typeCheckErrors("""
     object IndirectParser extends Parser[CalcContext]:
@@ -306,7 +346,8 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
         case Expr(e) => e
     """)
     val error = errors.loneElement
-    error.message shouldBe "Cannot read the productions of rule Expr: define it with a `rule(...)` call."
+    error.message shouldBe
+      "Cannot read the productions of rule Expr: define it with a `rule(...)` call.\n(at line 3: ???)"
     error.lineContent.trim shouldBe "val Expr: Rule[Int] = ???"
   }
 

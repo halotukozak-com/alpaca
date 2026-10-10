@@ -2,15 +2,10 @@ package halotukozak
 package alpaca.internal
 
 /**
- * Configuration for debugging and compilation settings.
+ * Where the `parser` macro writes its debug files (productions, parse and action tables, conflict resolutions)
+ * during compilation, read from the `ALPACA_DEBUG_DIR` environment variable.
  *
- * This case class holds various configuration options that control how Alpaca
- * behaves during compilation, including logging, timeouts, and verbose output.
- *
- * @param debugDirectory optional directory for debug output files
- * @param compilationTimeout maximum time allowed for macro compilation
- * @param enableVerboseNames whether to use verbose names in generated code
- * @param logOut mapping of log levels to output destinations
+ * @param debugDirectory directory for debug output files; `None` writes nothing
  */
 private[internal] final case class DebugSettings(
   debugDirectory: Option[String],

@@ -25,8 +25,10 @@ private[internal] object JsonExport:
    *
    *  Version 2: synthetic names for the end of the input and the start symbol, which the `.table.json` export carries
    *  itself.
+   *
+   *  Version 3: an EBNF extractor's non-terminal is named after its symbols instead of its source offset.
    */
-  private[internal] val ExportFormatVersion: Int = 2
+  private[internal] val ExportFormatVersion: Int = 3
 
   /**
    * Shape of a `.table.json` export, mirrored by the IntelliJ plugin's `ParseTableSpec`; changing it means bumping

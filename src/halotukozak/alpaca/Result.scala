@@ -17,30 +17,30 @@ package alpaca
  * For Alpaca's own error types, `getOrThrow` returns the value or throws the errors as an exception
  * ([[LexerException]] for [[LexerError]]s, [[ParserException]] for [[ParserError]]s).
  *
- * @tparam Ctx the lexer or parser context type
- * @tparam A   the value: the lexemes for `tokenize`, the root rule's result for `parse`
- * @tparam E   the error type: [[LexerError]] for `tokenize`, [[ParserError]] for `parse`
+ * @tparam Ctx   the lexer or parser context type
+ * @tparam Value the value: the lexemes for `tokenize`, the root rule's result for `parse`
+ * @tparam Err   the error type: [[LexerError]] for `tokenize`, [[ParserError]] for `parse`
  */
-enum Result[+Ctx, +A, +E]:
+enum Result[+Ctx, +Value, +Err]:
   /** The context as it was when the run ended. */
   def ctx: Ctx
 
   /** The whole input was accepted and produced `value`. */
-  case Success(ctx: Ctx, value: A)
+  case Success(ctx: Ctx, value: Value)
 
   /**
    * Some input was not accepted; `errors` says what and where, in input order. `recovered` is the value produced
    * anyway when an error-handling strategy skipped past the errors, `None` when the run stopped at the first one.
    * `errors` is never empty, and as a `::` it is a plain `List`.
    */
-  case Failure(ctx: Ctx, recovered: Option[A], errors: ::[E])
+  case Failure(ctx: Ctx, recovered: Option[Value], errors: ::[Err])
 
   /** The value, or `None` if there were errors. */
-  def toOption: Option[A] = this match
+  def toOption: Option[Value] = this match
     case Success(_, value) => Some(value)
     case Failure(_, _, _) => None
 
   /** The value on the right, or the errors on the left. */
-  def toEither: Either[::[E], A] = this match
+  def toEither: Either[::[Err], Value] = this match
     case Success(_, value) => Right(value)
     case Failure(_, _, errors) => Left(errors)

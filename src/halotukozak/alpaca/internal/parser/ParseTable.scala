@@ -53,7 +53,7 @@ private[parser] object ParseTable:
       val reversedStack = stateStack.reverseIterator.toList
       table(reversedStack.head).keysIterator
         .collect:
-          case terminal: Terminal if terminal != Symbol.Dummy && table.leadsToShift(reversedStack, terminal) =>
+          case terminal: Terminal if table.leadsToShift(reversedStack, terminal) =>
             terminal
         .toList
         .sortBy(terminal => (terminal.displayName, terminal != Symbol.EOF))
@@ -68,7 +68,8 @@ private[parser] object ParseTable:
           if production.lhs == Symbol.Start && rest.head == 0 then true
           else table.leadsToShift(table.goto(rest.head, production.lhs) :: rest, terminal)
 
-    private def goto(state: Int, nonTerminal: NonTerminal): Int =
+    /** The state the parser moves to after reducing to `nonTerminal` with `state` uncovered on top of the stack. */
+    private[parser] def goto(state: Int, nonTerminal: NonTerminal): Int =
       table(state, nonTerminal).runtimeChecked match
         case Shift(gotoState) => gotoState
 
@@ -88,7 +89,6 @@ private[parser] object ParseTable:
      *
      * @return a Csv representation of the parse table
      */
-    // it shouldn't be eager
     def toCsv: Csv = {
       val symbols = table.allSymbols
 

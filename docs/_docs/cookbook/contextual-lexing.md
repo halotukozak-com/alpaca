@@ -1,29 +1,26 @@
 # Contextual Lexing
 
-This guide covers stateful tokenization: tracking nesting depth, maintaining counters, passing information from the lexer to the parser, and handling errors gracefully.
+This recipe makes BrainFuck> point at its own mistakes. The lexer tracks bracket depth and source positions, the parser keeps a registry of defined functions, and a call to an undefined function is reported with the line and column where it appears.
 
-**What you'll learn:** custom `LexerCtx`, `ParserCtx`, tracking fragments, `ErrorHandling` strategies, and how lexer context flows into parser rules.
+**What you'll learn:** how lexer context, the lexemes it produces, and parser context work together. Each piece has a reference page, linked as we go.
 
-## Tracking State During Lexing
+## The Lexer
 
-The BrainFuck> lexer tracks bracket depth to catch mismatched brackets at lex time:
+The lexer context counts open parentheses and tracks `line` and `column` (see [Lexer Context](../lexer-context.md) for custom contexts and the built-in tracking fields):
 
-```scala sc-name:BrainLexer
+```scala sc-name:cl-lexer
 import halotukozak.alpaca.*
 
 case class BrainLexContext(
   brackets: Int = 0,
-  squareBrackets: Int = 0,
+  line: Line = Line.Start,
+  column: Column = Column.Start,
 ) extends LexerCtx
 
 val BrainLexer = lexer[BrainLexContext]:
-  case "\\[" =>
-    ctx.squareBrackets += 1
-    Token["jumpForward"]
-  case "\\]" =>
-    require(ctx.squareBrackets > 0, "Mismatched brackets")
-    ctx.squareBrackets -= 1
-    Token["jumpBack"]
+  case "\\+" => Token["inc"]
+  case "-" => Token["dec"]
+  case name @ "[A-Za-z]+" => Token["functionName"](name)
   case "\\(" =>
     ctx.brackets += 1
     Token["functionOpen"]
@@ -31,124 +28,79 @@ val BrainLexer = lexer[BrainLexContext]:
     require(ctx.brackets > 0, "Mismatched brackets")
     ctx.brackets -= 1
     Token["functionClose"]
-  case name @ "[A-Za-z]+" => Token["functionName"](name)
   case "!" => Token["functionCall"]
-  case "\\+" => Token["inc"]
-  case "-" => Token["dec"]
-  case ">" => Token["next"]
-  case "<" => Token["prev"]
-  case "\\." => Token["print"]
-  case "," => Token["read"]
-  case "." => Token.Ignored
-  case "\n" => Token.Ignored
+  case "\\s+" => Token.Ignored
 ```
 
-After tokenization, check the final context:
+`brackets` changes only where a rule body assigns it. `line` and `column` advance on their own after every match, and each lexeme records where its token starts.
 
-```scala sc-compile-with:BrainLexer
-val lexed = BrainLexer.tokenize("foo(+++)foo!")
-val lexemes = lexed.getOrThrow
-require(lexed.ctx.squareBrackets == 0 && lexed.ctx.brackets == 0, "Mismatched brackets")
-```
+## The Parser
 
-## Accessing Lexer Context in the Parser
+The parser context collects defined function names and the errors found so far (see [Parser Context](../parser-context.md)). The position of an error comes from the lexeme the rule binds, not from the parser context (see [Lexeme Bindings](../extractors.md#lexeme-bindings)):
 
-Every `Lexeme` carries a snapshot of the lexer context at match time. Inside parser rules, use the binding to access positional info:
+```scala sc-name:cl-parser sc-compile-with:cl-lexer
+import halotukozak.alpaca.*
+import scala.collection.mutable
 
-```scala sc-hidden sc-name:ctx-brainast sc-compile-with:BrainLexer
 enum BrainAST:
   case Root(ops: List[BrainAST])
   case FunctionDef(name: String, ops: List[BrainAST])
   case FunctionCall(name: String)
-```
-
-```scala sc-compile-with:ctx-brainast
-import halotukozak.alpaca.*
-
-object BrainParser extends Parser:
-  val root: Rule[BrainAST] = rule:
-    case FunctionCall(fc) => fc
-
-  val FunctionCall: Rule[BrainAST] = rule:
-    case (BrainLexer.functionName(name), BrainLexer.functionCall(_)) =>
-      // name.value: String -- the function name
-      // name.column: Int -- 1-based column the token starts at (if the context has a Column field)
-      // name.line: Int -- line the token starts on (if the context has a Line field)
-      BrainAST.FunctionCall(name.value)
-```
-
-To get line and column numbers, add `Column` and `Line` fields to your context:
-
-```scala
-import halotukozak.alpaca.*
-
-case class BrainLexContext(
-  brackets: Int = 0,
-  squareBrackets: Int = 0,
-  column: Column = Column.Start,
-  line: Line = Line.Start,
-) extends LexerCtx
-```
-
-## Parser-Level Context
-
-`ParserCtx` is for state that evolves during parsing -- symbol tables, function registries, type environments. The BrainFuck> parser uses it to track defined functions:
-
-```scala sc-compile-with:ctx-brainast
-import halotukozak.alpaca.*
-import scala.collection.mutable
+  case Inc, Dec
 
 case class BrainParserCtx(
   functions: mutable.Set[String] = mutable.Set.empty,
+  errors: mutable.ListBuffer[String] = mutable.ListBuffer.empty,
 ) extends ParserCtx
+
 object BrainParser extends Parser[BrainParserCtx]:
   val root: Rule[BrainAST] = rule:
-    case Operation.List(stmts) => BrainAST.Root(stmts)
+    case Operation.List(ops) => BrainAST.Root(ops)
+
+  val Operation: Rule[BrainAST] = rule(
+    { case BrainLexer.inc(_) => BrainAST.Inc },
+    { case BrainLexer.dec(_) => BrainAST.Dec },
+    { case FunctionDef(fdef) => fdef },
+    { case FunctionCall(call) => call },
+  )
 
   val FunctionDef: Rule[BrainAST] = rule:
     case (BrainLexer.functionName(name), BrainLexer.functionOpen(_),
           Operation.List(ops), BrainLexer.functionClose(_)) =>
-      require(ctx.functions.add(name.value), s"Function ${name.value} is already defined")
+      if !ctx.functions.add(name.value) then
+        ctx.errors.addOne(s"${name.line}:${name.column}: function ${name.value} is already defined")
       BrainAST.FunctionDef(name.value, ops)
 
   val FunctionCall: Rule[BrainAST] = rule:
     case (BrainLexer.functionName(name), BrainLexer.functionCall(_)) =>
-      require(ctx.functions.contains(name.value), s"Function ${name.value} is not defined")
+      if !ctx.functions.contains(name.value) then
+        ctx.errors.addOne(s"${name.line}:${name.column}: function ${name.value} is not defined")
       BrainAST.FunctionCall(name.value)
-
-  val Operation: Rule[BrainAST] = rule(
-    { case FunctionDef(fdef) => fdef },
-    { case FunctionCall(call) => call },
-    // ... other alternatives
-  )
 ```
 
-`ctx` is shared across all reductions in a single `parse()` call. A function defined in `FunctionDef` is immediately visible in `FunctionCall`.
+Collecting errors instead of throwing lets one run report all of them.
 
-## Error Handling Strategies
+## Running It
 
-By default, the lexer stops at unmatched input and `tokenize()` returns a `Result.Failure` listing it as a `LexerError`. You can customize this with an `ErrorHandling` instance:
+Check the final lexer context once the whole input is consumed, then read the errors from the final parser context:
 
-```scala sc-compile-with:BrainLexer
-// skip unrecognized characters (each is still reported as a LexerError)
-given ErrorHandling[BrainLexContext, LexerError] = (_, _) => ErrorHandling.Strategy.SkipOne
+```scala sc-compile-with:cl-parser
+val program =
+  """foo(++)
+    |foo!
+    |  bar!""".stripMargin
+
+val lexed = BrainLexer.tokenize(program)
+require(lexed.ctx.brackets == 0, "Mismatched brackets")
+
+val parsed = BrainParser.parse(lexed.getOrThrow)
+parsed.ctx.errors.foreach(println)
+// 3:3: function bar is not defined
 ```
 
-`SkipToNextMatch` skips the whole unmatched run at once, and `Stop` is the default; see [Error Handling Strategies](../lexer-error-recovery.md#error-handling-strategies) for all three.
+## Going Further
 
-An alternative to custom `ErrorHandling` is a catch-all pattern at the end of your lexer:
-
-```scala
-import halotukozak.alpaca.*
-
-val LenientLexer = lexer:
-  case "\\+" => Token["inc"]
-  case "-" => Token["dec"]
-  case x @ "." =>
-    println(s"Unexpected character: $x")
-    Token.Ignored   // skip and continue
-```
-
-This is simpler and often sufficient. The BrainFuck lexer uses this approach -- `"." => Token.Ignored` catches all non-command characters.
-
-See [Between Stages](../on-token-match.md#data-flow-summary) for the full sequence from input to parse result.
+- Add your own tracked field, such as an indentation level: [Lexer Context](../lexer-context.md#the-post-match-update).
+- Skip input no pattern matches instead of stopping: [Lexer Error Recovery](../lexer-error-recovery.md#error-handling-strategies).
+- Recover from syntax errors in the parser: [Error Recovery](../parser.md#error-recovery).
+- Follow the data from input to parse result: [Between Stages](../on-token-match.md#data-flow-summary).

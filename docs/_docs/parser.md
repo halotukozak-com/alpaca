@@ -181,105 +181,15 @@ given Resolutions[MyParser.type] = resolutions(
 )
 ```
 
-## Terminal and Non-Terminal Matching
+## Matching Symbols
 
-### Terminals
+The left side of `=>` is a pattern made of extractors:
 
-Use `MyLexer.TOKEN(binding)` to match a terminal. The binding is a `Lexeme` -- use `binding.value` for the extracted value:
+- `BrainLexer.inc(lexeme)` matches a terminal and binds its `Lexeme` (read the value with `lexeme.value`);
+- `While(whl)` matches a non-terminal and binds the value its rule produced;
+- `.List`, `.Option` and `.SeparatedBy[Separator]` match a symbol zero or more times, optionally, or delimited by a separator, without hand-written recursion.
 
-```scala sc-hidden sc-name:terminal-lexer-defs
-import halotukozak.alpaca.*
-
-val BrainLexer = lexer:
-  case name @ "[A-Za-z]+" => Token["functionName"](name)
-  case "\\[" => Token["jumpForward"]
-
-val MyLexer = lexer:
-  case "\\+" => Token["\\+"]
-```
-
-```scala sc-compile-with:terminal-lexer-defs
-object TerminalMatchingParser extends Parser:
-  val root: Rule[Any] = rule(
-    // Value-bearing: use binding.value
-    { case BrainLexer.functionName(name) => name.value },  // name.value: String
-
-    // Structural: discard the binding
-    { case BrainLexer.jumpForward(_) => "loop start" },
-
-    // Backtick quoting for special-character token names (e.g., if a lexer defines Token["\\+"])
-    { case MyLexer.`\\+`(_) => "plus" },
-  )
-```
-
-### Non-Terminals
-
-Use the rule name in unapply position. The binding has exactly type `R` from `Rule[R]`:
-
-```scala sc-compile-with:brain-lexer-defs
-object NonTerminalMatchingParser extends Parser:
-  val root: Rule[BrainAST] = rule:
-    case Operation.List(stmts) => BrainAST.Root(stmts)
-
-  val While: Rule[BrainAST] = rule:
-    // Recursive reference
-    case (BrainLexer.jumpForward(_), Operation.List(stmts), BrainLexer.jumpBack(_)) =>
-      BrainAST.While(stmts)
-
-  val Operation: Rule[BrainAST] = rule(
-    { case BrainLexer.inc(_) => BrainAST.Inc },
-    // While(whl) extracts the BrainAST produced by the While rule
-    { case While(whl) => whl },   // whl: BrainAST
-  )
-```
-
-## EBNF Operators
-
-`.Option`, `.List`, and `.SeparatedBy` on any `Rule[R]` express optional, repeated, and delimiter-separated symbols without hand-written recursion.
-
-**`.List`** produces `List[R]`. The BrainFuck parser uses this heavily -- the root rule matches zero or more operations:
-
-```scala sc-compile-with:brain-lexer-defs
-object ListOperatorParser extends Parser:
-  val root: Rule[BrainAST] = rule:
-    case Operation.List(stmts) => BrainAST.Root(stmts)
-    // stmts: List[BrainAST] -- zero or more operations
-
-  val Operation: Rule[BrainAST] = rule:
-    case BrainLexer.inc(_) => BrainAST.Inc
-```
-
-**`.Option`** produces `Option[R]`:
-
-```scala sc-compile-with:func-lexer-defs
-object OptionOperatorParser extends Parser:
-  val root = rule:
-    case (BrainLexer.functionName(name), BrainLexer.functionCall.Option(call)) =>
-      (name.value, call)   // call: Option[Lexeme]
-```
-
-**`.SeparatedBy[Separator]`** produces `List[R | SepValue[Separator]]` for zero or more items interleaved with a separator, where `SepValue[Separator]` is the separator's runtime value type (`Lexeme` for token separators, the bound result type for rule separators). Pass a token (as a type) or a rule (as `.type`) for the separator:
-
-```scala sc-hidden sc-name:sep-lexer-defs
-import halotukozak.alpaca.*
-
-val MyLexer = lexer:
-  case "\\s+" => Token.Ignored
-  case "," => Token[","]
-  case x @ "[0-9]+" => Token["NUM"](x.toInt)
-```
-
-```scala sc-compile-with:sep-lexer-defs
-object SeparatedByParser extends Parser:
-  val Num: Rule[Int] = rule:
-    case MyLexer.NUM(n) => n.value
-
-  val root: Rule[List[Any]] = rule:
-    case Num.SeparatedBy[MyLexer.`,`](items) => items
-    // for "1,2,3": List(1, <,>, 2, <,>, 3)
-```
-
-All three operators work on terminals too, not only rules.
+[Extractors](extractors.md) covers every form, with their binding types.
 
 ## Parsing Input
 

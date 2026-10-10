@@ -12,7 +12,7 @@ import scala.quoted.*
 type Parser[Ctx <: ParserCtx] = parser.Parser[Ctx]
 
 /**
- * How the parser `P` resolves the conflicts in its grammar. Provide one as a `given` next to the parser object (before or
+ * How the parser `ParserType` resolves the conflicts in its grammar. Provide one as a `given` next to the parser object (before or
  * after it) or as the object's last member, built with [[resolutions]]:
  * {{{
  * given Resolutions[CalcParser.type] = resolutions(
@@ -20,20 +20,20 @@ type Parser[Ctx <: ParserCtx] = parser.Parser[Ctx]
  * )
  * }}}
  *
- * @tparam P the parser's singleton type
+ * @tparam ParserType the parser's singleton type
  */
-opaque type Resolutions[P <: parser.Parser[?]] = Set[ConflictResolution]
+opaque type Resolutions[ParserType <: parser.Parser[?]] = Set[ConflictResolution]
 
 /**
  * Evidence that code runs inside [[resolutions]], where `production`, `Production(...)` and `before`/`after` are
  * available. Gives `production` the parser it refers to.
  *
- * @tparam P the parser's singleton type
+ * @tparam ParserType the parser's singleton type
  */
 @implicitNotFound("`production`, `Production(...)`, `before` and `after` can only be used inside resolutions(...)")
-opaque type ResolutionScope[P <: parser.Parser[?]] = Unit
+opaque type ResolutionScope[ParserType <: parser.Parser[?]] = Unit
 object ResolutionScope:
-  private[alpaca] def refl[P <: parser.Parser[?]]: ResolutionScope[P] = ()
+  private[alpaca] def refl[ParserType <: parser.Parser[?]]: ResolutionScope[ParserType] = ()
 
 /**
  * Evidence that code runs inside a parser definition, where `rule`, named productions, and token and rule extractors
@@ -45,11 +45,12 @@ object ParserScope:
   private[alpaca] def refl: ParserScope = ()
 
 /**
- * Collects the conflict resolutions for the parser `P`, each written with `before` or `after` (see [[Resolutions]]).
+ * Collects the conflict resolutions for the parser `ParserType`, each written with `before` or `after` (see [[Resolutions]]).
  *
- * @param elements the resolutions; inside them, `production.<name>` refers to `P`'s named productions
+ * @param elements the resolutions; inside them, `production.<name>` refers to `ParserType`'s named productions
  */
-def resolutions[P <: parser.Parser[?]](elements: (ResolutionScope[P] ?=> ConflictResolution)*): Resolutions[P] =
+def resolutions[ParserType <: parser.Parser[?]](elements: (ResolutionScope[ParserType] ?=> ConflictResolution)*)
+  : Resolutions[ParserType] =
   elements.map(_.apply(using ResolutionScope.refl)).toSet
 
 /**
@@ -59,15 +60,15 @@ def resolutions[P <: parser.Parser[?]](elements: (ResolutionScope[P] ?=> Conflic
  * This is compile-time only and can be used only inside [[resolutions]].
  */
 @compileTimeOnly(ConflictResolutionOnly)
-transparent inline def production[P <: parser.Parser[?]: ResolutionScope]: ProductionSelector =
-  ${ productionImpl[P] }
+transparent inline def production[ParserType <: parser.Parser[?]: ResolutionScope]: ProductionSelector =
+  ${ productionImpl[ParserType] }
 
 /**
  * Defines a single production in a grammar rule.
  *
  * A production definition is a partial function that matches a specific pattern of
  * symbols (as a tuple of terminals and non-terminals, or a single lexeme) and produces
- * a result value of type `R`. Productions are the building blocks of grammar rules,
+ * a result value of type `Value`. Productions are the building blocks of grammar rules,
  * specifying how input sequences are recognized and transformed.
  *
  * Production definitions are typically passed to the [[rule]] function to define
@@ -75,9 +76,9 @@ transparent inline def production[P <: parser.Parser[?]: ResolutionScope]: Produ
  *
  * See the documentation for [[rule]] for more details.
  *
- * @tparam R the result type produced by this production
+ * @tparam Value the result type produced by this production
  */
-type ProductionDefinition[R] = PartialFunction[Tuple | Lexeme[?, ?], R]
+type ProductionDefinition[Value] = PartialFunction[Tuple | Lexeme[?, ?], Value]
 
 /**
  * Creates a grammar rule from one or more productions.
@@ -96,12 +97,13 @@ type ProductionDefinition[R] = PartialFunction[Tuple | Lexeme[?, ?], R]
  * )
  * }}}
  *
- * @tparam R the result type produced by this rule
+ * @tparam Value the result type produced by this rule
  * @param productions one or more productions that define this rule
  * @return a Rule instance
  */
 @compileTimeOnly(ParserOnly)
-inline def rule[R](@unused productions: ProductionDefinition[R]*)(using ParserScope): Rule[R] = null.asInstanceOf[Rule[R]]
+inline def rule[Value](@unused productions: ProductionDefinition[Value]*)(using ParserScope): Rule[Value] =
+  null.asInstanceOf[Rule[Value]]
 
 extension (name: String)
   /**
@@ -125,26 +127,26 @@ extension (name: String)
    * }}}
    *
    * @param production the production to name
-   * @tparam R the result type produced by this production
+   * @tparam Value the result type produced by this production
    * @return the original production, annotated with the given name
    */
   @compileTimeOnly(ParserOnly)
-  inline def apply[R](production: ProductionDefinition[R])(using ParserScope): production.type = production
+  inline def apply[Value](production: ProductionDefinition[Value])(using ParserScope): production.type = production
 
 /**
  * The runtime value type of a separator symbol used by `.SeparatedBy`.
  *
  * The parser places `Lexeme` values on the stack for terminals, so when
- * the separator is a token named `n` whose value has type `v` (e.g.
- * `MyLexer.COMMA`), its runtime value is `Lexeme[n, v]`. For a rule separator `Rule[t]` (typically passed as a
- * singleton type like `Sep.type`), the runtime value is `t` — whatever
+ * the separator is a token named `name` whose value has type `value` (e.g.
+ * `MyLexer.COMMA`), its runtime value is `Lexeme[name, value]`. For a rule separator `Rule[result]` (typically passed as a
+ * singleton type like `Sep.type`), the runtime value is `result` — whatever
  * that rule produces.
  *
- * @tparam S the separator symbol type (a token type or a rule's `.type`)
+ * @tparam Separator the separator symbol type (a token type or a rule's `.type`)
  */
-type SepValue[S] = S match
-  case Token[n, ?, v] => Lexeme[n, v]
-  case Rule[t] => t
+type SepValue[Separator] = Separator match
+  case Token[name, ?, value] => Lexeme[name, value]
+  case Rule[result] => result
 
 /**
  * Represents a grammar rule in the parser.
@@ -156,9 +158,9 @@ type SepValue[S] = S match
  * Rules are created using the `rule` function and can be used in pattern
  * matching within parser productions.
  *
- * @tparam R the type of value produced when this rule is matched
+ * @tparam Value the type of value produced when this rule is matched
  */
-sealed trait Rule[R]:
+sealed trait Rule[Value]:
 
   /**
    * Pattern matching extractor for single occurrences of this rule.
@@ -169,7 +171,7 @@ sealed trait Rule[R]:
    * @return Some(result) if the match succeeds
    */
   @compileTimeOnly(RuleOnly)
-  inline def unapply(@unused x: Any)(using ParserScope): Option[R] = null.asInstanceOf[Option[R]]
+  inline def unapply(@unused x: Any)(using ParserScope): Option[Value] = null.asInstanceOf[Option[Value]]
 
   /**
    * Pattern matching extractor for lists of this rule.
@@ -179,7 +181,8 @@ sealed trait Rule[R]:
    * @return a partial function that extracts a list of results
    */
   @compileTimeOnly(RuleOnly)
-  inline def List(using ParserScope): PartialFunction[Any, List[R]] = null.asInstanceOf[PartialFunction[Any, List[R]]]
+  inline def List(using ParserScope): PartialFunction[Any, List[Value]] =
+    null.asInstanceOf[PartialFunction[Any, List[Value]]]
 
   /**
    * Pattern matching extractor for optional occurrences of this rule.
@@ -189,8 +192,8 @@ sealed trait Rule[R]:
    * @return a partial function that extracts an optional result
    */
   @compileTimeOnly(RuleOnly)
-  inline def Option(using ParserScope): PartialFunction[Any, Option[R]] =
-    null.asInstanceOf[PartialFunction[Any, Option[R]]]
+  inline def Option(using ParserScope): PartialFunction[Any, Option[Value]] =
+    null.asInstanceOf[PartialFunction[Any, Option[Value]]]
 
   /**
    * Matches zero or more occurrences of this rule delimited by `Separator`,
@@ -203,8 +206,8 @@ sealed trait Rule[R]:
    * @tparam Separator a token type or a rule's `.type`
    */
   @compileTimeOnly(RuleOnly)
-  inline def SeparatedBy[Separator](using ParserScope): PartialFunction[Any, List[R | SepValue[Separator]]] =
-    null.asInstanceOf[PartialFunction[Any, List[R | SepValue[Separator]]]]
+  inline def SeparatedBy[Separator](using ParserScope): PartialFunction[Any, List[Value | SepValue[Separator]]] =
+    null.asInstanceOf[PartialFunction[Any, List[Value | SepValue[Separator]]]]
 
 /**
  * Why the input does not match the grammar, as reported by `parse` in a [[Result.Failure]].
@@ -226,12 +229,6 @@ sealed abstract class ParserError:
 
   /** At the end of the input, the last lexeme before it; `None` when the input is empty or the error is not at the end. */
   val last: Option[Lexeme[?, ?] withFields Fields]
-
-  def copy(
-    unexpected: Option[Lexeme[?, ?] withFields Fields] = unexpected,
-    expected: List[String | ParserError.EndOfInput] = expected,
-    last: Option[Lexeme[?, ?] withFields Fields] = last,
-  ): ParserError withFields Fields = ParserError(unexpected, expected, last)
 
   /** A readable description, e.g. `Unexpected PLUS "+". Expected one of: Num`. */
   def message: String = {
@@ -266,22 +263,15 @@ object ParserError:
     val expected = expectedInput
     val last = lastLexeme
 
-  def unapply(error: ParserError): (
-    Option[Lexeme[?, ?] withFields error.Fields],
-    List[String | EndOfInput],
-    Option[Lexeme[?, ?] withFields error.Fields],
-  ) =
-    (error.unexpected, error.expected, error.last)
-
   /** In [[ParserError.expected]], the end of the input. */
   object EndOfInput:
     override def toString: String = "EndOfInput"
 
   type EndOfInput = EndOfInput.type
 
-  extension [Ctx, A](result: Result[Ctx, A, ParserError])
+  extension [Ctx, Value](result: Result[Ctx, Value, ParserError])
     /** The value; throws the errors as a [[ParserException]] if parsing failed. */
-    def getOrThrow: A = result match
+    def getOrThrow: Value = result match
       case Result.Success(_, value) => value
       case Result.Failure(_, _, errors) => throw ParserException(errors)
 
@@ -323,8 +313,9 @@ extension (@unused inline first: Production | Token[?, ?, ?]) {
    * @return a conflict resolution rule
    */
   @compileTimeOnly(ConflictResolutionOnly)
-  inline infix def after[P <: parser.Parser[?]: ResolutionScope](@unused inline others: (Production | Token[?, ?, ?])*)
-    : ConflictResolution =
+  inline infix def after[ParserType <: parser.Parser[?]: ResolutionScope](
+    @unused inline others: (Production | Token[?, ?, ?])*,
+  ): ConflictResolution =
     null.asInstanceOf[ConflictResolution]
 
   /**
@@ -339,8 +330,9 @@ extension (@unused inline first: Production | Token[?, ?, ?]) {
    * @return a conflict resolution rule
    */
   @compileTimeOnly(ConflictResolutionOnly)
-  inline infix def before[P <: parser.Parser[?]: ResolutionScope](@unused inline others: (Production | Token[?, ?, ?])*)
-    : ConflictResolution =
+  inline infix def before[ParserType <: parser.Parser[?]: ResolutionScope](
+    @unused inline others: (Production | Token[?, ?, ?])*,
+  ): ConflictResolution =
     null.asInstanceOf[ConflictResolution]
 }
 
@@ -373,7 +365,7 @@ extension [Ctx <: ParserCtx](parser: Parser[Ctx]) {
    */
   inline def parse[LexemeFields <: AnyNamedTuple](lexemes: List[Lexeme[?, ?] withFields LexemeFields]): Result[
     Ctx,
-    parser.root.type match { case Rule[t] => t },
+    parser.root.type match { case Rule[result] => result },
     ParserError withFields LexemeFields,
   ] = parser.parseResult(lexemes)
 }

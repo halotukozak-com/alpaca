@@ -84,8 +84,8 @@ abstract class Parser[Ctx <: ParserCtx](
       val action = tables.parseTable.get(stateStack.last, nextSymbol)
       if action == null then {
         val last = if remaining.isEmpty then lexemes.lastOption else None
-        val expected = tables.parseTable
-          .expectedTerminals(stateStack)
+        val expectedTerminals = tables.parseTable.expectedTerminals(stateStack)
+        val expected = expectedTerminals
           .map[String | ParserError.EndOfInput]:
             case Symbol.EOF => ParserError.EndOfInput
             case terminal => terminal.displayName.raw
@@ -95,10 +95,7 @@ abstract class Parser[Ctx <: ParserCtx](
         errorHandling(ctx, error) match
           case ErrorHandling.Strategy.SkipOne if remaining.nonEmpty => loop(remaining.tail)
           case ErrorHandling.Strategy.SkipToNextMatch if remaining.nonEmpty =>
-            val state = stateStack.last
-            loop(
-              remaining.tail.dropWhile(lexeme => tables.parseTable.get(state, Terminal(Printable(lexeme.name))) == null),
-            )
+            loop(remaining.tail.dropWhile(lexeme => !expectedTerminals.contains(Terminal(Printable(lexeme.name)))))
           case _ => None
       } else {
         action match {
@@ -107,40 +104,31 @@ abstract class Parser[Ctx <: ParserCtx](
             nodeStack += Node.Token(current)
             loop(if remaining.isEmpty then Nil else remaining.tail)
 
-          case ParseAction.Reduction(prod @ Production.NonEmpty(lhs, rhs, name)) =>
-            val n = rhs.size
-            val newStateIdx = stateStack(stateStack.size - 1 - n)
+          case ParseAction.Reduction(production) =>
+            val size = production.size
+            val uncoveredState = stateStack(stateStack.size - 1 - size)
 
-            if lhs == Symbol.Start && newStateIdx == 0 then Some(nodeStack.last)
+            if production.lhs == Symbol.Start && uncoveredState == 0 then Some(nodeStack.last)
             else {
               val top = nodeStack.size - 1
-              val children = Array.better.tabulate(n)(i => nodeStack(top - i).get)
-              stateStack.dropRightInPlace(n)
-              nodeStack.dropRightInPlace(n)
+              val children = Array.better.tabulate(size)(index => nodeStack(top - index).get)
+              stateStack.dropRightInPlace(size)
+              nodeStack.dropRightInPlace(size)
 
-              val ParseAction.Shift(gotoState) = tables.parseTable(newStateIdx, lhs).runtimeChecked
-              val result = tables.actionTable(prod)(ctx, RevertedArray(children))
+              val gotoState = tables.parseTable.goto(uncoveredState, production.lhs)
+              val result = tables.actionTable(production)(ctx, RevertedArray(children))
               stateStack += gotoState
               nodeStack += Node.Result(result)
               loop(remaining)
             }
-
-          case ParseAction.Reduction(Production.Empty(Symbol.Start, name)) if stateStack.last == 0 =>
-            Some(nodeStack.last)
-
-          case ParseAction.Reduction(prod @ Production.Empty(lhs, name)) =>
-            val ParseAction.Shift(gotoState) = tables.parseTable(stateStack.last, lhs).runtimeChecked
-            val result = tables.actionTable(prod)(ctx, RevertedArray.empty)
-            stateStack += gotoState
-            nodeStack += Node.Result(result)
-            loop(remaining)
         }
       }
     }
 
-    val value = loop(lexemes).map:
-      case Node.Result(value) => value.asInstanceOf[R]
-      case Node.Token(_) => null.asInstanceOf[R]
+    // the accepted root is the start rule's value, never a token
+    val value = loop(lexemes).map: root =>
+      val Node.Result(result) = root.runtimeChecked
+      result.asInstanceOf[R]
 
     errors.toList match
       case Nil => Result.Success(ctx, value.get)
