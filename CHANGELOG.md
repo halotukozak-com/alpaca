@@ -9,6 +9,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - A token pattern that can match the empty string is a compile error at its rule.
+- `MyLexer.ParserError`: a `ParserError` typed with the lexer's context fields, next to `MyLexer.Lexeme` and `MyLexer.LexerError`.
 
 ### Changed
 
@@ -18,11 +19,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Selecting an unknown token name on a `Lexer` throws `NoSuchElementException`.
 - Assigning a context field inside a token value (`Token["X"](...)`) is reported as a DSL error at the assignment, not as the compiler's `Reassignment to val`.
 - **Breaking:** internal types are no longer accessible: `LazyReader`'s constructor (use `LazyReader.from`), the `LexerException`/`ParserException` constructors, `Terminal`, `NonTerminal`, `Source`.
+- **Breaking:** a production written twice is a compile error at the second one (`Production root -> NUM is already defined at line 4`). The later action used to replace the earlier one silently.
+- Every duplicate token name, shadowed token, duplicate production and duplicate production name is reported at its own rule, in source order. Only one duplicate token name and the first shadowed token used to be reported.
+- Parser macro errors, which the compiler shows at `extends Parser`, end with the line and source of the production they are about: `(at line 11: case ...)`.
+- `.List`, `.Option` and `.SeparatedBy` non-terminals are named after their symbols instead of their source offset. The grammar export format version is now 3 (read by the IntelliJ plugin).
+- The parameter of `before`/`after` is named `others` (was `second`), and public type parameters have descriptive names (`Result[+Ctx, +Value, +Err]`, `Rule[Value]`, `ErrorHandling[-Ctx, -Err]`, ...). Only named arguments are affected.
+
+### Removed
+
+- **Breaking:** `ParserError.copy`, `ParserError.unapply` and `LexerError.unapply`. Read the fields instead: `case ParserError(unexpected, expected, last)` → `error.unexpected`, `error.expected`, `error.last`.
 
 ### Fixed
 
 - Lookaheads are computed past nullable symbols. Grammars where an empty-deriving symbol follows another could reject valid input.
 - Distinct productions with the same hash code no longer collapse into one while the parse table is built.
+- The same `.List`, `.Option` or `.SeparatedBy` used in several productions is one shared non-terminal. Each use used to get its own copy, which was an unresolvable reduce/reduce conflict.
+- The parser's `SkipToNextMatch` skips to the next lexeme listed in `ParserError.expected`. It could stop at a lexeme that only triggered spurious reductions and a second error.
 
 ## [1.0.0-RC2] - 2026-10-08
 
