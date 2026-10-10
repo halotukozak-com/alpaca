@@ -28,7 +28,7 @@ private[parser] object LR0State:
      * @return a map from each possible step symbol to the cores that shift on it
      */
     def itemsByNextSymbol: Map[Symbol, List[Core]] =
-      state.iterator.filterNot(_.isLastItem).toList.groupBy(_.nextSymbol) - Symbol.Empty
+      state.iterator.filterNot(_.isLastItem).toList.groupBy(_.nextSymbol)
   }
 
   /**
