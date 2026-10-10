@@ -119,6 +119,39 @@ final class LexerMacroErrorsTest extends AnyFunSuite with Matchers with LoneElem
       )
   }
 
+  test("context fields named like a member Lexeme inherits from Any or AnyRef are reported at the field") {
+    val errors = typeCheckErrors("""
+    case class InheritedClashingCtx(
+      getClass: Int = 0,
+      eq: Int = 0,
+      ne: Int = 0,
+      isInstanceOf: Int = 0,
+      asInstanceOf: Int = 0,
+      synchronized: Int = 0,
+    ) extends LexerCtx
+    lexer[InheritedClashingCtx]:
+      case "a" => Token["A"]
+    """)
+    errors.map(error => (error.message.linesIterator.next(), error.lineContent.trim)) should contain theSameElementsAs
+      List(
+        ("Context field `getClass` clashes with `Lexeme.getClass`; rename it", "getClass: Int = 0,"),
+        ("Context field `eq` clashes with `Lexeme.eq`; rename it", "eq: Int = 0,"),
+        ("Context field `ne` clashes with `Lexeme.ne`; rename it", "ne: Int = 0,"),
+        ("Context field `isInstanceOf` clashes with `Lexeme.isInstanceOf`; rename it", "isInstanceOf: Int = 0,"),
+        ("Context field `asInstanceOf` clashes with `Lexeme.asInstanceOf`; rename it", "asInstanceOf: Int = 0,"),
+        ("Context field `synchronized` clashes with `Lexeme.synchronized`; rename it", "synchronized: Int = 0,"),
+      )
+  }
+
+  test("context fields named like a Product member compile, since lexemes are not products") {
+    typeCheckErrors("""
+    case class ProductNamedCtx(productArity: Int = 5) extends LexerCtx
+    val L = lexer[ProductNamedCtx]:
+      case "a" => Token["A"]
+    val arity: Int = L.tokenize("a").getOrThrow.head.productArity
+    """) shouldBe Nil
+  }
+
   test("context fields named like the lexer's internal bookkeeping compile") {
     typeCheckErrors("""
     case class BookkeepingCtx(lastLexeme: Int = 0, lastRawMatched: String = "", fieldNames: Int = 0) extends LexerCtx
