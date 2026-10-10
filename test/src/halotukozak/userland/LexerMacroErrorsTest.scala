@@ -16,6 +16,8 @@ final class LexerMacroErrorsTest extends AnyFunSuite with Matchers with LoneElem
   private val NotARegex =
     "A lexer rule must match a regex string literal or alternatives of them, as in `case \"[0-9]+\"` or `case \"a\" | \"b\"`"
   private val NotALiteral = "Each alternative of a lexer rule must be a regex string literal"
+  private val NotACaseList =
+    "Lexer rules must be a list of `case`s written directly in the `lexer` block, as in `case \"[0-9]+\" => Token[\"NUM\"]`"
   private val NotAName =
     "A token name must be a string literal, as in `Token[\"NAME\"]`, or the type of the bound match, as in `case x @ \"regex\" => Token[x.type]`"
 
@@ -118,4 +120,30 @@ final class LexerMacroErrorsTest extends AnyFunSuite with Matchers with LoneElem
     """).loneElement
     error.message shouldBe "Assign context fields before `Token[...]`, not inside its value"
     error.lineContent.trim shouldBe "ctx.count += 1"
+  }
+
+  test("an empty partial function as the lexer rules is reported at the argument") {
+    val error: Error = typeCheckErrors("""
+    lexer(PartialFunction.empty)
+    """).loneElement
+    error.message shouldBe NotACaseList
+    error.lineContent.trim shouldBe "lexer(PartialFunction.empty)"
+  }
+
+  test("lexer rules defined elsewhere are reported at the argument") {
+    val error: Error = typeCheckErrors("""
+    def rules(using LexerScope.Of[LexerCtx.Default]): LexerDefinition[LexerCtx.Default] =
+      case "a" => Token["A"]
+    lexer(rules)
+    """).loneElement
+    error.message shouldBe NotACaseList
+    error.lineContent.trim shouldBe "lexer(rules)"
+  }
+
+  test("lexer rules combined with orElse are reported at the argument") {
+    typeCheckErrors("""
+    val first: LexerScope.Of[LexerCtx.Default] ?=> LexerDefinition[LexerCtx.Default] = { case "a" => Token["A"] }
+    val second: LexerScope.Of[LexerCtx.Default] ?=> LexerDefinition[LexerCtx.Default] = { case "b" => Token["B"] }
+    lexer(first.orElse(second))
+    """).loneElement.message shouldBe NotACaseList
   }
