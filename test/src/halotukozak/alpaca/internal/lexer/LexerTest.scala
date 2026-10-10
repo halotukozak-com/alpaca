@@ -235,6 +235,49 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       """).loneElement.message should startWith("""Invalid regex pattern for token "(": """)
   }
 
+  test("lookahead in a pattern is not supported yet") {
+    typeCheckErrors("""
+      val Lexer = lexer:
+        case "a(?=b)" => Token["A"]
+      """).loneElement.message shouldBe
+      """Token "A" uses a lookahead `(?=...)` ("a(?=b)"), which is not supported yet"""
+  }
+
+  test("negative lookahead in a pattern is not supported yet") {
+    typeCheckErrors("""
+      val Lexer = lexer:
+        case "a(?!b)" => Token["A"]
+      """).loneElement.message shouldBe
+      """Token "A" uses a negative lookahead `(?!...)` ("a(?!b)"), which is not supported yet"""
+  }
+
+  test("start anchor in a pattern is not supported yet") {
+    typeCheckErrors("""
+      val Lexer = lexer:
+        case "^a" => Token["A"]
+      """).loneElement.message shouldBe
+      """Token "A" uses a start anchor `^` or `\A` ("^a"), which is not supported yet"""
+  }
+
+  test("end anchors in patterns are not supported yet") {
+    typeCheckErrors("""
+      val Lexer = lexer:
+        case "a$" => Token["A"]
+        case "b\\z" => Token["B"]
+      """).map(_.message) should contain theSameElementsAs List(
+      """Token "A" uses an end anchor `$`, `\Z` or `\z` ("a$"), which is not supported yet""",
+      """Token "B" uses an end anchor `$`, `\Z` or `\z` ("b\z"), which is not supported yet""",
+    )
+  }
+
+  test("unsupported construct nested in a bound alternative names the offending alternative") {
+    typeCheckErrors("""
+      val Lexer = lexer:
+        case x @ ("a" | "(b|^c)+") => Token[x.type]
+      """).loneElement.message shouldBe
+      """Token "(b|^c)+" uses a start anchor `^` or `\A` ("(b|^c)+"), which is not supported yet"""
+  }
+
   test("a shadowed token keeps the lexer typed, so parser actions reading its lexemes compile") {
     typeCheckErrors("""
       import halotukozak.alpaca.{Parser, Rule, rule}

@@ -60,6 +60,12 @@ Patterns use Java-style regex syntax, but they are parsed by Alpaca's own [`rege
 Invalid regex pattern for token "T": unsupported regex feature `lookbehind` (at position 3 in "(?<=a)b")
 ```
 
+Lookahead (`(?=...)`, `(?!...)`) and anchors (`^`, `$`, `\\A`, `\\Z`, `\\z`) parse, but are not supported in token patterns yet, so they are a compile-time error at the rule:
+
+```
+Token "A" uses a lookahead `(?=...)` ("a(?=b)"), which is not supported yet
+```
+
 ### Empty Matches
 
 A pattern that can match the empty string, such as `"a*"` or `"[0-9]*"`, would let the lexer match without moving forward. It is a compile-time error at its rule, for ignored tokens too:

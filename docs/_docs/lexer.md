@@ -94,7 +94,7 @@ println(Lexer.tokenize("/* a */ x /* b */").getOrThrow.map(_.name)) // List(ID)
 
 ## Regular Expressions
 
-Patterns use Java-style regex syntax and are validated at compile time by Alpaca's own regex library (a few Java constructs -- lookbehind, lazy and possessive quantifiers, `\\p{...}` classes -- are not supported; see [Invalid Regex](lexer-error-recovery.md#invalid-regex)). Backslashes must be doubled inside Scala string literals: `"\\+"` matches a literal `+`, and `"\\d+"` matches one or more digits.
+Patterns use Java-style regex syntax and are validated at compile time by Alpaca's own regex library (a few Java constructs -- lookahead, lookbehind, anchors, lazy and possessive quantifiers, `\\p{...}` classes -- are not supported; see [Invalid Regex](lexer-error-recovery.md#invalid-regex)). Backslashes must be doubled inside Scala string literals: `"\\+"` matches a literal `+`, and `"\\d+"` matches one or more digits.
 
 ```scala
 import halotukozak.alpaca.*
