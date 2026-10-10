@@ -99,8 +99,7 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
       step match
         case Step.Matched(token, matched) =>
           globalCtx = onTokenMatch(token, matched, globalCtx)
-          if token.isInstanceOf[DefinedToken[?, Ctx, ?, ?]] then
-            acc.addOne(globalCtx.lastLexeme.nn.asInstanceOf[Lexeme])
+          if token.isInstanceOf[DefinedToken[?, Ctx, ?, ?]] then acc.addOne(globalCtx.lastLexeme.nn.asInstanceOf[Lexeme])
         case Step.Stopped =>
     }
 
