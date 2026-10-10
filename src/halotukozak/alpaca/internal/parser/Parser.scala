@@ -84,8 +84,8 @@ abstract class Parser[Ctx <: ParserCtx](
       val action = tables.parseTable.get(stateStack.last, nextSymbol)
       if action == null then {
         val last = if remaining.isEmpty then lexemes.lastOption else None
-        val expected = tables.parseTable
-          .expectedTerminals(stateStack)
+        val expectedTerminals = tables.parseTable.expectedTerminals(stateStack)
+        val expected = expectedTerminals
           .map[String | ParserError.EndOfInput]:
             case Symbol.EOF => ParserError.EndOfInput
             case terminal => terminal.displayName.raw
@@ -95,10 +95,7 @@ abstract class Parser[Ctx <: ParserCtx](
         errorHandling(ctx, error) match
           case ErrorHandling.Strategy.SkipOne if remaining.nonEmpty => loop(remaining.tail)
           case ErrorHandling.Strategy.SkipToNextMatch if remaining.nonEmpty =>
-            val state = stateStack.last
-            loop(
-              remaining.tail.dropWhile(lexeme => tables.parseTable.get(state, Terminal(Printable(lexeme.name))) == null),
-            )
+            loop(remaining.tail.dropWhile(lexeme => !expectedTerminals.contains(Terminal(Printable(lexeme.name)))))
           case _ => None
       } else {
         action match {
