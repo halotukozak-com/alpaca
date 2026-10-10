@@ -7,6 +7,7 @@ import halotukozak.made.{Made, MadeElem, MadeFieldElem, NotExists}
 
 import scala.annotation.publicInBinary
 import scala.compiletime.constValue
+import scala.quoted.*
 
 /** The factory of `T` built from its fields' default values, for a macro to splice in. */
 private[alpaca] def fromDefaults[T: Type](using Quotes, Diagnostics): Expr[() => T] =

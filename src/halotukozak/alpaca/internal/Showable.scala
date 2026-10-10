@@ -7,6 +7,7 @@ import halotukozak.made.*
 
 import scala.NamedTuple.NamedTuple
 import scala.annotation.publicInBinary
+import scala.quoted.*
 
 /**
  * A type class for converting values to their string representation.

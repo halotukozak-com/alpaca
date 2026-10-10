@@ -7,6 +7,7 @@ import halotukozak.alpaca.internal.ValidName
 import halotukozak.regex.Regex
 
 import scala.annotation.tailrec
+import scala.quoted.*
 
 // $COVERAGE-OFF$
 

@@ -11,7 +11,7 @@ import halotukozak.regex.{RegexParseError, RegexParser}
 import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.unchecked.uncheckedVariance as uv
 import scala.annotation.{compileTimeOnly, publicInBinary, unused}
-import scala.quoted.{Quotes, ToExprFactory}
+import scala.quoted.*
 
 /**
  * Type alias for context manipulation functions.

@@ -5,6 +5,7 @@ package internal
 import halotukozak.mcodec.MCodec
 
 import scala.annotation.publicInBinary
+import scala.quoted.*
 
 /**
  * Text that comes from the user's grammar or input -- a token, rule or production name, a pattern, unmatched input --
