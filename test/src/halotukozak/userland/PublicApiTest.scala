@@ -17,6 +17,28 @@ object WordsParser extends Parser:
   val Word: Rule[String] = rule { case WordLexer.WORD(w) => w.value }
   val root: Rule[List[String]] = rule { case Word.List(words) => words }
 
+final case class SeenWordsCtx(seen: mutable.ListBuffer[String] = mutable.ListBuffer.empty) extends LexerCtx
+
+val SeenWordsLexer = lexer[SeenWordsCtx]:
+  case word @ "[a-z]+" =>
+    ctx.seen.append(word)
+    Token["WORD"](word)
+  case "\\s+" => Token.Ignored
+
+final class RuleBodyException extends RuntimeException("thrown in a rule body")
+
+private def rejectBang(): Unit = throw RuleBodyException()
+
+val BangLexer = lexer:
+  case "!" =>
+    rejectBang()
+    Token["BANG"]
+  case "\\s+" => Token.Ignored
+
+object BangParser extends Parser:
+  val root: Rule[Int] = rule:
+    case WordLexer.WORD(word) => if word.value == "bang" then throw RuleBodyException() else word.value.length
+
 final case class CollectingCtx(seen: mutable.ListBuffer[String] = mutable.ListBuffer.empty) extends ParserCtx
 
 object CollectingParser extends Parser[CollectingCtx]:
@@ -66,6 +88,24 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
 
     parse("a b c").ctx.seen shouldBe List("a", "b", "c")
     parse("d").ctx.seen shouldBe List("d")
+  }
+
+  test("every tokenize starts from a fresh context, even one with mutable fields") {
+    SeenWordsLexer.tokenize("a b c").ctx.seen shouldBe List("a", "b", "c")
+    SeenWordsLexer.tokenize("d").ctx.seen shouldBe List("d")
+  }
+
+  test("an exception thrown in a rule body propagates out of tokenize and parse") {
+    a[RuleBodyException] should be thrownBy BangLexer.tokenize(" ! ")
+    BangParser.parse(WordLexer.tokenize("word").getOrThrow) shouldBe Result.Success(ParserCtx.Empty(), 4)
+    a[RuleBodyException] should be thrownBy BangParser.parse(WordLexer.tokenize("bang").getOrThrow)
+  }
+
+  test("input made only of ignored tokens has no lexemes") {
+    WordLexer.tokenize(" \n\t ").toOption shouldBe Some(Nil)
+    WordsParser.parse(WordLexer.tokenize(" \n\t ").getOrThrow) shouldBe Result.Success(ParserCtx.Empty(), Nil)
+    BangParser.parse(WordLexer.tokenize("  ").getOrThrow).toEither.left.map(_.map(_.message)) shouldBe
+      Left(List("Unexpected end of input. Expected one of: WORD"))
   }
 
   test("a lexer's token is named by its path") {

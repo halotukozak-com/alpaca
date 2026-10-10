@@ -168,3 +168,14 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
     // Default context has column tracking
     result.ctx.column shouldBe 4 // 'a' (1) + '!' (2) + 'a' (3) -> next is 4
   }
+
+  test("getOrThrow throws every error, one message per line") {
+    given ErrorHandling[LexerCtx.Default, LexerError] = (_, _) => ErrorHandling.Strategy.SkipOne
+
+    val Lexer = lexer:
+      case "a" => Token["A"]
+
+    val exception = intercept[LexerException](Lexer.tokenize("a!a?").getOrThrow)
+    exception.errors.map(_.unexpected) shouldBe List("!", "?")
+    exception.getMessage shouldBe "Unexpected character '!'\nUnexpected character '?'"
+  }
