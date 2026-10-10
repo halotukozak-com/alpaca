@@ -11,6 +11,8 @@ final class ParserErrorHandlingTest extends AnyFunSuite with Matchers:
 
   private val CalcLexer = lexer:
     case "\\+" => Token["+"]
+    case "-" => Token["-"]
+    case "\\*" => Token["*"]
     case value @ "[1-9][0-9]*" => Token["Num"](value.toInt)
 
   extension [A](result: Result[?, A, ParserError withFields CalcLexer.LexemeFields])
@@ -69,6 +71,12 @@ final class ParserErrorHandlingTest extends AnyFunSuite with Matchers:
     val root: Rule[Int] = rule:
       case Expr(result) => result
 
+  // Operand -> Num . is one LALR(1) state for both operands, so it reduces on `+` and on `-`
+  object MergedLookaheadParser extends Parser[SkipAheadContext]:
+    val Operand: Rule[Int] = rule { case CalcLexer.Num(lexeme) => lexeme.value }
+    val root: Rule[Int] = rule:
+      case (Operand(left), CalcLexer.`+`(_), Operand(right), CalcLexer.`-`(_)) => left + right
+
   test("the default strategy stops at the first error and recovers nothing") {
     val result = StoppingParser.parse(CalcLexer.tokenize("1++2++3").getOrThrow).failure
     result.recovered shouldBe None
@@ -116,4 +124,11 @@ final class ParserErrorHandlingTest extends AnyFunSuite with Matchers:
     val result = SkipAheadParser.parse(CalcLexer.tokenize("1+++").getOrThrow).failure
     result.recovered shouldBe None
     result.errors.map(_.unexpected.map(_.name: String)) shouldBe List(Some("+"), None)
+  }
+
+  test("SkipToNextMatch skips a lexeme that only a merged LALR(1) lookahead reduces on") {
+    val result = MergedLookaheadParser.parse(CalcLexer.tokenize("1*-+2-").getOrThrow).failure
+    result.recovered shouldBe Some(3)
+    result.errors.map(_.at) shouldBe List(("*", 2))
+    result.errors.head.expected shouldBe List("+")
   }
