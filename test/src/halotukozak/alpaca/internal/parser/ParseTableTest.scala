@@ -45,12 +45,13 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
 
       val root = rule:
        case Expr(expr) => expr 
-    """).loneElement.message should include("""
-                                              |Shift "+" vs Reduce Expr -> Expr + Expr
-                                              |In situation like:
-                                              |Expr + Expr + ...
-                                              |Consider marking production Expr -> Expr + Expr to be before or after "+"
-                                              |""".stripMargin)
+    """).loneElement.message should
+      include("""
+                |Shift "+" vs Reduce Expr -> Expr + Expr
+                |In situation like:
+                |Expr + Expr + ...
+                |Consider marking production Expr -> Expr + Expr to be before or after "+"
+                |(at line 4: case (Expr(expr1), CalcLexer.`+`(_), Expr(expr2)) => expr1 + expr2)""".stripMargin)
   }
 
   test("conflict messages escape non-printable token names") {
@@ -149,7 +150,7 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
                                       |Num ...
                                       |Conflicting production: Float -> Num (line 7)
                                       |Consider marking one of the productions to be before or after the other
-                                      |""".stripMargin)
+                                      |(at line 4: case CalcLexer.Num(lexem) => lexem.value)""".stripMargin)
     conflict.lineContent.trim shouldBe "case CalcLexer.Num(lexem) => lexem.value"
   }
 
@@ -199,6 +200,7 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
                                      |Consider revising the before/after rules to eliminate cycles
                                      |""".stripMargin)
     // points at the rule closing the cycle, not at the parser declaration
+    cycle.message should endWith("\n(at line 12: production.A)")
     cycle.lineContent.trim shouldBe "P(CalcLexer.`+`).before(production.A),"
     cycle.column shouldBe 32
   }
@@ -306,7 +308,8 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
         case Expr(e) => e
     """)
     val error = errors.loneElement
-    error.message shouldBe "Cannot read the productions of rule Expr: define it with a `rule(...)` call."
+    error.message shouldBe
+      "Cannot read the productions of rule Expr: define it with a `rule(...)` call.\n(at line 3: ???)"
     error.lineContent.trim shouldBe "val Expr: Rule[Int] = ???"
   }
 

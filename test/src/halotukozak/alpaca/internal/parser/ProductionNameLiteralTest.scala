@@ -24,7 +24,8 @@ final class ProductionNameLiteralTest extends AnyFunSuite with Matchers with Lon
         { case NameLiteralLexer.NUM(n) => n.value },
       )
     """).loneElement
-    error.message shouldBe "A production name must be a string literal, as in `\"plus\" { case ... }`"
+    error.message shouldBe
+      "A production name must be a string literal, as in `\"plus\" { case ... }`\n(at line 5: name)"
     error.lineContent.trim shouldBe "name { case (root(a), NameLiteralLexer.PLUS(_), root(b)) => a + b },"
     error.column shouldBe 8
   }

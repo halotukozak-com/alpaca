@@ -26,7 +26,7 @@ final class ProductionNameDuplicatesTest extends AnyFunSuite with Matchers with 
       )
     """).loneElement
     error.message shouldBe
-      "Production name 'num' is already used by Num -> NUM (num); give each production its own name"
+      "Production name 'num' is already used by Num -> NUM (num); give each production its own name\n(at line 6: case (DuplicateNameLexer.PLUS(_), Num(n)) => n)"
     error.lineContent.trim shouldBe """"num" { case (DuplicateNameLexer.PLUS(_), Num(n)) => n },"""
   }
 
@@ -41,5 +41,5 @@ final class ProductionNameDuplicatesTest extends AnyFunSuite with Matchers with 
     given Resolutions[ReferencedDuplicateParser.type] =
       resolutions(production.op.before(DuplicateNameLexer.PLUS, DuplicateNameLexer.TIMES))
     """).loneElement.message shouldBe
-      "Production name 'op' is already used by root -> root PLUS root (op); give each production its own name"
+      "Production name 'op' is already used by root -> root PLUS root (op); give each production its own name\n(at line 5: case (root(a), DuplicateNameLexer.TIMES(_), root(b)) => a * b)"
   }
