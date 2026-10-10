@@ -16,7 +16,7 @@ final class LexerApiTest extends AnyFunSuite with Matchers {
     case ">=" => Token["greaterEqual"]
     case "!=" => Token["notEqual"]
     case "==" => Token["equal"]
-    case x @ "(d+(\\.\\d*)|\\.\\d+)([eE][+-]?\\d+)?" => Token["float"](x.toDouble)
+    case x @ "(\\d+(\\.\\d*)|\\.\\d+)([eE][+-]?\\d+)?" => Token["float"](x.toDouble)
     case x @ "[0-9]+" => Token["int"](x.toInt)
     case x @ "\"[^\"]*\"" => Token["string"](x)
     case keyword @ ("if" | "else" | "for" | "while" | "break" | "continue" | "return" | "eye" | "zeros" | "ones" |
@@ -39,7 +39,7 @@ final class LexerApiTest extends AnyFunSuite with Matchers {
       ">=",
       "!=",
       "==",
-      raw"(d+(\.\d*)|\.\d+)([eE][+-]?\d+)?",
+      raw"(\d+(\.\d*)|\.\d+)([eE][+-]?\d+)?",
       "[0-9]+",
       "\"[^\"]*\"",
       "if", "else", "for", "while", "break", "continue", "return", "eye", "zeros", "ones", "print",
@@ -89,6 +89,21 @@ final class LexerApiTest extends AnyFunSuite with Matchers {
     val _: Token["ones", LexerCtx.Default, Unit] = Lexer.ones
     val _: Token["print", LexerCtx.Default, Unit] = Lexer.print
     val _: Token["id", LexerCtx.Default, String] = Lexer.id
+  }
+
+  test("Lexer tokenizes floats, ints and operators") {
+    Lexer.tokenize("a=3.14*2.+.5-42;").getOrThrow.map(lexeme => (lexeme.name, lexeme.value)) shouldBe List(
+      ("id", "a"),
+      ("=", ()),
+      ("float", 3.14),
+      ("\\*", ()),
+      ("float", 2.0),
+      ("\\+", ()),
+      ("float", 0.5),
+      ("-", ()),
+      ("int", 42),
+      (";", ()),
+    )
   }
 
   test("Lexer manipulates context") {

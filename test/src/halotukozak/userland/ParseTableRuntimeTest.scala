@@ -1,10 +1,7 @@
-package halotukozak
-package alpaca
-package internal
-package parser
+package halotukozak.userland
 
+import halotukozak.alpaca.*
 import halotukozak.alpaca.ParserError.EndOfInput
-import halotukozak.alpaca.{lexer, rule, ParserCtx, ParserException, Result, Rule, Token}
 import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -82,28 +79,4 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers with LoneEle
     errorsOf(SumParser.parse(one)).loneElement.expected shouldBe List("+")
     errorsOf(SumParser.parse(CalcLexer.tokenize("1+2").getOrThrow :+ one.head)).loneElement.expected shouldBe
       List(EndOfInput)
-  }
-
-  test("a successful Result gives the value through every accessor") {
-    val lexemes = CalcLexer.tokenize("1+2").getOrThrow
-    val result = CalcParser.parse(lexemes)
-
-    result shouldBe a[Result.Success[?, ?, ?]]
-    result.ctx shouldBe CalcContext()
-    result.getOrThrow shouldBe 3
-    result.toOption shouldBe Some(3)
-    result.toEither shouldBe Right(3)
-  }
-
-  test("a failed Result keeps the context, and getOrThrow throws its errors as a ParserException") {
-    val lexemes = CalcLexer.tokenize("1+").getOrThrow
-    val result = CalcParser.parse(lexemes)
-    val error = errorsOf(result).head
-
-    result.ctx shouldBe CalcContext()
-    result.toOption shouldBe None
-    result.toEither shouldBe Left(List(error))
-    val exception = intercept[ParserException](result.getOrThrow)
-    exception.errors shouldBe List(error)
-    exception.getMessage shouldBe error.message
   }

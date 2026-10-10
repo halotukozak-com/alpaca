@@ -1,9 +1,6 @@
-package halotukozak
-package alpaca
-package internal
-package parser
+package halotukozak.userland
 
-import halotukozak.alpaca.{lexer, rule, ErrorHandling, ParserCtx, ParserError, Result, Rule, Token}
+import halotukozak.alpaca.*
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -15,13 +12,13 @@ final class ParserErrorHandlingTest extends AnyFunSuite with Matchers:
     case "\\*" => Token["*"]
     case value @ "[1-9][0-9]*" => Token["Num"](value.toInt)
 
-  extension [A](result: Result[?, A, ParserError withFields CalcLexer.LexemeFields])
-    private def failure: (recovered: Option[A], errors: List[ParserError withFields CalcLexer.LexemeFields]) =
+  extension [A](result: Result[?, A, ParserError { type Fields = CalcLexer.LexemeFields }])
+    private def failure: (recovered: Option[A], errors: List[ParserError { type Fields = CalcLexer.LexemeFields }]) =
       result match
         case Result.Failure(_, recovered, errors) => (recovered, errors)
         case Result.Success(_, _) => fail("expected a failure")
 
-  extension (error: ParserError withFields CalcLexer.LexemeFields)
+  extension (error: ParserError { type Fields = CalcLexer.LexemeFields })
     private def at: (text: String, column: Int) = (error.unexpected.get.text, error.unexpected.get.column)
 
   case class StoppingContext() extends ParserCtx

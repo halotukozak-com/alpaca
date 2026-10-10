@@ -1,5 +1,4 @@
-package halotukozak
-package alpaca.internal
+package halotukozak.userland
 
 import halotukozak.alpaca.*
 import org.scalatest.LoneElement
