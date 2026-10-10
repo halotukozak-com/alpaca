@@ -171,22 +171,22 @@ import scala.reflect.NameTransformer
   def literal(info: TokenInfo): Shown =
     quote(Printable(info.pattern.raw.replace("\\", "\\\\").replace("\"", "\\\"")))
 
-  tokens
-    .groupBy(_.info.name)
-    .iterator
-    .filter(_._2.sizeIs > 1)
-    .foreach: (name, duplicates) =>
-      val alternatives = duplicates.map(token => literal(token.info)).mkShow(" | ")
-      errorAndAbort(
-        show"Token name ${quote(name)} is defined ${duplicates.size} times. Combine the patterns into a single case using alternatives: case $alternatives => ...",
-        duplicates(1).pos,
-      )
+  // every duplicated name, in the order of its first definition
+  val definitionsByName = tokens.groupBy(_.info.name)
+  val duplicated = tokens.map(_.info.name).distinct.map(definitionsByName).filter(_.sizeIs > 1)
+  duplicated.foreach: duplicates =>
+    val alternatives = duplicates.map(token => literal(token.info)).mkShow(" | ")
+    error(
+      show"Token name ${quote(duplicates.head.info.name)} is defined ${duplicates.size} times. Combine the patterns into a single case using alternatives: case $alternatives => ...",
+      duplicates(1).pos,
+    )
+  if duplicated.nonEmpty then abortOnErrors()
 
   val parsed = tokens.flatMap(token => token.regex.map(regex => (info = token.info, pos = token.pos, regex = regex)))
 
   val shadowing = SubsetChecker.checkRegexes(parsed.map(p => (name = p.info.name, subset = Subset.of(p.regex))))
+  val byName = parsed.map(p => p.info.name -> p).toMap
   shadowing.foreach: (first, second) =>
-    val byName = parsed.map(p => p.info.name -> p).toMap
     val shadowed = byName(first)
     val quoted = second.map(quote)
     val covering = quoted.mkShow(" or ")

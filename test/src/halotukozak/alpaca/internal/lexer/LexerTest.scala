@@ -165,6 +165,28 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
     assert(lexemes.map(_.name) == List("IF", "ID"))
   }
 
+  test("every shadowed token is reported at its rule, in source order") {
+    // typeCheckErrors lists the errors latest first
+    val errors = typeCheckErrors("""
+      val Lexer = lexer:
+        case "[a-z]+" => Token["ID"]
+        case "[0-9]+" => Token["NUM"]
+        case "if" => Token["IF"]
+        case "42" => Token["ANSWER"]
+        case "else" => Token["ELSE"]
+      """).reverse
+    errors.map(_.message.linesIterator.next()) shouldBe List(
+      """Token "IF" can never match: every input it matches is also matched by "ID",""",
+      """Token "ANSWER" can never match: every input it matches is also matched by "NUM",""",
+      """Token "ELSE" can never match: every input it matches is also matched by "ID",""",
+    )
+    errors.map(_.lineContent.trim) shouldBe List(
+      """case "if" => Token["IF"]""",
+      """case "42" => Token["ANSWER"]""",
+      """case "else" => Token["ELSE"]""",
+    )
+  }
+
   test("pattern covered by the union of earlier patterns names all of them") {
     typeCheckErrors("""
       val Lexer = lexer:
@@ -260,6 +282,30 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       """).loneElement.message shouldBe
       """Token name "X" is defined 2 times. Combine the patterns into a single case using alternatives: """ +
       """case "a" | "b" => ..."""
+  }
+
+  test("every duplicate token name is reported at its redefinition, in source order") {
+    // the names are chosen so that `HashMap` order differs from source order; typeCheckErrors lists the errors latest first
+    val errors = typeCheckErrors("""
+      val Lexer = lexer:
+        case "z" => Token["Z"]
+        case "a" => Token["A"]
+        case "m" => Token["M"]
+        case "y" => Token["Z"]
+        case "b" => Token["A"]
+        case "n" => Token["M"]
+        case "c" => Token["A"]
+      """).reverse
+    errors.map(_.message) shouldBe List(
+      """Token name "Z" is defined 2 times. Combine the patterns into a single case using alternatives: case "z" | "y" => ...""",
+      """Token name "A" is defined 3 times. Combine the patterns into a single case using alternatives: case "a" | "b" | "c" => ...""",
+      """Token name "M" is defined 2 times. Combine the patterns into a single case using alternatives: case "m" | "n" => ...""",
+    )
+    errors.map(_.lineContent.trim) shouldBe List(
+      """case "y" => Token["Z"]""",
+      """case "b" => Token["A"]""",
+      """case "n" => Token["M"]""",
+    )
   }
 
   test("duplicate token name suggestion quotes patterns as Scala string literals") {
