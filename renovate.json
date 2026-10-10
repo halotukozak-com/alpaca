@@ -13,12 +13,19 @@
     {
       "description": "Toolchain deps: only final X.Y.Z releases (no RC/M/nightly/-bin-)",
       "matchDepNames": [
-        "scala3",
-        "org.scala-lang:scala3-compiler_3",
         "scala-js",
         "scala-native"
       ],
       "allowedVersions": "/^\\d+\\.\\d+\\.\\d+$/"
+    },
+    {
+      "description": "Scala 3: stay on the current LTS line (3.9.x), final releases only. matchCurrentVersion keeps Scala 2.13 pins (e.g. mcodec's benchmark module) out of this rule",
+      "matchDepNames": [
+        "scala3",
+        "org.scala-lang:scala3-compiler_3"
+      ],
+      "matchCurrentVersion": "/^3\\./",
+      "allowedVersions": "/^3\\.9\\.\\d+$/"
     }
   ],
   "customManagers": [

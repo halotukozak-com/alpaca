@@ -1,8 +1,7 @@
-package halotukozak
-package alpaca.internal.parser
+package halotukozak.userland
 
+import halotukozak.alpaca.*
 import halotukozak.alpaca.ParserError.EndOfInput
-import halotukozak.alpaca.{lexer, parse, rule, Result, Rule, Token}
 import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers

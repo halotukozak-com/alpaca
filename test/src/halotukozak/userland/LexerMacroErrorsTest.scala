@@ -105,7 +105,7 @@ final class LexerMacroErrorsTest extends AnyFunSuite with Matchers with LoneElem
     lexer[ClashingCtx]:
       case "a" => Token["A"]
     """)
-    errors.map(error => (error.message, error.lineContent.trim)) should contain theSameElementsAs List(
+    errors.map(error => (error.message.linesIterator.next(), error.lineContent.trim)) should contain theSameElementsAs List(
       ("Context field `name` clashes with `Lexeme.name`; rename it", """name: String = "n","""),
       ("Context field `value` clashes with `Lexeme.value`; rename it", "value: Int = 7,"),
       ("Context field `text` clashes with `Lexeme.text`; rename it", """text: String = "t","""),
