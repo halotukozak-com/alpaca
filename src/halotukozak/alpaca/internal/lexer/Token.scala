@@ -91,7 +91,6 @@ private[lexer] object TokenInfo:
             //format: on
             pos,
           )
-          None
         case Right(regex) => Some(regex)
         case Left(err) => reportInvalid(err); None
     (

@@ -33,7 +33,7 @@ private[alpaca] object ValidName:
   private[internal] def apply(using Quotes, Diagnostics)(name: String, pos: quotes.reflect.Position)
     : Option[ValidName] =
     name match
-      case "" => error(show"Invalid token name: it is empty", pos); None
-      case invalid @ "_" => error(show"Invalid token name: ${Printable(invalid)}", pos); None
+      case "" => error(show"Invalid token name: it is empty", pos)
+      case invalid @ "_" => error(show"Invalid token name: ${Printable(invalid)}", pos)
       case valid => Some(valid.asInstanceOf[ValidName])
 // $COVERAGE-ON$

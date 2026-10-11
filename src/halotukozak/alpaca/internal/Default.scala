@@ -25,15 +25,20 @@ private[internal] trait Default[+T] extends (() => T):
 
 /**
  * Default instances for common types.
+ *
+ * `Unit` takes precedence when nothing constrains the type, so that e.g. [[error]] in statement position gives `()`.
  */
-private[internal] object Default:
+private[internal] object Default extends DefaultLowPriority:
   def apply[T](using d: Default[T]): Default[T] = d
 
   given Default[Unit] = () => ()
+
+private[internal] trait DefaultLowPriority:
   given Default[Boolean] = () => false
   given Default[Int] = () => 0
   given Default[String] = () => ""
   given Default[ValidName] = () => ""
+  given Default[Null] = () => null
   given [I[X] <: Iterable[X]] => (factory: Factory[Nothing, I[Nothing]]) => Default[I[Nothing]] =
     () => factory.fromSpecific(Nil)
   given Default[IterableOnce[Nothing]] = () => Iterable.empty

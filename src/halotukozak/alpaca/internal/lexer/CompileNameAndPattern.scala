@@ -84,13 +84,11 @@ private[lexer] def compileNameAndPattern[T: Type](
         show"""A token name must be a string literal, as in `Token["NAME"]`, or the type of the bound match, as in `case x @ "regex" => Token[x.type]`""",
         pattern.pos,
       )
-      Nil
     case _ =>
       error(
         show"""A lexer rule must match a regex string literal or alternatives of them, as in `case "[0-9]+"` or `case "a" | "b"`""",
         pattern.pos,
       )
-      Nil
   }
 
   loop(TypeRepr.of[T], pattern)

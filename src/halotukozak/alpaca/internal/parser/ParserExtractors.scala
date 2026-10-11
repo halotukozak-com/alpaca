@@ -48,29 +48,26 @@ private[parser] type Binding[B] = (bind: Option[B], adapt: Expr[Any] => Expr[Any
  * extracting the grammar symbol it matches (terminal or non-terminal) together
  * with any EBNF desugaring (`Option`, `List`, `SeparatedBy`) it requires.
  *
- * Gives `None` for a pattern of a known shape that is reported as invalid, so that its production is skipped.
+ * Gives `null` for a pattern of a known shape that is reported as invalid, so that its production is skipped.
  */
 private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, Diagnostics): PartialFunction[
   quotes.reflect.Tree,
-  Option[
-    (
-      symbol: parser.Symbol.NonEmpty,
-      binding: Binding[quotes.reflect.Bind],
-      others: List[ProductionWithAction[Ctx]],
-    ),
-  ],
+  (
+    symbol: parser.Symbol.NonEmpty,
+    binding: Binding[quotes.reflect.Bind],
+    others: List[ProductionWithAction[Ctx]],
+  ) | Null,
 ] = {
   import quotes.reflect.*
 
-  def symbolFromType(separator: TypeTree): Option[parser.Symbol.NonEmpty] = separator.tpe.dealias.widen.asType match
-    case '[type name <: ValidName; Token[name, ?, ?]] => Some(Terminal(Printable(ValidName.from[name])))
-    case '[Rule[?]] => Some(NonTerminal(Printable(NameTransformer.decode(separator.tpe.termSymbol.name))))
+  def symbolFromType(separator: TypeTree): parser.Symbol.NonEmpty | Null = separator.tpe.dealias.widen.asType match
+    case '[type name <: ValidName; Token[name, ?, ?]] => Terminal(Printable(ValidName.from[name]))
+    case '[Rule[?]] => NonTerminal(Printable(NameTransformer.decode(separator.tpe.termSymbol.name)))
     case _ =>
       error(
         show"SeparatedBy separator must be a Token or Rule type, but got: ${separator.tpe.show.showRaw}",
         separator.pos,
       )
-      None
 
   type SymbolExtractor = PartialFunction[Tree, (name: String, bind: Option[Bind], extractor: String | Null)]
 
@@ -138,7 +135,9 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
             List(Extractor.Bind(bind)),
           ),
         ) =>
-      symbolFromType(separatorType).map: separator =>
+      val separator = symbolFromType(separatorType)
+      if separator == null then null
+      else
         val source = Source(pattern.pos)
         val synthetic = NonTerminal.synthetic("SeparatedBy", element, separator)
         val nonEmpty = NonTerminal.synthetic("SeparatedBy.nonEmpty", element, separator)
@@ -170,25 +169,23 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
         )
 
     case Extractor.NonTerminal(name, bind, null) =>
-      Some((symbol = NonTerminal(Printable(name)), binding = (bind = bind, adapt = identity), others = Nil))
+      (symbol = NonTerminal(Printable(name)), binding = (bind = bind, adapt = identity), others = Nil)
 
     case Extractor.Terminal(name, bind, null) =>
-      Some((symbol = Terminal(Printable(name)), binding = (bind = bind, adapt = identity), others = Nil))
+      (symbol = Terminal(Printable(name)), binding = (bind = bind, adapt = identity), others = Nil)
 
     case pattern @ Extractor.Symbol(symbol, bind, Names.Option) =>
       val source = Source(pattern.pos)
       val synthetic = NonTerminal.synthetic("Option", symbol)
-      Some(
-        (
-          symbol = synthetic,
-          binding = (bind = bind, adapt = identity),
-          others = List(
-            (production = Production.Empty(synthetic), source = source, action = '{ noneAction }),
-            (
-              production = Production.NonEmpty(synthetic, NEL(symbol)),
-              source = source,
-              action = '{ someAction },
-            ),
+      (
+        symbol = synthetic,
+        binding = (bind = bind, adapt = identity),
+        others = List(
+          (production = Production.Empty(synthetic), source = source, action = '{ noneAction }),
+          (
+            production = Production.NonEmpty(synthetic, NEL(symbol)),
+            source = source,
+            action = '{ someAction },
           ),
         ),
       )
@@ -196,17 +193,15 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
     case pattern @ Extractor.Symbol(symbol, bind, Names.List) =>
       val source = Source(pattern.pos)
       val synthetic = NonTerminal.synthetic("List", symbol)
-      Some(
-        (
-          symbol = synthetic,
-          binding = (bind = bind, adapt = v => '{ $v.asInstanceOf[List[?]].reverse }),
-          others = List(
-            (production = Production.Empty(synthetic), source = source, action = '{ emptyRepeatedAction }),
-            (
-              production = Production.NonEmpty(synthetic, NEL(synthetic, symbol)),
-              source = source,
-              action = '{ repeatedAction },
-            ),
+      (
+        symbol = synthetic,
+        binding = (bind = bind, adapt = v => '{ $v.asInstanceOf[List[?]].reverse }),
+        others = List(
+          (production = Production.Empty(synthetic), source = source, action = '{ emptyRepeatedAction }),
+          (
+            production = Production.NonEmpty(synthetic, NEL(synthetic, symbol)),
+            source = source,
+            action = '{ repeatedAction },
           ),
         ),
       )
