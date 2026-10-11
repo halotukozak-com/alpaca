@@ -98,7 +98,7 @@ import scala.reflect.NameTransformer
                   DefinedToken[name, Ctx, Unit, Lexeme[name, Unit] withFields NamedTuple.From[Ctx]](
                     ${ Expr(tokenInfo) },
                     $ctxManipulation,
-                    TokenFunctions.unitValue[Ctx],
+                    TokenFunctions.discard,
                   )
                 },
                 regex = regex,
@@ -116,7 +116,7 @@ import scala.reflect.NameTransformer
                   DefinedToken[name, Ctx, String, Lexeme[name, String] withFields NamedTuple.From[Ctx]](
                     ${ Expr(tokenInfo) },
                     $ctxManipulation,
-                    TokenFunctions.rawMatched[Ctx],
+                    TokenFunctions.rawMatched,
                   )
                 },
                 regex = regex,

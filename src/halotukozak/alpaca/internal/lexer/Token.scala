@@ -189,13 +189,11 @@ private[alpaca] def RecoveredToken[Ctx <: LexerCtx](matched: String): IgnoredTok
 /** Function values shared by generated tokens, so the lexer macro doesn't emit the same lambda for every token. */
 @publicInBinary private[alpaca] object TokenFunctions:
   private val identityFunction: Any => Any = identity
-  private val unitFunction: Any => Unit = _ => ()
-  private val rawMatchedFunction: LexerCtx => String = _.lastRawMatched
 
   @publicInBinary private[alpaca] def unchangedCtx[Ctx <: LexerCtx]: CtxManipulation[Ctx] =
     identityFunction.asInstanceOf[CtxManipulation[Ctx]]
-  @publicInBinary private[alpaca] def unitValue[Ctx <: LexerCtx]: Ctx => Unit = unitFunction
-  @publicInBinary private[alpaca] def rawMatched[Ctx <: LexerCtx]: Ctx => String = rawMatchedFunction
+  @publicInBinary private[alpaca] val discard: LexerCtx => Unit = _ => ()
+  @publicInBinary private[alpaca] val rawMatched: LexerCtx => String = _.lastRawMatched
 
 @publicInBinary private[alpaca] object DefinedToken
 
