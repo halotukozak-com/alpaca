@@ -2,12 +2,14 @@ package com.halotukozak.alpaca.plugin.toolwindow
 
 import com.halotukozak.alpaca.plugin.grammar.ResolvedGrammar
 import com.halotukozak.alpaca.plugin.grammar.resolveGrammarForFile
+import com.halotukozak.alpaca.plugin.grammar.sourceFileCandidates
 import com.halotukozak.alpaca.plugin.icons.AlpacaIcons
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.FileEditorManagerEvent
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.wm.ToolWindow
@@ -23,6 +25,7 @@ import java.awt.event.KeyAdapter
 import java.awt.event.KeyEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import java.nio.file.Path
 import javax.swing.JPanel
 import javax.swing.JTree
 import javax.swing.SwingConstants
@@ -142,14 +145,21 @@ private class GrammarPanel(
 
     /** Opens the `lexer{...}`/`parser` rule [treeNode] was defined by, if the export recorded a
      *  source location for it (see [GrammarTreeNode.sourceFile]) and the file can still be found --
-     *  a no-op otherwise, since the recorded path is an absolute compile-time path that may no
-     *  longer exist (a different machine, a moved/renamed source file). */
+     *  a no-op otherwise (a moved/renamed source file, a project opened elsewhere than the root the
+     *  path is relative to). A relative path is tried against the project base dir, then each
+     *  content root (see [sourceFileCandidates]). */
     private fun navigateToSource(treeNode: DefaultMutableTreeNode?) {
         val node = treeNode?.userObject as? GrammarTreeNode ?: return
         val sourceFile = node.sourceFile ?: return
         val sourceLine = node.sourceLine ?: return
+        val roots =
+            listOfNotNull(project.basePath?.let(Path::of)) +
+                ProjectRootManager.getInstance(project).contentRoots.mapNotNull { it.fileSystem.getNioPath(it) }
         val fileSystem = LocalFileSystem.getInstance()
-        val virtualFile = fileSystem.findFileByPath(sourceFile) ?: fileSystem.refreshAndFindFileByPath(sourceFile) ?: return
+        val virtualFile =
+            sourceFileCandidates(sourceFile, roots).firstNotNullOfOrNull { candidate ->
+                fileSystem.findFileByNioFile(candidate) ?: fileSystem.refreshAndFindFileByNioFile(candidate)
+            } ?: return
         OpenFileDescriptor(project, virtualFile, sourceLine, 0).navigate(true)
     }
 

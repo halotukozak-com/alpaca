@@ -27,8 +27,10 @@ private[internal] object JsonExport:
    *  itself.
    *
    *  Version 3: an EBNF extractor's non-terminal is named after its symbols instead of its source offset.
+   *
+   *  Version 4: a source's `file` is relative to its project root instead of absolute (see `Source.exportPath`).
    */
-  private[internal] val ExportFormatVersion: Int = 3
+  private[internal] val ExportFormatVersion: Int = 4
 
   /**
    * Shape of a `.table.json` export, mirrored by the IntelliJ plugin's `ParseTableSpec`; changing it means bumping

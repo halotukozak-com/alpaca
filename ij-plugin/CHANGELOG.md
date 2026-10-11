@@ -7,6 +7,7 @@
 ### Changed
 
 - Reads export format version 3 (Alpaca 1.0.0): EBNF non-terminals are named after their symbols, not their source offset.
+- Reads export format version 4 (Alpaca 1.0.0): a rule's source file is relative to the repository root, resolved against the project base dir, then each content root, when navigating from the grammar tool window.
 
 ## [0.2.1] - 2026-10-06
 

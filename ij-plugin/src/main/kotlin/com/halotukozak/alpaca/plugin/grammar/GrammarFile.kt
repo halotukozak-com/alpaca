@@ -13,7 +13,7 @@ import kotlin.streams.asSequence
  * sync with the alpaca library's own `JsonExport.ExportFormatVersion` constant, since the two ship
  * on separate release schedules.
  */
-val CURRENT_EXPORT_FORMAT_VERSION: Int = 3
+val CURRENT_EXPORT_FORMAT_VERSION: Int = 4
 
 /** The envelope every export file is wrapped in: `{"version": ..., "context": ...}`. `version`
  *  defaults to 0 so a file with no `version` key at all (written before this envelope existed)
@@ -58,7 +58,10 @@ private inline fun <reified T> readVersioned(text: String): VersionedExport<T> {
  *  under a `"source"` key (see `Source` in the alpaca library). Productions synthesized from EBNF
  *  sugar (`List`/`Option`/`SeparatedBy`) point at the pattern they come from; absent/`null` only in
  *  exports from library versions that left them without a source. `start`/`end` are the character
- *  offsets of the declaration in [file]; absent in exports written before the library recorded them. */
+ *  offsets of the declaration in [file]; absent in exports written before the library recorded them.
+ *  [file] is relative to the project root the library found (the nearest directory with a `.git`
+ *  entry), with `/` separators, or absolute for a source outside any repository; see
+ *  [sourceFileCandidates]. */
 @Serializable
 data class SourceLocation
     // Keeps the `(line, file)` constructor in the bytecode: callers compiled before `start`/`end`
@@ -70,6 +73,20 @@ data class SourceLocation
         val start: Int? = null,
         val end: Int? = null,
     )
+
+/**
+ * Where an exported [file] may be on disk, most likely first: itself when absolute, otherwise
+ * resolved against each of [roots] in order (the project base dir first, then e.g. its content
+ * roots, for a project opened above or below the repository root the library exported against).
+ */
+fun sourceFileCandidates(
+    file: String,
+    roots: List<Path>,
+): List<Path> {
+    val exported = runCatching { Path.of(file) }.getOrNull() ?: return emptyList()
+    if (exported.isAbsolute) return listOf(exported)
+    return roots.map { it.resolve(exported).normalize() }.distinct()
+}
 
 /**
  * One token rule as exported by Alpaca's `lexer{...}` macro (see

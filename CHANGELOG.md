@@ -23,6 +23,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Every duplicate token name, shadowed token, duplicate production and duplicate production name is reported at its own rule, in source order. Only one duplicate token name and the first shadowed token used to be reported.
 - Parser macro errors, which the compiler shows at `extends Parser`, end with the line and source of the production they are about: `(at line 11: case ...)`.
 - `.List`, `.Option` and `.SeparatedBy` non-terminals are named after their symbols instead of their source offset. The grammar export format version is now 3 (read by the IntelliJ plugin).
+- The grammar export records each rule's source file relative to its repository root (the nearest directory with a `.git` entry) instead of as an absolute path, so exports of the same code match across checkouts. The export format version is now 4.
 - The parameter of `before`/`after` is named `others` (was `second`), and public type parameters have descriptive names (`Result[+Ctx, +Value, +Err]`, `Rule[Value]`, `ErrorHandling[-Ctx, -Err]`, ...). Only named arguments are affected.
 
 ### Removed
