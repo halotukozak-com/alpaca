@@ -71,21 +71,6 @@ Invalid regex pattern for token "T": unsupported regex feature `lookbehind` (at 
 
 Lookbehind, backreferences like `\\1`, the word boundary `\\b`, and lazy (`*?`) and possessive (`*+`) quantifiers are rejected this way.
 
-Lookahead (`(?=...)`, `(?!...)`) and anchors (`^`, `$`, `\\A`, `\\Z`, `\\z`) parse, but token matching doesn't support them yet, so they are an error at the rule too:
-
-```scala sc:fail
-import halotukozak.alpaca.*
-
-val Lexer = lexer:
-  case "a(?=b)" => Token["A"] // error
-```
-
-```
-Token "A" uses a lookahead `(?=...)` ("a(?=b)"), which is not supported yet
-```
-
-A negative lookahead reports ``a negative lookahead `(?!...)` ``, `^` and `\\A` report ``a start anchor `^` or `\A` ``, and `$`, `\\Z` and `\\z` report ``an end anchor `$`, `\Z` or `\z` ``.
-
 ### Empty Matches
 
 A pattern that can match the empty string, such as `"a*"` or `"[0-9]*"`, would let the lexer match without moving forward. It is an error at its rule, for ignored tokens too:
