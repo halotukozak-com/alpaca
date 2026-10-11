@@ -28,7 +28,7 @@ final class LexerApiTest extends AnyFunSuite with Matchers {
       Token[literal.type]
 
   test("Lexer recognizes basic tokens") {
-    Lexer.tokens.map(_.info.pattern.raw) shouldBe List(
+    Lexer.tokens.map(_.info.pattern.raw).toList shouldBe List(
     //format: off
       "#.*",
       raw"\.\+",
