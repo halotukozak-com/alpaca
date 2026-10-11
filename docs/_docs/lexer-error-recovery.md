@@ -1,6 +1,123 @@
 # Lexer Error Recovery
 
-When the input contains text that matches no pattern, the lexer reports it as a `LexerError` and an error-handling strategy decides whether to stop or skip it and go on. This page covers those runtime errors. Mistakes in the lexer definition itself, such as a pattern that can never match or an invalid regex, are compile errors, listed in [Compile Errors](compile-errors.md#lexer).
+The Alpaca lexer provides two layers of error feedback: compile-time validation that catches many problems before your program runs, and runtime error strategies for input that does not match any pattern.
+
+<details>
+<summary>Under the hood: compile-time validation</summary>
+
+The `lexer` macro validates token definitions at compile time. Pattern shadowing, invalid or unsupported regex syntax, empty matches, duplicate token names and guards are caught during compilation. The macro checks every pattern against the ones declared before it -- each on its own, and together -- using Alpaca's own `regex` library, so that every pattern can produce a token.
+
+</details>
+
+## Compile-Time Errors
+
+### Shadowed Patterns
+
+The lexer uses **longest match**: at each position it takes the longest text any pattern matches, and when several patterns match equally long text, the one declared first wins. A shadowing error occurs when a pattern can never win. The classic case is a keyword declared after a general identifier pattern -- `if` is matched equally long by both, so the identifier always takes it:
+
+```scala sc:fail
+import halotukozak.alpaca.*
+
+val Lexer = lexer:
+  case id @ "[a-z]+" => Token["ID"](id)
+  case "if" => Token["IF"]  // error: shadowed by ID
+```
+
+The compiler reports:
+
+```
+Token "IF" can never match: every input it matches is also matched by "ID",
+which is defined earlier, so it always wins.
+Declare "IF" ("if") before "ID" ("[a-z]+").
+```
+
+The fix: declare the keyword first. Longest match still turns `iffy` into a single `ID`, so keywords never split identifiers.
+
+A pattern can also be dead because several earlier patterns cover it together, though none does alone:
+
+```scala sc:fail
+import halotukozak.alpaca.*
+
+val Lexer = lexer:
+  case "a" => Token["A"]
+  case "b" => Token["B"]
+  case "[ab]" => Token["AB"]  // error: covered by A and B together
+```
+
+```
+Token "AB" can never match: every input it matches is also matched by "A" or "B",
+which are defined earlier, so one of them always wins.
+"AB" is redundant: remove it, or narrow "A" and "B" so they no longer cover it.
+```
+
+A pattern is reported only when it really can never win -- an earlier pattern matching just a *prefix* of it (`"a"` before `"ab"`) is fine. When one pattern's language contains the other's in the wrong order, e.g. `"[0-9]+(\\.[0-9]+)?"` before `"[0-9]+"`, give the later pattern inputs of its own -- e.g. `"[0-9]+\\.[0-9]+"` before `"[0-9]+"` -- or use a single pattern. See [How a Token Is Chosen](lexer.md#how-a-token-is-chosen) for which pattern wins where two can match, and [Shadowing Detection](theory/lexer-fa.md#shadowing-detection) for how the check works.
+
+### Invalid Regex
+
+Patterns use Java-style regex syntax, but they are parsed by Alpaca's own [`regex`](https://github.com/halotukozak-com/regex) library, not by `java.util.regex`. Malformed patterns -- unmatched parentheses, invalid quantifiers, bad character class syntax -- and the few constructs the library does not support (for example lookbehind `(?<=...)`, backreferences like `\\1`, the word boundary `\\b`, lazy quantifiers like `*?` and possessive quantifiers like `++`) produce a compile-time error naming the token and the position in the pattern:
+
+```
+Invalid regex pattern for token "T": unsupported regex feature `lookbehind` (at position 3 in "(?<=a)b")
+```
+
+### Empty Matches
+
+A pattern that can match the empty string, such as `"a*"` or `"[0-9]*"`, would let the lexer match without moving forward. It is a compile-time error at its rule, for ignored tokens too:
+
+```
+Token "A" can match the empty string ("a*"); a token must consume at least one character
+```
+
+Require at least one character, e.g. `"a+"` instead of `"a*"`.
+
+### Duplicate Token Names
+
+Each token name can be defined by only one rule. A second rule with the same name is reported at that rule:
+
+```
+Token name "bracket" is defined 2 times. Combine the patterns into a single case using alternatives: case "\\[" | "\\]" => ...
+```
+
+Combine the patterns as the message suggests, or give each rule its own name:
+
+```scala
+import halotukozak.alpaca.*
+
+val BrainLexer = lexer:
+  case "\\[" | "\\]" => Token["bracket"]
+```
+
+### Rule Bodies Must End With a Token
+
+A rule body can run any code, but its last expression must be the `Token[...]` or `Token.Ignored` call itself. Ending with a value that holds one, like `val token = Token["inc"]; token`, reports:
+
+```
+A lexer rule must end with `Token["NAME"]`, `Token["NAME"](value)` or `Token.Ignored`, written directly as its last expression
+```
+
+### Guards Not Supported
+
+Pattern guards (`case "regex" if condition =>`) are not supported in lexer rules. The workaround is to move the condition into the rule body:
+
+```scala
+import halotukozak.alpaca.*
+
+case class BrainLexContext(
+  squareBrackets: Int = 0,
+) extends LexerCtx
+
+val BrainLexer = lexer[BrainLexContext]:
+  case "\\[" =>
+    ctx.squareBrackets += 1
+    Token["jumpForward"]
+  case "\\]" =>
+    // Validate inside the body, not as a guard
+    require(ctx.squareBrackets > 0, "Mismatched brackets")
+    ctx.squareBrackets -= 1
+    Token["jumpBack"]
+  case "\\+" => Token["inc"]
+  case "." => Token.Ignored
+```
 
 ## Runtime Error Handling
 

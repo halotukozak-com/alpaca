@@ -20,8 +20,6 @@ subsection:
         page: extractors.md
       - title: Conflict Resolution
         page: conflict-resolution.md
-  - title: Compile Errors
-    page: compile-errors.md
   - title: Tooling
     index: tooling.md
     subsection:
@@ -38,6 +36,8 @@ subsection:
         page: cookbook/json-parser.md
       - title: Contextual Lexing
         page: cookbook/contextual-lexing.md
+      - title: Common Problems
+        page: cookbook/common-problems.md
   - title: Theory
     index: theory/index.md
     subsection:

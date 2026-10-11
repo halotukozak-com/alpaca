@@ -72,7 +72,7 @@ println(Lexer.tokenize("== = if iffy").getOrThrow.map(_.name)) // List(EQ, ASSIG
 In practice this means:
 
 - **Patterns that extend each other can go in any order.** `"="` and `"=="`, or `"[0-9]+"` and `"[0-9]+\\.[0-9]+"`, work either way round.
-- **Keywords go before the identifier pattern.** That order only decides the exact tie. The other order is a compile-time error, because the keyword could never win (see [Shadowed Patterns](compile-errors.md#shadowed-patterns)).
+- **Keywords go before the identifier pattern.** That order only decides the exact tie. The other order is a compile-time error, because the keyword could never win (see [Shadowed Patterns](lexer-error-recovery.md#shadowed-patterns)).
 - **Ignored patterns compete too.** A comment pattern `"//[^\n]*"` beats a `"/"` operator wherever both match, because it is longer.
 
 Longest match decides one token at a time, so it has some consequences that surprise people coming from `match`:
@@ -94,7 +94,7 @@ println(Lexer.tokenize("/* a */ x /* b */").getOrThrow.map(_.name)) // List(ID)
 
 ## Regular Expressions
 
-Patterns use Java-style regex syntax and are validated at compile time by Alpaca's own regex library (a few Java constructs -- lookbehind, lazy and possessive quantifiers -- are not supported; see [Invalid Regex](compile-errors.md#invalid-regex)). Backslashes must be doubled inside Scala string literals: `"\\+"` matches a literal `+`, and `"\\d+"` matches one or more digits.
+Patterns use Java-style regex syntax and are validated at compile time by Alpaca's own regex library (a few Java constructs -- lookbehind, lazy and possessive quantifiers -- are not supported; see [Invalid Regex](lexer-error-recovery.md#invalid-regex)). Backslashes must be doubled inside Scala string literals: `"\\+"` matches a literal `+`, and `"\\d+"` matches one or more digits.
 
 ```scala
 import halotukozak.alpaca.*
@@ -116,7 +116,7 @@ val Lexer = lexer:
   case "\\s+" => Token.Ignored        // whitespace; `line` counts the newlines in it
 ```
 
-An invalid regex (unmatched parentheses, bad quantifiers) produces a compile-time error, and so does a pattern that can match the empty string, like `"a*"`: every token must consume at least one character. A pattern that can never win -- because an earlier one always matches the same text at least as long -- produces a compile-time shadowing error; see [Shadowed Patterns](compile-errors.md#shadowed-patterns).
+An invalid regex (unmatched parentheses, bad quantifiers) produces a compile-time error, and so does a pattern that can match the empty string, like `"a*"`: every token must consume at least one character. A pattern that can never win -- because an earlier one always matches the same text at least as long -- produces a compile-time shadowing error; see [Shadowed Patterns](lexer-error-recovery.md#shadowed-patterns).
 
 ## Tokens
 

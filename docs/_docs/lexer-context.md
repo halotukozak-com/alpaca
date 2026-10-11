@@ -127,7 +127,7 @@ val ExampleLexer = lexer[BrainLexContext]:
     Token["jumpBack"]
 ```
 
-Lexer rules cannot have guards; check the context in the rule body instead, as above (see [Guards](compile-errors.md#guards)).
+Lexer rules cannot have guards; check the context in the rule body instead, as above (see [Guards Not Supported](lexer-error-recovery.md#guards-not-supported)).
 
 ## Context Snapshots in Lexemes
 

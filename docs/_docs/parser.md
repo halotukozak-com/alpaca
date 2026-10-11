@@ -63,7 +63,7 @@ object BrainParser extends Parser:
   )
 ```
 
-Declare every rule with `val`. A `def` rule is a compile error; [Compile Errors](compile-errors.md#parser) lists every error a parser definition can report.
+Declare every rule with `val`. A `def` rule is a compile error; see [Common Problems](cookbook/common-problems.md) for this and other errors you are likely to hit.
 
 ## Rules and Productions
 

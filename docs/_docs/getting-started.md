@@ -30,7 +30,7 @@ object brainfuck extends ScalaModule {
 }
 ```
 
-The `-Yretain-trees` flag is required. Alpaca's macros inspect the AST of your lexer and parser definitions at compile time, and this flag tells the compiler to preserve that information. Without it, every parser fails to compile (see [Compile Errors](compile-errors.md#missing--yretain-trees)). Alpaca 0.3.2 and earlier also need the `-experimental` flag; later versions do not.
+The `-Yretain-trees` flag is required. Alpaca's macros inspect the AST of your lexer and parser definitions at compile time, and this flag tells the compiler to preserve that information. Without it, every parser fails to compile (see [Common Problems](cookbook/common-problems.md#enable--yretain-trees-compiler-flag)). Alpaca 0.3.2 and earlier also need the `-experimental` flag; later versions do not.
 
 ## Step 1: The Lexer
 
