@@ -102,7 +102,7 @@ type ProductionDefinition[Value] = PartialFunction[Tuple | Lexeme[?, ?], Value]
  * @return a Rule instance
  */
 @compileTimeOnly(ParserOnly)
-inline def rule[Value](@unused productions: ProductionDefinition[Value]*)(using ParserScope): Rule[Value] =
+inline def rule[Value](@unused inline productions: ProductionDefinition[Value]*)(using ParserScope): Rule[Value] =
   null.asInstanceOf[Rule[Value]]
 
 extension (name: String)
