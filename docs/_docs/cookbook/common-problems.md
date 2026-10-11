@@ -13,7 +13,7 @@ The problems people hit most often when writing an Alpaca lexer or parser. Each 
 ```scala
 import halotukozak.alpaca.*
 
-val Lexer = lexer:
+val MyLexer = lexer:
   case "if" => Token["IF"]
   case id @ "[a-z]+" => Token["ID"](id)
   case "\\s+" => Token.Ignored
@@ -30,7 +30,7 @@ See [Shadowed Patterns](../lexer-error-recovery.md#shadowed-patterns).
 ```scala
 import halotukozak.alpaca.*
 
-val Lexer = lexer:
+val MyLexer = lexer:
   case "a+" => Token["A"]
 ```
 
@@ -45,7 +45,7 @@ See [Empty Matches](../lexer-error-recovery.md#empty-matches).
 ```scala
 import halotukozak.alpaca.*
 
-val Lexer = lexer:
+val MyLexer = lexer:
   case "/\\*([^*]|\\*+[^*/])*\\*+/" => Token.Ignored // instead of "/\\*.*?\\*/"
   case "[a-z]+" => Token["WORD"]
   case "\\s+" => Token.Ignored
@@ -115,12 +115,12 @@ The parser's equivalent, "can only be used inside a parser definition", means `r
 ```scala
 import halotukozak.alpaca.*
 
-val Lexer = lexer:
+val MyLexer = lexer:
   case "<" => Token["LT"]
   case "<=" => Token["LE"]
   case "\\s+" => Token.Ignored
 
-val names = Lexer.tokenize("< <=").getOrThrow.map(_.name) // List(LT, LE)
+val names = MyLexer.tokenize("< <=").getOrThrow.map(_.name) // List(LT, LE)
 ```
 
 See [How a Token Is Chosen](../lexer.md#how-a-token-is-chosen).

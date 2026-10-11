@@ -18,7 +18,7 @@ The lexer uses **longest match**: at each position it takes the longest text any
 ```scala sc:fail
 import halotukozak.alpaca.*
 
-val Lexer = lexer:
+val MyLexer = lexer:
   case id @ "[a-z]+" => Token["ID"](id)
   case "if" => Token["IF"]  // error: shadowed by ID
 ```
@@ -38,7 +38,7 @@ A pattern can also be dead because several earlier patterns cover it together, t
 ```scala sc:fail
 import halotukozak.alpaca.*
 
-val Lexer = lexer:
+val MyLexer = lexer:
   case "a" => Token["A"]
   case "b" => Token["B"]
   case "[ab]" => Token["AB"]  // error: covered by A and B together
@@ -140,11 +140,11 @@ Like a lexeme, the error carries the context's fields as they were where the cha
 ```scala
 import halotukozak.alpaca.*
 
-val Lexer = lexer:
+val MyLexer = lexer:
   case "[a-z]+" => Token["WORD"]
   case "\\s+" => Token.Ignored
 
-Lexer.tokenize("abc @def") match
+MyLexer.tokenize("abc @def") match
   case Result.Success(_, lexemes) => println(lexemes.size)
   case Result.Failure(_, _, errors) =>
     errors.foreach: error =>
@@ -170,11 +170,11 @@ import halotukozak.alpaca.*
 // Skip unrecognized characters, but keep a record of them
 given ErrorHandling[LexerCtx.Default, LexerError] = (_, _) => ErrorHandling.Strategy.SkipOne
 
-val Lexer = lexer:
+val MyLexer = lexer:
   case "[a-z]+" => Token["WORD"]
   case "\\s+" => Token.Ignored
 
-Lexer.tokenize("abc @def") match
+MyLexer.tokenize("abc @def") match
   case Result.Failure(_, recovered, errors) =>
     println(recovered.map(_.map(_.name))) // Some(List(WORD, WORD))
     println(errors.map(_.message))        // List(Unexpected character '@')
@@ -199,12 +199,12 @@ import halotukozak.alpaca.*
 given ErrorHandling[LexerCtx.Default, LexerError] = (ctx, _) =>
   if ctx.peek(2) == "/*" then ErrorHandling.Strategy.Stop else ErrorHandling.Strategy.SkipOne
 
-val Lexer = lexer:
+val MyLexer = lexer:
   case "/\\*([^*]|\\*+[^*/])*\\*+/" => Token.Ignored
   case "[a-z]+" => Token["WORD"]
   case "\\s+" => Token.Ignored
 
-Lexer.tokenize("a @ b /* c") match
+MyLexer.tokenize("a @ b /* c") match
   case Result.Failure(_, recovered, errors) =>
     println(recovered)             // None: it stopped at the comment
     println(errors.map(_.message)) // List(Unexpected character '@', Unexpected character '/')
