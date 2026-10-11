@@ -63,7 +63,7 @@ Each plugin release reads one format version:
 |---|---|---|
 | 0.3.1 to 1.0.0-RC1 | 1 | 0.2.0, 0.2.1 |
 | 1.0.0-RC2 | 2 | none released |
-| later releases | 3 | releases after 0.2.1 |
+| 1.0.0-RC3 and later | 3 | releases after 0.2.1 |
 
 `<name>` identifies *where* the declaration lives, not just its own name: `<source-file>.<declaration-name>@L<line>`, e.g. a `val BrainLexer = lexer[...]` on line 12 of `Brainfuck.scala` exports as `Brainfuck.BrainLexer@L12`. This disambiguates two grammars that happen to share a name (a common `val Lexer = lexer[...]` reused across multiple test files, say) once they land in the same export directory.
 
