@@ -123,6 +123,10 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
 
   private lazy val tokensArray: Vector[Token[?, Ctx, ?]] = tokens.toVector
 
+  /** The token at `index` in [[tokens]]; generated `selectDynamic` looks tokens up by index. */
+  @publicInBinary
+  private[alpaca] final def tokenAt(index: Int): Token[?, Ctx, ?] = tokensArray(index)
+
   private val fieldNames: Array[String] = initialCtx().productElementNames.toArray
 
 /** The outcome of one step of [[Lexer.tokenize]]: a token matched (or recovered) from `text`, or a stop. */

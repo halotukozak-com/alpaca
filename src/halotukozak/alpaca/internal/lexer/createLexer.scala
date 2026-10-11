@@ -248,11 +248,14 @@ import scala.reflect.NameTransformer
             case Refinement(_, _, alias) => alias
       Refinement(acc, name, alias)
 
-  def selectDynamicImpl(fieldName: Expr[String])(using Quotes) = Match(
+  // Maps a token name to its index in `tokens`, so `selectDynamic` returns the token built once there.
+  def tokenIndexImpl(fieldName: Expr[String])(using Quotes) = Match(
     '{ $fieldName: @switch }.asTerm,
-    tokens.map(t => CaseDef(Literal(StringConstant(NameTransformer.encode(t.info.name.raw))), None, t.expr.asTerm)) :+
+    tokens.zipWithIndex.map((token, index) =>
+      CaseDef(Literal(StringConstant(NameTransformer.encode(token.info.name.raw))), None, Literal(IntConstant(index))),
+    ) :+
       CaseDef(Wildcard(), None, '{ throw new NoSuchElementException(s"No token named \"${$fieldName}\"") }.asTerm),
-  ).asExprOf[lexer.Token[?, Ctx, ?]]
+  ).asExprOf[Int]
 
   (refinementTpeFrom(fields).asType, fieldsTpeFrom(fields).asType, types.asType).runtimeChecked match {
     case ('[refinedTpe], '[fields], '[types]) =>
@@ -265,7 +268,7 @@ import scala.reflect.NameTransformer
             @publicInBinary
             override private[alpaca] val tokens: List[lexer.Token[?, Ctx, ?]] = $tokensExpr
 
-            override def selectDynamic(name: String): lexer.Token[?, Ctx, ?] = ${ selectDynamicImpl('{ name }) }
+            override def selectDynamic(name: String): lexer.Token[?, Ctx, ?] = tokenAt(${ tokenIndexImpl('{ name }) })
 
             @publicInBinary
             override private[alpaca] val matcher: TokenMatcher = $matcherExpr

@@ -418,11 +418,12 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
     error.lineContent.trim shouldBe "case \"x\" | \" *\" => Token.Ignored"
   }
 
-  test("selectDynamic with an unknown token name throws NoSuchElementException") {
+  test("selectDynamic returns the built token and throws NoSuchElementException for an unknown name") {
     val Lexer = lexer:
       case "a" => Token["A"]
 
     Lexer.selectDynamic("A").info.name.raw shouldBe "A"
+    Lexer.selectDynamic("A") should be theSameInstanceAs Lexer.tokens.head
     intercept[NoSuchElementException](Lexer.selectDynamic("missing")).getMessage shouldBe "No token named \"missing\""
   }
 
