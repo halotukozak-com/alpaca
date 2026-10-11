@@ -44,15 +44,16 @@ private[internal] final class Diagnostics:
   private[internal] def markError(): Unit = reported = true
 
 /**
- * Reports a compile error at `pos`.
+ * Reports a compile error at `pos` and gives the [[Default]] value of `T`, e.g. `None` to skip what is reported.
  *
  * Use this instead of `quotes.reflect.report.error`: the position is mandatory, so an error can't silently land on
  * the macro expansion site. Pass `Position.ofMacroExpansion` explicitly when that really is the right place.
  */
-private[internal] def error(using Quotes, Diagnostics)(message: Shown, pos: quotes.reflect.Position): Unit =
+private[internal] def error(using Quotes, Diagnostics)[T: Default](message: Shown, pos: quotes.reflect.Position): T =
   summon[Diagnostics].markError()
   quotes.reflect.report.error(withLocation(message, pos), pos)
-private[internal] def error(using Quotes, Diagnostics)(message: Shown, source: Source): Unit =
+  Default[T]()
+private[internal] def error(using Quotes, Diagnostics)[T: Default](message: Shown, source: Source): T =
   val (located, pos) = locate(message, source)
   error(located, pos)
 

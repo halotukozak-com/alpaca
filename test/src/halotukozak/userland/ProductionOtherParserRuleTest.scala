@@ -73,3 +73,21 @@ final class ProductionOtherParserRuleTest extends AnyFunSuite with Matchers with
       "Production(someRule, OtherRuleLexer.PLUS, AliasedRuleParser.Expr).before(OtherRuleLexer.PLUS),"
     error.column shouldBe 17 // the `someRule` argument
   }
+
+  test("every rule of another parser in Production(...) is reported, without a follow-up error") {
+    typeCheckErrors("""
+    object TwoForeignRulesParser extends Parser:
+      val Expr: Rule[Int] = rule(
+        { case (Expr(a), OtherRuleLexer.PLUS(_), Expr(b)) => a + b },
+        { case OtherRuleLexer.NUM(n) => n.value },
+      )
+      val root: Rule[Int] = rule { case Expr(e) => e }
+    val someRule: Rule[Int] = TwoForeignRulesParser.Expr
+    given Resolutions[TwoForeignRulesParser.type] = resolutions(
+      Production(someRule, OtherRuleLexer.PLUS, OtherRuleParser.Expr).before(OtherRuleLexer.PLUS),
+    )
+    """).map(_.message) shouldBe List(
+      "Rule Expr belongs to another parser, OtherRuleParser; `Production(...)` in the resolutions of TwoForeignRulesParser can only refer to TwoForeignRulesParser's rules\n(at line 10: OtherRuleParser.Expr)",
+      "someRule is not declared in a parser; `Production(...)` in the resolutions of TwoForeignRulesParser can only refer to TwoForeignRulesParser's rules directly, as in `Production(TwoForeignRulesParser.<rule>, ...)`\n(at line 10: someRule)",
+    )
+  }

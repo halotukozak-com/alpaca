@@ -82,13 +82,14 @@ object Tables:
 
       val symbolExtractor = extractEBNFAndAction[Ctx]
       def symbolOf(pattern: Tree) = symbolExtractor
-        .lift(pattern)
-        .orElse:
-          error(
-            show"Each element of a production's pattern must be a token or rule extractor, as in `MyLexer.NUM(n)`, `MyLexer.PLUS(_)`, `Expr(e)` or `Expr.List(es)`",
-            pattern.pos,
-          )
-          None
+        .applyOrElse(
+          pattern,
+          _ =>
+            error(
+              show"Each element of a production's pattern must be a token or rule extractor, as in `MyLexer.NUM(n)`, `MyLexer.PLUS(_)`, `Expr(e)` or `Expr.List(es)`",
+              pattern.pos,
+            ): Null,
+        )
 
       def extractEBNF(ruleName: String): PartialFunction[Expr[Rule[?]], Seq[ProductionWithAction[Ctx]]] = {
         case '{ rule(${ Varargs(cases) }*)(using $_) } =>
@@ -118,10 +119,10 @@ object Tables:
 
           cases.iterator
             .map(extractProductionName)
-            .map:
-              case (Lambda(_, Match(_, List(caseDef))), name) => (caseDef, name)
+            .flatMap:
+              case (Lambda(_, Match(_, List(caseDef))), name) => Some((caseDef, name))
               case (l @ Lambda(_, Match(_, _)), _) =>
-                errorAndAbort(
+                error(
                   show"""Each production must have exactly one case. Split multiple cases into separate productions:
                     |  rule(
                     |    { case (a(x)) => ... },
@@ -130,24 +131,26 @@ object Tables:
                   l.pos,
                 )
               case (other, _) =>
-                errorAndAbort(show"Unexpected production definition: $other", other.pos)
+                error(show"Unexpected production definition: $other", other.pos)
             .flatMap:
               case (c @ CaseDef(_, Some(_), _), _) =>
                 error(show"Guards are not supported yet", c.pos)
-                None
               // Tuple1
               case (c @ CaseDef(skipTypedOrTest(pattern @ Unapply(_, _, List(_))), None, rhs), name) =>
-                symbolOf(pattern).toList.flatMap: (symbol, binding, others) =>
-                  val production =
-                    Production.NonEmpty(NonTerminal(Printable(ruleName)), NEL(symbol), Printable.nullable(name))
-                  (production = production, source = Source(c.pos), action = createAction(List(binding), rhs)) :: others
+                symbolOf(pattern) match
+                  case null => Nil
+                  case (symbol, binding, others) =>
+                    val production =
+                      Production.NonEmpty(NonTerminal(Printable(ruleName)), NEL(symbol), Printable.nullable(name))
+                    (production = production, source = Source(c.pos), action = createAction(List(binding), rhs)) ::
+                      others
 
               // TupleN, N > 1
               case (c @ CaseDef(skipTypedOrTest(Unapply(_, _, patterns)), None, rhs), name) =>
                 val elements = patterns.map(symbolOf)
-                if elements.contains(None) then Nil
+                if elements.contains(null) then Nil
                 else
-                  val (symbols, bindings, others) = elements.flatten.unzip3(using _.toTuple)
+                  val (symbols, bindings, others) = elements.map(_.nn).unzip3(using _.toTuple)
                   val production =
                     Production.NonEmpty(
                       NonTerminal(Printable(ruleName)),
@@ -161,7 +164,6 @@ object Tables:
                   show"A production must match a token or rule extractor, or a tuple of them, as in `case (Expr(a), MyLexer.PLUS(_), Expr(b))`",
                   c.pattern.pos,
                 )
-                None
             .toList
       }
 
@@ -177,7 +179,6 @@ object Tables:
               show"Rule ${Printable(rule.name)} must be declared with `val`; parameterized rules aren't supported yet",
               rule.pos,
             )
-            Nil
           case DefinitionRhs(ruleName, rhs) =>
             extractEBNF(ruleName).applyOrElse(
               rhs.asExprOf[Rule[?]],
@@ -253,17 +254,18 @@ object Tables:
 
       val productionsByRhs = productions.groupBy(_.rhs)
 
-      def findProduction(call: Expr[alpaca.Production]): Production = call match {
+      // `null` when the reference is reported as invalid, so that only the resolution using it is skipped
+      def findProduction(call: Expr[alpaca.Production]): Production | Null = call match {
         case '{ ($_ : ProductionSelector).selectDynamic(${ Expr(name) }).$asInstanceOf$[i] } =>
           productionsByName.getOrElse(name, Nil) match
             case production :: Nil => production
             case Nil =>
-              errorAndAbort(
+              error(
                 show"Production with name '${Printable(NameTransformer.decode(name))}' not found",
                 call.asTerm.pos,
               )
             case candidates =>
-              errorAndAbort(
+              error(
                 show"Production names ${candidates.map(_.name.nn).mkShow("'", "', '", "'")} are the same Scala name, so `production.<name>` cannot tell them apart; rename all but one",
                 call.asTerm.pos,
               )
@@ -274,7 +276,7 @@ object Tables:
           def pos = call.asTerm.runtimeChecked match
             case Apply(production, _) => production.pos
           val args = rhs
-            .map[parser.Symbol.NonEmpty]:
+            .map[parser.Symbol.NonEmpty | Null]:
               case '{ type ruleType <: Rule[?]; $_ : ruleType }
                   if TypeRepr.of[ruleType].termSymbol.maybeOwner == parserTpe.typeSymbol =>
                 NonTerminal(Printable(TypeRepr.of[ruleType].termSymbol.name))
@@ -282,36 +284,40 @@ object Tables:
                 val rule = TypeRepr.of[ruleType].termSymbol
                 // an alias (`val someRule = OtherParser.Expr`) only carries its own symbol, not the rule it refers to
                 if rule.owner.isClassDef && rule.owner.typeRef <:< TypeRepr.of[Parser[?]] then
-                  errorAndAbort(
+                  error(
                     show"Rule ${Printable(rule.name)} belongs to another parser, ${Printable(declaredName(rule.owner))}; `Production(...)` in the resolutions of $parserName can only refer to $parserName's rules",
                     arg.asTerm.pos,
                   )
                 else
-                  errorAndAbort(
+                  error(
                     show"${Printable(rule.name)} is not declared in a parser; `Production(...)` in the resolutions of $parserName can only refer to $parserName's rules directly, as in `Production($parserName.<rule>, ...)`",
                     arg.asTerm.pos,
                   )
               case '{ type name <: ValidName; $_ : Token[name, ?, ?] } => Terminal(Printable(ValidName.from[name]))
               case other =>
-                errorAndAbort(
+                error(
                   show"Arguments of `Production(...)` must be rules or tokens of this parser",
                   other.asTerm.pos,
                 )
             .toList
 
-          productionsByRhs.getOrElse(NEL.unsafe(args), Nil) match
-            case production :: Nil => production
-            case Nil => errorAndAbort(show"Production with RHS '${args.mkShow(" ")}' not found", pos)
-            case candidates =>
-              errorAndAbort(
-                show"""Production with RHS '${args.mkShow(" ")}' is ambiguous, it matches:
-                      |${candidates.mkShow("  ", "\n  ", "")}
-                      |Name the production you mean and refer to it with `production.<name>`""".trimMargin,
-                pos,
-              )
+          // every invalid argument is reported above; looking up the RHS without it would only add a bogus error
+          if args.contains(null) then null
+          else
+            val symbols = args.map(_.nn)
+            productionsByRhs.getOrElse(NEL.unsafe(symbols), Nil) match
+              case production :: Nil => production
+              case Nil => error(show"Production with RHS '${symbols.mkShow(" ")}' not found", pos)
+              case candidates =>
+                error(
+                  show"""Production with RHS '${symbols.mkShow(" ")}' is ambiguous, it matches:
+                        |${candidates.mkShow("  ", "\n  ", "")}
+                        |Name the production you mean and refer to it with `production.<name>`""".trimMargin,
+                  pos,
+                )
 
         case definition =>
-          errorAndAbort(
+          error(
             show"Refer to a production with `production.<name>` or `Production(<symbols>...)`",
             definition.asTerm.pos,
           )
@@ -345,8 +351,10 @@ object Tables:
             case _ => unsupported(rhs.pos)
       }
 
-      def extractKey(expr: Expr[alpaca.Production | Token[?, ?, ?]]): ConflictKey = expr match
-        case '{ $prod: alpaca.Production } => ConflictKey.Reduction(findProduction(prod))
+      def extractKey(expr: Expr[alpaca.Production | Token[?, ?, ?]]): ConflictKey | Null = expr match
+        case '{ $prod: alpaca.Production } =>
+          val production = findProduction(prod)
+          if production == null then null else ConflictKey.Reduction(production)
         case '{ $_ : Token[name, ?, ?] } => ConflictKey.Shift(Printable(ValidName.from[name]))
 
       // each rule remembers the `.before(...)`/`.after(...)` argument it came from, so errors about it can point there;
@@ -358,22 +366,29 @@ object Tables:
           .map:
             case Lambda(List(_), body) => body.asExpr
             case other => other.asExpr
+          // the receiver is read once and every argument is read, so each invalid reference is reported once; a rule
+          // with an invalid side is skipped
           .flatMap:
             case '{ ($after: alpaca.Production | Token[?, ?, ?]).after[`p`](${ Varargs(befores) }*)(using $_) } =>
-              befores.map(before => (extractKey(before), extractKey(after), Source(before.asTerm.pos)))
+              val afterKey = extractKey(after)
+              befores.map(before => (extractKey(before), afterKey, Source(before.asTerm.pos)))
             case '{ ($before: alpaca.Production | Token[?, ?, ?]).before[`p`](${ Varargs(afters) }*)(using $_) } =>
-              afters.map(after => (extractKey(before), extractKey(after), Source(after.asTerm.pos)))
+              val beforeKey = extractKey(before)
+              afters.map(after => (beforeKey, extractKey(after), Source(after.asTerm.pos)))
             case other =>
-              errorAndAbort(
+              error(
                 show"Each conflict resolution must be a direct `x.before(...)` or `x.after(...)` call",
                 other.asTerm.pos,
               )
           .foldLeft(VectorMap.empty[ConflictKey, Map[ConflictKey, Source]]):
-            case (table, (before, after, source)) =>
-              table + (before -> (table.getOrElse(before, VectorMap.empty) + (after -> source))),
+            case (table, (before: ConflictKey, after: ConflictKey, source)) =>
+              table + (before -> (table.getOrElse(before, VectorMap.empty) + (after -> source)))
+            case (table, _) => table,
       ).tap: table =>
         logger.toFile(s"${parserName.raw}/conflictResolutions.dbg", true)(table)
         logger.toFile(s"${parserName.raw}/conflictResolutions.mmd", true)(table.toMermaid.showRaw)
+        // with a resolution skipped, the conflicts it would resolve must not be reported as unresolved
+        abortOnErrors()
         table.verifyNoConflicts()
 
       val root = table

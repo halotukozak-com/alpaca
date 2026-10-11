@@ -3,7 +3,7 @@ package alpaca
 package internal
 package lexer
 
-import halotukozak.alpaca.internal.{Default, Printable, RuleOnly, Showable, ValidName}
+import halotukozak.alpaca.internal.{Printable, RuleOnly, Showable, ValidName}
 import halotukozak.alpaca.{LexerCtx, SepValue}
 import halotukozak.mcodec.MCodec
 import halotukozak.regex.{RegexParseError, RegexParser}
@@ -91,7 +91,6 @@ private[lexer] object TokenInfo:
             //format: on
             pos,
           )
-          None
         case Right(regex) => Some(regex)
         case Left(err) => reportInvalid(err); None
     (
@@ -106,8 +105,6 @@ private[lexer] object TokenInfo:
    * @return a unique token group name
    */
   private def nextRegexGroupName(): String = s"token${counter.getAndIncrement()}"
-
-  given Default[TokenInfo] = () => TokenInfo(Printable(""), "", Printable(""), ignored = false)
 
   given Showable[TokenInfo] = Showable.fromToString
 
