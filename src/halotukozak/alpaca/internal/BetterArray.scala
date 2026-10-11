@@ -16,9 +16,3 @@ extension (dummy: Array.type) inline private[alpaca] def better: BetterArray.typ
         array(i) = f(i)
         i += 1
       array
-
-  inline def foreachIndex(length: Int)(inline f: Int => Unit): Unit =
-    var i = 0
-    while i < length do
-      f(i)
-      i += 1

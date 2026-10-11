@@ -85,13 +85,13 @@ object Tracking:
    * effectively internal since
    * `internal.lexer` is never exported wholesale, only specific symbols are.
    *
-   * All tracked fields are folded into a single snapshot of the context's
-   * fields, mutated in place, and rebuilt with one `Mirror.fromProduct` -- one
-   * allocation and one reflective reconstruction per token match, regardless
-   * of how many fields are tracked, rather than one per field. Contexts with
-   * no tracked fields (`steps.isEmpty`) skip the snapshot/rebuild entirely.
-   * The steps are unpacked into arrays once, so a match walks them with plain
-   * loops instead of allocating a closure per pass.
+   * All tracked fields are updated in a single snapshot of the context's
+   * fields and rebuilt with one `Mirror.fromProduct` -- one allocation and one
+   * reflective reconstruction per token match, regardless of how many fields
+   * are tracked, rather than one per field. Contexts with no tracked fields
+   * (`steps.isEmpty`) skip the snapshot/rebuild entirely. The updates are
+   * indexed by field once, so a match builds each snapshot in a single pass
+   * without allocating closures.
    *
    * A lexeme keeps the pre-match value of every tracked field, so it describes its token's start.
    */
@@ -99,27 +99,25 @@ object Tracking:
     steps: List[(index: Int, update: Tracking[?])],
     fieldNames: Array[String],
   ): (Token[?, Ctx, ?], String, Ctx) => Ctx = {
-    val trackedIndices = steps.map(_.index).toArray
-    val trackedUpdates = steps.map(_.update.asInstanceOf[Tracking[Any]]).toArray
+    // the update of each field, `null` for a field that isn't tracked
+    val updates = new Array[Tracking[Any] | Null](fieldNames.length)
+    steps.foreach(step => updates(step.index) = step.update.asInstanceOf[Tracking[Any]])
 
     (token, raw, ctx) => {
       val afterFields =
-        if trackedIndices.isEmpty then ctx
+        if steps.isEmpty then ctx
         else
-          val values = fieldValuesOf(ctx)
-          Array.better.foreachIndex(trackedIndices.length): step =>
-            val index = trackedIndices(step)
-            values(index) = trackedUpdates(step)(raw, values(index))
-          val updated = m.fromProduct(Tuple.fromArray(values))
-          updated.carryEngineStateFrom(ctx)
+          val values = Array.better.tabulate(fieldNames.length): index =>
+            val update = updates(index)
+            if update == null then ctx.productElement(index) else update(raw, ctx.productElement(index))
+          m.fromProduct(Tuple.fromArray(values)).carryEngineStateFrom(ctx)
 
       token match {
         case DefinedToken(info, modifyCtx, remapping) =>
           val modified = modifyCtx(afterFields).carryEngineStateFrom(afterFields)
-          val values = fieldValuesOf(modified)
-          Array.better.foreachIndex(trackedIndices.length): step =>
-            val index = trackedIndices(step)
-            values(index) = ctx.productElement(index)
+          // tracked fields keep their pre-match values, so the lexeme describes its token's start
+          val values = Array.better.tabulate(fieldNames.length): index =>
+            (if updates(index) == null then modified else ctx).productElement(index)
           val name = info.name.raw
           modified.lastLexeme = Lexeme(
             name = name,
@@ -135,6 +133,3 @@ object Tracking:
       }
     }
   }
-
-  // a fresh array of the context's fields, sized up front rather than grown through `productIterator.toArray`
-  private def fieldValuesOf(ctx: Product): Array[Any] = Array.better.tabulate(ctx.productArity)(ctx.productElement)
