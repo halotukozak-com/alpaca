@@ -264,3 +264,4 @@ The detection runs at compile time, so a grammar that compiles is guaranteed to 
 - See [Conflict Resolution](../conflict-resolution.md) for the full `before`/`after` DSL reference.
 - See [Conflicts and Disambiguation](conflicts.md) for the formal theory of shift/reduce and reduce/reduce conflicts.
 - See the [Expression Evaluator](../cookbook/expression-evaluator.md) for a complete calculator with precedence resolution.
+- Next: [Ambiguity](ambiguity.md) — inherent and accidental ambiguity, and how to remove it.

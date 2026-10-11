@@ -114,7 +114,7 @@ val lexemes = lexed.getOrThrow
 
 ## Accessing Context in Patterns
 
-Inside a `lexer[Ctx]:` block, the name `ctx` is implicitly available and refers to the current context object. You can read any field and assign to it -- the assignment is rewritten to a `copy`. Outside a lexer rule, `ctx` and `Token[...]` do not compile:
+Inside a `lexer[Ctx]:` block, the name `ctx` is implicitly available and refers to the current context object. You can read any field and assign to it -- the assignment is rewritten to a `copy`. `ctx` and `Token[...]` compile only inside a lexer rule, like these:
 
 ```scala sc-compile-with:lc-brainlex
 val ExampleLexer = lexer[BrainLexContext]:
@@ -182,11 +182,13 @@ With this context, every lexeme carries `squareBrackets`, `column`, and `line`. 
 
 ## The Post-Match Update
 
-After every successful token match -- once the text cursor has already advanced past the matched text -- the lexer:
+After every successful token match, the lexer:
 
 1. applies each tracked field's `Tracking` update (`column`, `line`, and any custom fragments),
 2. applies the rule body's own context changes,
 3. records the lexeme snapshot, taking every tracked field from before step 1.
+
+So inside a rule body, `ctx.line` and `ctx.column` are already the position *after* the match, while the lexeme gets the position where the token starts.
 
 Steps 1 and 3 are derived by the `lexer` macro from the context's case fields -- there is nothing to wire up by hand.
 

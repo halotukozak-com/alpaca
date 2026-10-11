@@ -129,6 +129,8 @@ println(result) // 14.0
 - **[Getting Started](getting-started.md)** — build a BrainFuck interpreter step by step
 - **[Lexer](lexer.md)** — the full lexer DSL reference
 - **[Parser](parser.md)** — grammar rules, EBNF operators, conflict resolution
+- **[Tooling](tooling.md)** — debug output and the IntelliJ plugin
+- **[Cookbook](cookbook/index.md)** — complete examples: an expression evaluator, a JSON parser, contextual lexing
 - **[Theory](theory/index.md)** — formal foundations: finite automata, LR parsing, parse tables
 
 ## Authors

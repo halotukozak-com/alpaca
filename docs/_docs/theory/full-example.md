@@ -35,7 +35,7 @@ Expr  → Expr PLUS Expr
 root  → Expr
 ```
 
-This grammar is ambiguous — the expression `1 + 2 * 3` can be parsed in two ways depending on which `Expr` is expanded first (see [Context-Free Grammars](cfg.md) for the parse tree, and [Conflicts & Disambiguation](conflicts.md) for the theory). Mapping it directly to Alpaca without conflict resolution causes a compile error.
+This grammar is ambiguous — the expression `1 + 2 * 3` can be parsed in two ways depending on which `Expr` is expanded first (see [Context-Free Grammars](cfg.md) for the parse tree, and [Conflicts and Disambiguation](conflicts.md) for the theory). Mapping it directly to Alpaca without conflict resolution causes a compile error.
 
 ## Step 3: The First Attempt — Compile Error
 
@@ -58,7 +58,7 @@ object CalcParser extends Parser: // error // error // error // error // error /
 // ↑ Compile error: shift/reduce conflicts
 ```
 
-The compiler reports one shift/reduce conflict per (operator, production) pair -- 16 in total, one per `// error` marker above. The first of them:
+The compiler reports one shift/reduce conflict per (operator, production) pair -- 16 in total, one per `// error` marker above. One of them:
 
 ```
 Shift "PLUS" vs Reduce Expr -> Expr PLUS Expr (plus)
@@ -67,7 +67,7 @@ Expr PLUS Expr PLUS ...
 Consider marking production Expr -> Expr PLUS Expr (plus) to be before or after "PLUS"
 ```
 
-The parser does not know whether `1 + 2 + 3` should reduce `1 + 2` first (left-associative) or shift the second `+` first. This is a shift/reduce conflict — both actions are valid for the same parse state and lookahead. See [Conflicts & Disambiguation](conflicts.md) for the formal theory.
+The parser does not know whether `1 + 2 + 3` should reduce `1 + 2` first (left-associative) or shift the second `+` first. This is a shift/reduce conflict — both actions are valid for the same parse state and lookahead. See [Conflicts and Disambiguation](conflicts.md) for the formal theory.
 
 ## Step 4: Adding Conflict Resolution
 
@@ -106,7 +106,7 @@ Key decisions in the resolution set:
 - `production.plus.after(TIMES, DIVIDE)` — prefer shifting `*` or `/` over reducing `+`. This gives `*`/`/` higher precedence: `1 + 2 * 3` shifts `*` before completing `1 + ...`.
 - `production.times.before(TIMES, DIVIDE, PLUS, MINUS)` — after reducing `a * b`, do not shift any operator. `*` and `/` bind tightest.
 
-For the full conflict resolution DSL — including `Production(symbols*)` selector, token-side resolution, cycle detection, and the ordering constraint — see [Conflict Resolution](../conflict-resolution.md).
+For the full conflict resolution DSL — including `Production(symbols*)` selector, token-side resolution, cycle detection, and where the `given` can be declared — see [Conflict Resolution](../conflict-resolution.md).
 
 ## Step 5: Running the Calculator
 
@@ -164,9 +164,9 @@ Each piece of the CalcParser traces back to a theory concept:
 |---|---|
 | `val CalcLexer = lexer:` | Lexical analysis, regex → DFA — see [The Lexer: Regex to Finite Automata](lexer-fa.md) |
 | BNF grammar in `rule(...)` | Context-free grammars — see [Context-Free Grammars](cfg.md) |
-| `extends Parser` generates LALR(1) table | LR parse table construction — see [Why LR?](why-lr.md) |
-| Shift/reduce loop | LR parse mechanics — see [Shift-Reduce Parsing](shift-reduce.md) |
-| Shift/reduce conflict compile error | Grammar ambiguity — see [Conflicts & Disambiguation](conflicts.md) |
+| `extends Parser` generates LALR(1) table | LR parse table construction — see [Why LR Parsing](why-lr.md) |
+| Shift/reduce loop | LR parse mechanics — see [The Shift-Reduce Loop](shift-reduce.md) |
+| Shift/reduce conflict compile error | Grammar ambiguity — see [Conflicts and Disambiguation](conflicts.md) |
 | `given Resolutions[CalcParser.type] = resolutions(...)` | Conflict resolution — see [Conflict Resolution](../conflict-resolution.md) |
 | `case (Expr(a), ...) => a + b` | Semantic actions — see [Semantic Actions](semantic-actions.md) |
 | `parse()` returns `7.0: Double` | Typed results via S-attributed translation |
@@ -175,9 +175,9 @@ Each piece of the CalcParser traces back to a theory concept:
 
 - [Tokens and Lexemes](tokens.md) — CalcLexer's token definitions
 - [Context-Free Grammars](cfg.md) — the calculator grammar and parse trees
-- [Why LR?](why-lr.md) — why LR parsing was chosen over LL alternatives
-- [Shift-Reduce Parsing](shift-reduce.md) — the shift/reduce loop step by step
-- [Conflicts & Disambiguation](conflicts.md) — why conflicts arise and the priority model
+- [Why LR Parsing](why-lr.md) — why LR parsing was chosen over LL alternatives
+- [The Shift-Reduce Loop](shift-reduce.md) — the shift/reduce loop step by step
+- [Conflicts and Disambiguation](conflicts.md) — why conflicts arise and the priority model
 - [Semantic Actions](semantic-actions.md) — how typed values are computed during reduce
 - [Conflict Resolution](../conflict-resolution.md) — the complete `before`/`after` DSL reference
 - [Parser](../parser.md) — the `rule` DSL and `parse()` usage

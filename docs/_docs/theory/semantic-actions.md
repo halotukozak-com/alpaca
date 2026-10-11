@@ -82,8 +82,8 @@ The final result type is the type declared for `root`. For CalcParser: `val root
 
 ## Cross-links
 
-- See [Shift-Reduce Parsing](shift-reduce.md) for the reduce steps that trigger semantic actions and how each step calls the action function.
-- See [Conflicts & Disambiguation](conflicts.md) for how conflict resolution ensures each reduce is unambiguous, so the correct semantic action is always called.
+- See [The Shift-Reduce Loop](shift-reduce.md) for the reduce steps that trigger semantic actions and how each step calls the action function.
+- See [Conflicts and Disambiguation](conflicts.md) for how conflict resolution ensures each reduce is unambiguous, so the correct semantic action is always called.
 - See [Extractors](../extractors.md) for the complete extractor reference (terminal, non-terminal, EBNF, Lexeme fields).
 - See [Parser](../parser.md) for the `rule` DSL reference and `parse()` return type.
-- Next: [Full Example](full-example.md) — the complete CalcParser with all semantic actions assembled and running.
+- Next: [AST Construction Patterns](ast-construction.md) — computing values directly vs building a tree.

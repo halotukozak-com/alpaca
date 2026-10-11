@@ -7,7 +7,7 @@ subsection:
     subsection:
       - title: Lexer Context
         page: lexer-context.md
-      - title: Error Recovery
+      - title: Lexer Error Recovery
         page: lexer-error-recovery.md
       - title: Between Stages
         page: on-token-match.md
@@ -45,7 +45,7 @@ subsection:
         page: theory/tokens.md
       - title: "The Lexer: Regex to Finite Automata"
         page: theory/lexer-fa.md
-      - title: Regular vs Context-Free
+      - title: Regular vs Context-Free Languages
         page: theory/regular-vs-context-free.md
       - title: Context-Free Grammars
         page: theory/cfg.md

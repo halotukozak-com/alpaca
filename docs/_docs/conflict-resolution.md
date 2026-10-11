@@ -125,11 +125,11 @@ The name must be a string literal placed immediately before the brace; a name he
 
 ## The before/after DSL
 
-Four resolution forms:
+Every resolution has the form `x.before(ys*)` or `x.after(ys*)`, where `x` and each of `ys` is a production (`production.name` or `Production(symbols*)`) or a token (`MyLexer.TOKEN`). `x.before(ys*)` makes `x` win over each of `ys`, and `x.after(ys*)` makes each of `ys` win over `x`. The common cases:
 
 1. **`production.name.before(tokens*)`** -- prefer reducing this production over shifting those tokens.
 2. **`production.name.after(tokens*)`** -- prefer shifting those tokens over reducing this production.
-3. **`Token.before(productions*)`** -- prefer shifting this token over reducing those productions.
+3. **`MyLexer.TOKEN.before(productions*)`** -- prefer shifting this token over reducing those productions.
 4. **`production.name.before(productions*)`** -- resolve reduce/reduce conflicts between productions.
 
 Full example for a calculator:

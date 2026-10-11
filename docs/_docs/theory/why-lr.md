@@ -43,7 +43,7 @@ push the resulting non-terminal. This is the shift-reduce loop that gives LR its
 Left recursion is not a problem for LR parsers. When processing `1 + 2 + 3`, an LR parser shifts `1`, recognizes it as
 `Expr → NUMBER`, reduces, then shifts `+` and `2`, reduces `Expr → NUMBER`, then reduces `Expr → Expr PLUS Expr` —
 producing `(1 + 2)` first. The `+ 3` step repeats the pattern, yielding `((1 + 2) + 3)`. Left associativity falls out
-naturally, without grammar rewriting. See [Shift-Reduce Parsing](shift-reduce.md) for the step-by-step trace.
+naturally, without grammar rewriting. See [The Shift-Reduce Loop](shift-reduce.md) for the step-by-step trace.
 
 ## The LR Family
 
@@ -121,6 +121,6 @@ no backtracking, no reparsing.
 ## Cross-links
 
 - See [Context-Free Grammars](cfg.md) for the grammar analyzed on this page.
-- Next: [Shift-Reduce Parsing](shift-reduce.md) — the shift/reduce loop step by step.
+- Next: [Conflicts and Disambiguation](conflicts.md) — why ambiguous grammars trigger shift/reduce conflicts.
 - See [Conflict Resolution](../conflict-resolution.md) for how Alpaca handles ambiguous grammars using `before`/`after`.
 - See [Parser](../parser.md) for the complete `rule` DSL reference.

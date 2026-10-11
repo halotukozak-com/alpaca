@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide walks you through building an interpreter for an extended BrainFuck dialect with Alpaca. By the end, you will have a working lexer, parser, and evaluator — roughly 80 lines of code.
+This guide walks you through building an interpreter for an extended BrainFuck dialect with Alpaca. By the end, you will have a working lexer, parser, and evaluator.
 
 BrainFuck is a minimal language, but we extend it with repeat counts, named cells, and functions, and call the result **BrainFuck>**: the running example throughout these docs. It makes an ideal first project: the grammar is small enough to fit on screen, but rich enough to exercise value-bearing tokens, variable binding, context tracking, and AST construction.
 

@@ -71,3 +71,4 @@ No two rules compete for the same token sequence, so the parse table has no conf
 - See [Conflicts and Disambiguation](conflicts.md) for how lookahead resolves conflicts.
 - See [Conflict Resolution](../conflict-resolution.md) for the `before`/`after` DSL.
 - See [Operator Precedence Grammars](operator-precedence.md) for resolving operator ambiguity.
+- Next: [Error Recovery Theory](error-recovery-theory.md) — what happens on invalid input.

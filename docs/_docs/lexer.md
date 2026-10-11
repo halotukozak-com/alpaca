@@ -186,7 +186,7 @@ val Lexer = lexer:
   case "\\s+" => Token.Ignored
 ```
 
-Without `@`, you cannot access the matched text for transformation. `Token["inc"]` without a binding creates a token with `Unit` value. If you need the raw match, use `lexeme.text`, or bind and pass it: `case x @ "\\+" => Token["inc"](x)`.
+Without `@`, the rule body can't see the matched text; the lexeme still has it as `lexeme.text`.
 
 ## Token Naming Rules
 
@@ -195,7 +195,7 @@ Without `@`, you cannot access the matched text for transformation. `Token["inc"
 1. You write `Token["NAME"]` or `Token[variable.type]` in the lexer definition
 2. The string inside the type parameter becomes the **token name**
 3. To access the token on the lexer object (e.g., in parser rules), Scala's standard name encoding applies
-4. If the name is a Scala keyword or contains operator characters, use **backticks**: `` BrainLexer.`\\+` ``
+4. If the name is a Scala keyword or isn't a valid Scala identifier (like `\\+` or `(`), use **backticks**: `` BrainLexer.`\\+` ``
 
 ### Dynamic Token Names
 
@@ -247,7 +247,7 @@ val lexemes =
 
 `LazyReader.from(path)` accepts an optional `Charset` parameter (defaults to UTF-8). Always close the reader in a `finally` block (or use `scala.util.Using.resource`) so the file handle is released even if tokenization throws.
 
-`tokenize` reads the file in chunks and drops consumed characters in 64K steps, so memory does not grow with the file size. Like the `Reader` it wraps, a `LazyReader` is consumed as it is read, so create a new one per run.
+`tokenize` reads the file in chunks, so memory does not grow with the file size. Like the `Reader` it wraps, a `LazyReader` is consumed as it is read, so create a new one per run.
 
 ## Token Value Types
 
@@ -258,8 +258,6 @@ The value type depends on how the token is defined:
 | `Token["NAME"]` | `Unit` | `Token["inc"]` -- value is `()` |
 | `Token["NAME"](expr)` | Type of `expr` | `Token["NUM"](x.toInt)` -- value is `Int` |
 | `Token.Ignored` | N/A | No lexeme produced |
-
-`Token["NAME"]` without a value argument produces `Unit`. To carry the matched text as a value, bind it and pass it: `case x @ "pattern" => Token["NAME"](x)`.
 
 ## The Lexeme Structure
 
@@ -283,6 +281,8 @@ lexemes(1).column    // 4: Int
 lexemes(0).line      // 1: Int
 lexemes(0).text      // "42": String (the matched text, not remaining input)
 ```
+
+Lexemes compare by value: two are equal when their name, value, text and context fields are. They print the same way, e.g. `Lexeme(NUM, 42, "42", column = 1, line = 1)`.
 
 <details>
 <summary>Under the hood: how context snapshots work</summary>

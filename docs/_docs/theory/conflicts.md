@@ -54,7 +54,7 @@ Lookahead (LALR(1) and LR(1)) often disambiguates conflicts that earlier LR vari
 
 But for inherently ambiguous grammars — like the calculator's binary operator productions — lookahead alone is not enough. The grammar has the same prefix structure regardless of which associativity is intended, so both shift and reduce appear valid to the automaton. Explicit resolution is required.
 
-For a detailed explanation of items and lookahead, see [Shift-Reduce Parsing](shift-reduce.md).
+For a detailed explanation of items and lookahead, see [The Shift-Reduce Loop](shift-reduce.md).
 
 ## Resolution by Priority
 
@@ -92,7 +92,7 @@ given Resolutions[CalcParser.type] = resolutions(
 )
 ```
 
-The complete CalcParser resolution set — including `minus`, `times`, and `div`, and the precedence relationships between them — is shown on [Full Calculator Example](full-example.md). For the full DSL reference (Production(symbols*) selector, token-side resolution, cycle detection, ordering constraint), see [Conflict Resolution](../conflict-resolution.md).
+The complete CalcParser resolution set — including `minus`, `times`, and `div`, and the precedence relationships between them — is shown on [Full Calculator Example](full-example.md). For the full DSL reference (Production(symbols*) selector, token-side resolution, cycle detection, where the `given` can be declared), see [Conflict Resolution](../conflict-resolution.md).
 
 ## Compile-Time Detection
 
@@ -103,7 +103,7 @@ When you add a `given Resolutions[MyParser.type] = resolutions(...)`, the macro 
 ## Cross-links
 
 - [Context-Free Grammars](cfg.md) — the calculator grammar that produces these conflicts
-- [Shift-Reduce Parsing](shift-reduce.md) — the parse table mechanics behind conflicts
-- [Conflict Resolution](../conflict-resolution.md) — the full DSL reference: Production(symbols*) selector, named productions, token-side resolution, cycle detection, ordering constraint
-- Next: [Semantic Actions](semantic-actions.md) — what happens when a conflict-free reduction fires
+- [The Shift-Reduce Loop](shift-reduce.md) — the parse table mechanics behind conflicts
+- [Conflict Resolution](../conflict-resolution.md) — the full DSL reference: Production(symbols*) selector, named productions, token-side resolution, cycle detection, where the `given` can be declared
+- Next: [Semantic Actions](semantic-actions.md) — what happens when a conflict-free reduction fires.
 - [Full Calculator Example](full-example.md) — the full CalcParser with conflict resolution applied

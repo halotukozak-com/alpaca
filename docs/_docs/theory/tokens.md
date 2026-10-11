@@ -28,9 +28,9 @@ string `"+"` (a PLUS), and the string `"4"` (another NUMBER).
 **Lexeme** — the full record of a token instance: the token class, the matched text, and its
 position in the source. Parsing `"3 + 4"` produces three lexemes:
 
-- `NUMBER("3", pos=0)`
-- `PLUS("+", pos=2)`
-- `NUMBER("4", pos=4)`
+- `NUMBER("3", column=1)`
+- `PLUS("+", column=3)`
+- `NUMBER("4", column=5)`
 
 The word *lexeme* is used throughout this documentation to mean this complete record.
 
@@ -109,4 +109,4 @@ The `BrainLexer` running example defines these token classes:
 - See [Lexer](../lexer.md) for the full `lexer` DSL reference and all token forms.
 - See [The Lexer: Regex to Finite Automata](lexer-fa.md) for how regex patterns define token
   classes formally.
-- Next: [The Lexer: Regex to Finite Automata](lexer-fa.md) — how these token patterns are compiled
+- Next: [The Lexer: Regex to Finite Automata](lexer-fa.md) — how token patterns are compiled into finite automata.

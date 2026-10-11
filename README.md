@@ -131,6 +131,8 @@ The full documentation is at [alpaca.halotukozak.com](https://alpaca.halotukozak
 - **[Getting Started](https://alpaca.halotukozak.com/docs/getting-started.html)** — build a BrainFuck interpreter step by step
 - **[Lexer](https://alpaca.halotukozak.com/docs/lexer/index.html)** — the full lexer DSL reference
 - **[Parser](https://alpaca.halotukozak.com/docs/parser/index.html)** — grammar rules, EBNF operators, conflict resolution
+- **[Tooling](https://alpaca.halotukozak.com/docs/tooling/index.html)** — debug output and the IntelliJ plugin
+- **[Cookbook](https://alpaca.halotukozak.com/docs/cookbook/index.html)** — complete examples: an expression evaluator, a JSON parser, contextual lexing
 - **[Theory](https://alpaca.halotukozak.com/docs/theory/index.html)** — formal foundations: finite automata, LR parsing, parse tables
 
 ## Benchmarks

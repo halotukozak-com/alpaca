@@ -68,7 +68,7 @@ Alpaca follows exactly this principle, using its own [`regex`](https://github.co
 library instead of `java.util.regex`:
 
 - At compile time, the `lexer` macro parses every token pattern and builds **one DFA for all of
-  them at once** (`TokenMatcher`), using Brzozowski derivatives rather than an explicit
+  them at once**, using Brzozowski derivatives rather than an explicit
   NFA-to-DFA subset construction. Each accepting state is labelled with the token it accepts.
   An invalid or unsupported pattern is therefore a compile error, not a runtime crash.
 - At runtime, `tokenize()` runs that DFA from the current input position. Every step is an array
@@ -84,8 +84,8 @@ Because ties go to the earlier pattern, a later pattern can be dead code: patter
 produce a token if every string it matches is also matched by some earlier pattern -- on any such
 input the earlier pattern matches at least as much text and wins the tie. Formally, B is shadowed
 when L(B) ⊆ L(A₁) ∪ … ∪ L(Aₙ), where A₁ … Aₙ are the patterns declared before it. Alpaca checks
-this at compile time with its `SubsetChecker` (built on the same derivative-based `regex` library)
-and reports a compile error ("Token ... can never match") pointing at the shadowed pattern.
+this at compile time with the same derivative-based `regex` library and reports a compile error
+("Token ... can never match") pointing at the shadowed pattern.
 
 Typical cases:
 
@@ -105,4 +105,4 @@ patterns together (`"[a-m]"` and `"[n-z]"` before `"[a-z]"`) and names all of th
 
 - See [Lexer](../lexer.md) for the complete `lexer` DSL reference.
 - See [Tokens and Lexemes](tokens.md) for what the lexer produces — the lexeme stream.
-- Next: [Regular vs Context-Free](regular-vs-context-free.md) for why a lexer alone cannot parse nested structure.
+- Next: [Regular vs Context-Free Languages](regular-vs-context-free.md) — why a lexer alone cannot parse nested structure.

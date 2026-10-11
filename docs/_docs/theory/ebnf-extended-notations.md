@@ -199,5 +199,5 @@ All three expand to the same kind of synthetic list recursion over `Operation`.
 ## Cross-links
 
 - See [Context-Free Grammars](cfg.md) for the formal BNF notation.
-- See [Parser](../parser.md) for the `.List` and `.Option` API reference.
-- See [Extractors](../extractors.md) for how to pattern-match on `.List` and `.Option` results.
+- See [Extractors](../extractors.md) for the `.List`, `.Option` and `.SeparatedBy` API reference.
+- Next: [The Shift-Reduce Loop](shift-reduce.md) — the shift/reduce loop step by step.
