@@ -28,31 +28,32 @@ private[parser] type Action[-Ctx <: ParserCtx] = (Ctx, RevertedArray[Any]) => An
 /**
  * An opaque type representing the parser action table.
  *
- * The action table maps productions to their semantic actions.
+ * The action table holds the semantic actions of the productions, indexed like the parse table's productions.
  * When a production is reduced during parsing, its action is executed
  * to compute the result value for the non-terminal on the left-hand side.
  *
+ * The synthetic start production, at index 0, is never reduced by an action, so the array starts with the action of
+ * production 1.
+ *
  * @tparam Ctx the parser context type
- * @tparam R the result type
  */
-opaque private[parser] type ActionTable[Ctx <: ParserCtx] =
-  Map[Production, Action[Ctx]]
+opaque private[parser] type ActionTable[Ctx <: ParserCtx] = Array[Action[Ctx]]
 
 @publicInBinary private[parser] object ActionTable:
 
   /**
-   * Creates an ActionTable from a map of productions to actions.
+   * Creates an ActionTable from the actions of the productions after the start production, in the parse table's order.
    *
-   * @param table the map of productions to their actions
+   * @param actions the actions, the one of production `index` at `index - 1`
    * @return an ActionTable
    */
-  def apply[Ctx <: ParserCtx](table: Map[Production, Action[Ctx]]): ActionTable[Ctx] = table
+  def apply[Ctx <: ParserCtx](actions: Array[Action[Ctx]]): ActionTable[Ctx] = actions
 
-  extension [Ctx <: ParserCtx, R](table: ActionTable[Ctx])
+  extension [Ctx <: ParserCtx](table: ActionTable[Ctx])
     /**
      * Gets the action for a production.
      *
-     * @param production the production to get the action for
+     * @param production the index of the production in the parse table's productions, never the start production's 0
      * @return the semantic action for that production
      */
-    def apply(production: Production): Action[Ctx] = table(production)
+    def apply(production: Int): Action[Ctx] = table(production - 1)

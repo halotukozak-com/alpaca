@@ -104,7 +104,8 @@ abstract class Parser[Ctx <: ParserCtx](
             nodeStack += Node.Token(current)
             loop(if remaining.isEmpty then Nil else remaining.tail)
 
-          case ParseAction.Reduction(production) =>
+          case ParseAction.Reduction(productionIndex) =>
+            val production = tables.parseTable.production(productionIndex)
             val size = production.size
             val uncoveredState = stateStack(stateStack.size - 1 - size)
 
@@ -116,7 +117,7 @@ abstract class Parser[Ctx <: ParserCtx](
               nodeStack.dropRightInPlace(size)
 
               val gotoState = tables.parseTable.goto(uncoveredState, production.lhs)
-              val result = tables.actionTable(production)(ctx, RevertedArray(children))
+              val result = tables.actionTable(productionIndex)(ctx, RevertedArray(children))
               stateStack += gotoState
               nodeStack += Node.Result(result)
               loop(remaining)

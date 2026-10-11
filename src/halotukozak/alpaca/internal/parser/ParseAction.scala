@@ -3,14 +3,12 @@ package alpaca
 package internal
 package parser
 
-import halotukozak.alpaca.internal.Showable
 import halotukozak.made.annotation.name
 import halotukozak.mcodec.MCodec
 import halotukozak.mcodec.annotation.flatten
 
 import scala.annotation.publicInBinary
 import scala.quoted.*
-import scala.quoted.QuotedFactoryGivens.given
 
 /**
  * Represents a parse action in the LR parse table.
@@ -30,12 +28,11 @@ private[parser] sealed trait ParseAction extends Any
 
   /**
    * Reduce action: apply a production rule to reduce symbols.
+   *
+   * @param production the index of the production in the parse table's productions, which is also the index of its
+   *                   semantic action
    */
-  sealed case class Reduction(production: Production) extends AnyVal, ParseAction
-
-  given Showable[ParseAction] =
-    case Shift(state) => show"S$state"
-    case Reduction(production) => show"$production"
+  sealed case class Reduction(production: Int) extends AnyVal, ParseAction
 
   // $COVERAGE-OFF$
   given ToExpr[ParseAction] with
@@ -43,22 +40,12 @@ private[parser] sealed trait ParseAction extends Any
       case Shift(state) => '{ ParseAction.Shift(${ Expr(state) }) }
       case Reduction(production) => '{ ParseAction.Reduction(${ Expr(production) }) }
 
-  // Local tagging enum instead of `derives MCodec` on ParseAction itself, which stays AnyVal.
+  /** A parse action as exported, with a reduction's production written out rather than as an index. */
   @flatten("type")
-  private enum ActionExport:
+  private[parser] enum Export:
     @name("shift") case Shift(state: Int)
     @name("reduce") case Reduce(production: Production)
 
-  given MCodec[Production] => MCodec[ParseAction] = MCodec
-    .derived[ActionExport]
-    .transform(
-      onWrite = {
-        case Shift(state) => ActionExport.Shift(state)
-        case Reduction(production) => ActionExport.Reduce(production)
-      },
-      onRead = {
-        case ActionExport.Shift(state) => Shift(state)
-        case ActionExport.Reduce(production) => Reduction(production)
-      },
-    )
+  private[parser] object Export:
+    given MCodec[Production] => MCodec[Export] = MCodec.derived
 // $COVERAGE-ON$

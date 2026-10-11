@@ -50,12 +50,19 @@ private[parser] object ConflictResolutionTable:
      * @param first  the first parse action
      * @param second the second parse action
      * @param symbol the symbol causing the conflict
+     * @param production the production a reduction refers to by its index
      * @return Some(action) if one action has precedence, None otherwise
      */
-    def get(first: ParseAction, second: ParseAction)(symbol: Symbol): Option[ParseAction] = {
+    def get(
+      first: ParseAction,
+      second: ParseAction,
+    )(
+      symbol: Symbol,
+      production: Int => Production,
+    ): Option[ParseAction] = {
       extension (action: ParseAction)
         def toConflictKey: ConflictKey = action match
-          case ParseAction.Reduction(prod) => ConflictKey.Reduction(prod)
+          case ParseAction.Reduction(index) => ConflictKey.Reduction(production(index))
           case _: ParseAction.Shift => ConflictKey.Shift(symbol.name)
 
       def winsOver(first: ParseAction, second: ParseAction): Option[ParseAction] = {

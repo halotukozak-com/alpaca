@@ -413,9 +413,8 @@ object Tables:
             given MCodec[Production] = Production.exportCodec(allSources)
             JsonExport.maybeWrite(exportName, "table", parseTable)
 
-      val actionTable = Expr.ofList:
-        table.map:
-          case (production, _, action) => Expr.ofTuple(Expr(production) -> action)
+      // in the order of the parse table's productions, after the start production
+      val actionTable = '{ Array[Action[Ctx]](${ Varargs(table.map(_.action)) }*) }
 
       // referenced only to avoid an unused-implicit warning; kept lazy and never forced,
       // since eagerly forcing it here (during Tables[Ctx] construction, i.e. during the
@@ -429,7 +428,7 @@ object Tables:
         $referenceGivenResolutions
         (
           $parseTable.asInstanceOf[ParseTable],
-          ActionTable($actionTable.toMap),
+          ActionTable($actionTable),
           $initialCtx,
         )
       }

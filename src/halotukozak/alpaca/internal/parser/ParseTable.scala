@@ -9,6 +9,7 @@ import halotukozak.mcodec.MCodec
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.quoted.*
+import scala.quoted.QuotedFactoryGivens.given
 
 /**
  * An opaque type representing the LR parse table.
@@ -17,8 +18,11 @@ import scala.quoted.*
  * stored as an array indexed by state, with each cell holding a symbol ->
  * action map. Lookup is a single array index plus one symbol hash, with no
  * boxing on the state key.
+ *
+ * A reduction refers to its production by index into `productions`, which holds each production once; the synthetic
+ * start production is at index 0.
  */
-opaque private[parser] type ParseTable = Array[Map[Symbol, ParseAction]]
+opaque private[parser] type ParseTable = (rows: Array[Map[Symbol, ParseAction]], productions: Array[Production])
 
 private[parser] object ParseTable:
   extension (table: ParseTable) {
@@ -31,14 +35,14 @@ private[parser] object ParseTable:
      * @return the parse action to take
      * @throws AlgorithmError if no action is defined for this state/symbol combination
      */
-    def apply(state: Int, symbol: Symbol): ParseAction = table(state).get(symbol) match
+    def action(state: Int, symbol: Symbol): ParseAction = table.rows(state).get(symbol) match
       case Some(action) => action
       case None =>
-        val expected = table(state).keysIterator.toList.sortBy(_.show).mkShow(", ")
+        val expected = table.rows(state).keysIterator.toList.sortBy(_.show).mkShow(", ")
         throw AlgorithmError(show"Unexpected symbol '$symbol' in state $state. Expected one of: $expected")
 
     /** The parse action for a given state and symbol, or `null` if the grammar accepts no such symbol there. */
-    def get(state: Int, symbol: Symbol): ParseAction | Null = table(state).get(symbol) match
+    def get(state: Int, symbol: Symbol): ParseAction | Null = table.rows(state).get(symbol) match
       case Some(action) => action
       case None => null
 
@@ -51,7 +55,9 @@ private[parser] object ParseTable:
      */
     def expectedTerminals(stateStack: collection.IndexedSeq[Int]): List[Terminal] =
       val reversedStack = stateStack.reverseIterator.toList
-      table(reversedStack.head).keysIterator
+      table
+        .rows(reversedStack.head)
+        .keysIterator
         .collect:
           case terminal: Terminal if table.leadsToShift(reversedStack, terminal) =>
             terminal
@@ -63,22 +69,31 @@ private[parser] object ParseTable:
       table.get(reversedStack.head, terminal) match
         case null => false
         case Shift(_) => true
-        case Reduction(production) =>
+        case Reduction(index) =>
+          val production = table.production(index)
           val rest = reversedStack.drop(production.size)
           if production.lhs == Symbol.Start && rest.head == 0 then true
           else table.leadsToShift(table.goto(rest.head, production.lhs) :: rest, terminal)
 
     /** The state the parser moves to after reducing to `nonTerminal` with `state` uncovered on top of the stack. */
     private[parser] def goto(state: Int, nonTerminal: NonTerminal): Int =
-      table(state, nonTerminal).runtimeChecked match
+      table.action(state, nonTerminal).runtimeChecked match
         case Shift(gotoState) => gotoState
 
+    /** The production a [[ParseAction.Reduction]] reduces by. */
+    private[parser] def production(index: Int): Production = table.productions(index)
+
     private def allSymbols: List[Symbol] =
-      table.iterator.flatMap(_.keysIterator).distinct.toList
+      table.rows.iterator.flatMap(_.keysIterator).distinct.toList
+
+    private def showAction(action: ParseAction): Shown = action match
+      case Shift(state) => show"S$state"
+      case Reduction(index) => show"${table.production(index)}"
 
     // $COVERAGE-OFF$
-    /** The table's rows, one per state (dense, consecutive, starting at 0), each a symbol -> action map. */
-    private[parser] def rows: Array[Map[Symbol, ParseAction]] = table
+    private def exported(action: ParseAction): ParseAction.Export = action match
+      case Shift(state) => ParseAction.Export.Shift(state)
+      case Reduction(index) => ParseAction.Export.Reduce(table.production(index))
     // $COVERAGE-ON$
 
     /**
@@ -93,10 +108,10 @@ private[parser] object ParseTable:
       val symbols = table.allSymbols
 
       val headers = show"State" :: symbols.map(s => show"$s")
-      val rows = table.indices
+      val rows = table.rows.indices
         .map: i =>
-          val row = table(i)
-          show"$i" :: symbols.map(s => row.get(s).fold(show"")(_.show))
+          val row = table.rows(i)
+          show"$i" :: symbols.map(s => row.get(s).fold(show"")(table.showAction))
         .toList
 
       Csv(headers, rows)
@@ -112,7 +127,8 @@ private[parser] object ParseTable:
    * [[State.fromItem]]) to read off reduce actions; shift actions come straight from the
    * automaton's already-computed goto transitions.
    *
-   * @param productions the grammar productions
+   * @param productions the grammar productions, the synthetic start production first; a reduction refers to a
+   *                    production by its index here
    * @param sources where each of `productions` is defined, for conflict messages
    * @return the constructed parse table
    */
@@ -124,32 +140,36 @@ private[parser] object ParseTable:
     sources: Map[Production, Source],
     conflictResolutionTable: ConflictResolutionTable,
   ): ParseTable = {
+    val productionArray = productions.toArray
+    val productionIndex = productions.iterator.zipWithIndex.toMap
     val reported = mutable.HashSet.empty[Set[Production] | (Symbol, Production)]
 
     // $COVERAGE-OFF$
     def raiseReduceReduceConflict(red1: Reduction, red2: Reduction, path: List[Symbol]): Unit =
-      if reported.add(Set(red1.production, red2.production)) then
+      val (production1, production2) = (productionArray(red1.production), productionArray(red2.production))
+      if reported.add(Set(production1, production2)) then
         error(
           show"""
-                |Reduce $red1 vs Reduce $red2
+                |Reduce $production1 vs Reduce $production2
                 |In situation like:
                 |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
-                |Conflicting production: ${red1.production} (line ${sources(red1.production).line + 1})
+                |Conflicting production: $production1 (line ${sources(production1).line + 1})
                 |Consider marking one of the productions to be before or after the other
                 |""".trimMargin,
-          sources(red2.production),
+          sources(production2),
         )
 
     def raiseShiftReduceConflict(symbol: Symbol, red: Reduction, path: List[Symbol]): Unit =
-      if reported.add((symbol, red.production)) then
+      val production = productionArray(red.production)
+      if reported.add((symbol, production)) then
         error(
           show"""
-                |Shift "$symbol" vs Reduce $red
+                |Shift "$symbol" vs Reduce $production
                 |In situation like:
                 |${path.filter(_ != Symbol.EOF).mkShow("", " ", " ...")}
-                |Consider marking production $red to be before or after "$symbol"
+                |Consider marking production $production to be before or after "$symbol"
                 |""".trimMargin,
-          sources(red.production),
+          sources(production),
         )
     // $COVERAGE-ON$
 
@@ -165,7 +185,7 @@ private[parser] object ParseTable:
       row.get(symbol) match
         case None => row.update(symbol, action)
         case Some(existingAction) =>
-          conflictResolutionTable.get(existingAction, action)(symbol) match
+          conflictResolutionTable.get(existingAction, action)(symbol, productionArray(_)) match
             case Some(action) => row.update(symbol, action)
             case None =>
               val path = toPath(stateId, List(symbol))
@@ -201,7 +221,8 @@ private[parser] object ParseTable:
       val currState =
         kernelItems.foldLeft(State.empty)((acc, item) => State.fromItem(acc, item, productionsByLhs, firstSet))
 
-      for item <- currState if item.isLastItem do addToTable(stateId, item.lookAhead, Reduction(item.production))
+      for item <- currState if item.isLastItem do
+        addToTable(stateId, item.lookAhead, Reduction(productionIndex(item.production)))
 
       for (stepSymbol, targetStateId) <- automaton.goto(stateId) do addToTable(stateId, stepSymbol, Shift(targetStateId))
     }
@@ -211,7 +232,7 @@ private[parser] object ParseTable:
     abortOnErrors()
     // $COVERAGE-ON$
 
-    Array.better.tabulate(tableRows.length)(tableRows(_).toMap)
+    (rows = Array.better.tabulate(tableRows.length)(tableRows(_).toMap), productions = productionArray)
   }
 
   given Showable[ParseTable] = table => {
@@ -232,13 +253,13 @@ private[parser] object ParseTable:
       result.append(centerText(s.show))
       result.append("|")
 
-    for i <- table.indices do
-      val row = table(i)
+    for i <- table.rows.indices do
+      val row = table.rows(i)
       result.append('\n')
       result.append(centerText(i.toString))
       result.append("|")
       for s <- symbols do
-        result.append(centerText(row.get(s).fold("")(_.show)))
+        result.append(centerText(row.get(s).fold("")(table.showAction)))
         result.append("|")
     result.append('\n')
     result.result().showRaw
@@ -246,7 +267,7 @@ private[parser] object ParseTable:
 
   // $COVERAGE-OFF$
   given ToExpr[ParseTable]:
-    def apply(entries: ParseTable)(using quotes: Quotes): Expr[ParseTable] = {
+    def apply(table: ParseTable)(using quotes: Quotes): Expr[ParseTable] = {
       type Row = Map[Symbol, ParseAction]
       type RowBuilder = mutable.Builder[(Symbol, ParseAction), Row]
 
@@ -256,26 +277,36 @@ private[parser] object ParseTable:
         empty = '{ Map.empty },
       )
 
-      val arrayExpr = avoidTooLargeMethod[Row, Array[Row], mutable.ArrayBuilder[Row]](
-        builder = '{ mutable.ArrayBuilder.ofRef[Row].tap(_.sizeHint(${ Expr(entries.length) })) },
-        elements = entries.map(rowExpr),
+      val rowsExpr = avoidTooLargeMethod[Row, Array[Row], mutable.ArrayBuilder[Row]](
+        builder = '{ mutable.ArrayBuilder.ofRef[Row].tap(_.sizeHint(${ Expr(table.rows.length) })) },
+        elements = table.rows.map(rowExpr),
         empty = '{ Array.empty[Row] },
       )
-      '{ $arrayExpr.asInstanceOf[ParseTable] }
+
+      // each production once; the cells refer to them by index
+      val productionsExpr = avoidTooLargeMethod[Production, Array[Production], mutable.ArrayBuilder[Production]](
+        builder = '{ mutable.ArrayBuilder.ofRef[Production].tap(_.sizeHint(${ Expr(table.productions.length) })) },
+        elements = table.productions.map(Expr(_)),
+        empty = '{ Array.empty[Production] },
+      )
+      '{ (rows = $rowsExpr, productions = $productionsExpr).asInstanceOf[ParseTable] }
     }
 
   // No constructor for a raw ParseTable outside the algorithm above, hence write-only below.
   // The export carries the parser's own symbol names, so a consumer need not hardcode them.
+  // A reduction is written with its production, not with the index it refers to it by.
   given MCodec[Production] => MCodec[ParseTable] =
     import JsonExport.TableFormat
-    given MCodec[TableFormat.Cell[Symbol, ParseAction]] = MCodec.derived
-    given MCodec[TableFormat[Symbol, ParseAction]] = MCodec.derived
-    MCodec[TableFormat[Symbol, ParseAction]].transform(
+    given MCodec[TableFormat.Cell[Symbol, ParseAction.Export]] = MCodec.derived
+    given MCodec[TableFormat[Symbol, ParseAction.Export]] = MCodec.derived
+    MCodec[TableFormat[Symbol, ParseAction.Export]].transform(
       onWrite = table =>
         (
           endOfInput = Symbol.EOF.name.raw,
           start = Symbol.Start.name.raw,
-          states = table.rows.toList.map(_.iterator.map((symbol, action) => (symbol = symbol, action = action)).toList),
+          states = table.rows.toList.map(
+            _.iterator.map((symbol, action) => (symbol = symbol, action = table.exported(action))).toList,
+          ),
         ),
       onRead = _ => throw UnsupportedOperationException("ParseTable's export codec is write-only"),
     )
