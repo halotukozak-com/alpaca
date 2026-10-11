@@ -170,26 +170,11 @@ transparent inline def ctx[Ctx <: LexerCtx: LexerScope.Of as scope]: Ctx = ${ ct
  * Users can extend this trait to add custom state tracking.
  */
 trait LexerCtx extends Product, Selectable:
-  /**
-   * The last lexeme that was created.
-   * @note This is for internal use only and should not be accessed directly.
-   */
-  @publicInBinary
-  private[alpaca] var lastLexeme: Lexeme[?, ?] | Null = compiletime.uninitialized
-
-  /**
-   * The raw string that was matched for the last token.
-   * @note This is for internal use only and should not be accessed directly.
-   */
-  @publicInBinary
-  private[alpaca] var lastRawMatched: String = compiletime.uninitialized
-
-  /**
-   * The remaining text to be tokenized.
-   * @note This is for internal use only and should not be accessed directly.
-   */
-  @publicInBinary
-  private[alpaca] var text: CharSequence = compiletime.uninitialized
+  // Engine state. `private`, not `private[alpaca]`: private members aren't inherited, so a user context may have
+  // fields with the same names. The library reads and writes them through the `engine*` extensions in the companion.
+  private var lastLexeme: Lexeme[?, ?] | Null = compiletime.uninitialized
+  private var lastRawMatched: String = compiletime.uninitialized
+  private var input: CharSequence = compiletime.uninitialized
 
   /**
    * A copy of at most the next `n` characters of the input still to be tokenized, fewer at its end.
@@ -203,7 +188,7 @@ trait LexerCtx extends Product, Selectable:
    */
   final def peek(n: Int): String =
     require(n >= 0, s"peek length must be non-negative, got $n")
-    text.subSequence(0, math.min(n, text.length)).toString
+    input.subSequence(0, math.min(n, input.length)).toString
 
   /**
    * Propagates the engine-internal bookkeeping fields above from `prev` onto
@@ -216,7 +201,7 @@ trait LexerCtx extends Product, Selectable:
    */
   @publicInBinary
   private[alpaca] def carryEngineStateFrom(prev: LexerCtx): this.type =
-    text = prev.text
+    input = prev.input
     lastRawMatched = prev.lastRawMatched
     lastLexeme = prev.lastLexeme
     this
@@ -231,6 +216,21 @@ trait LexerCtx extends Product, Selectable:
     compiletime.error("Lexer context fields can only be assigned inside a lexer rule")
 
 object LexerCtx:
+
+  extension (ctx: LexerCtx) {
+
+    /** The input still to be tokenized. */
+    @publicInBinary private[alpaca] def input: CharSequence = ctx.input
+    @publicInBinary private[alpaca] def input_=(remaining: CharSequence): Unit = ctx.input = remaining
+
+    /** The raw string the last token matched. */
+    @publicInBinary private[alpaca] def lastRawMatched: String = ctx.lastRawMatched
+    @publicInBinary private[alpaca] def lastRawMatched_=(matched: String): Unit = ctx.lastRawMatched = matched
+
+    /** The last lexeme created. */
+    @publicInBinary private[alpaca] def lastLexeme: Lexeme[?, ?] | Null = ctx.lastLexeme
+    @publicInBinary private[alpaca] def lastLexeme_=(lexeme: Lexeme[?, ?] | Null): Unit = ctx.lastLexeme = lexeme
+  }
 
   /** Default error handler for any [[LexerCtx]]: stop at the first unrecognised character and report it. */
   given ErrorHandling[LexerCtx, LexerError] = (_, _) => ErrorHandling.Strategy.Stop
@@ -248,7 +248,7 @@ object LexerCtx:
    * tracking fragments.
    *
    * This is the most commonly used context and provides useful information
-   * for error reporting. The `text` field is inherited from [[LexerCtx]].
+   * for error reporting.
    *
    * `column` and `line` are immutable `val`s of a subtype of `Int`:
    * `Tracking.materialize` finds each fragment's `given Tracking` and threads a

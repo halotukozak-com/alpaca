@@ -22,6 +22,28 @@ import scala.reflect.NameTransformer
   given diagnostics: Diagnostics = Diagnostics()
   val initialCtx = fromDefaults[Ctx]
 
+  // a context field is read by name on lexemes and lexer errors, so a public member with its name, declared or
+  // inherited from `Any`/`AnyRef` (`getClass`, `eq`, `synchronized`...), would shadow it
+  val shadowingMembers = List(TypeRepr.of[Lexeme[?, ?]].typeSymbol, TypeRepr.of[alpaca.LexerError].typeSymbol)
+    .flatMap: owner =>
+      (owner.fieldMembers ++ owner.methodMembers)
+        .filterNot(member =>
+          member.flags.is(Flags.Private) || member.flags.is(Flags.Protected) || member.privateWithin.isDefined ||
+            member.flags.is(Flags.Synthetic) || member.isClassConstructor,
+        )
+        .map(member => member.name -> show"${owner.name.showRaw}.${member.name.showRaw}")
+    .distinctBy(_._1)
+    .toMap
+
+  for
+    field <- TypeRepr.of[Ctx].typeSymbol.caseFields
+    member <- shadowingMembers.get(field.name)
+  do
+    error(
+      show"Context field `${Printable(field.name)}` clashes with `$member`; rename it",
+      field.pos.getOrElse(Position.ofMacroExpansion),
+    )
+
   val (oldScope, cases) = rules.asTerm.underlying match
     case Lambda(oldScope :: Nil, Lambda(_, Match(_, cases))) => (oldScope, cases)
     case other =>

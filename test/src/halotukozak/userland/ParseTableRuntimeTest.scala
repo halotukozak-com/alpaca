@@ -1,10 +1,7 @@
-package halotukozak
-package alpaca
-package internal
-package parser
+package halotukozak.userland
 
+import halotukozak.alpaca.*
 import halotukozak.alpaca.ParserError.EndOfInput
-import halotukozak.alpaca.{lexer, rule, ParserCtx, ParserException, Result, Rule, Token}
 import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
@@ -84,26 +81,29 @@ final class ParseTableRuntimeTest extends AnyFunSuite with Matchers with LoneEle
       List(EndOfInput)
   }
 
-  test("a successful Result gives the value through every accessor") {
-    val lexemes = CalcLexer.tokenize("1+2").getOrThrow
-    val result = CalcParser.parse(lexemes)
+  // Integer -> Num and Float -> Num reduce on the same lookahead; the resolutions pick the production to reduce
+  object IntegerFirstParser extends Parser[CalcContext]:
+    val Integer: Rule[String] = rule("integer" { case CalcLexer.Num(_) => "integer" })
+    val Float: Rule[String] = rule("float" { case CalcLexer.Num(_) => "float" })
+    val root: Rule[String] = rule(
+      { case Integer(kind) => kind },
+      { case Float(kind) => kind },
+    )
 
-    result shouldBe a[Result.Success[?, ?, ?]]
-    result.ctx shouldBe CalcContext()
-    result.getOrThrow shouldBe 3
-    result.toOption shouldBe Some(3)
-    result.toEither shouldBe Right(3)
-  }
+  given Resolutions[IntegerFirstParser.type] = resolutions(production.integer.before(production.float))
 
-  test("a failed Result keeps the context, and getOrThrow throws its errors as a ParserException") {
-    val lexemes = CalcLexer.tokenize("1+").getOrThrow
-    val result = CalcParser.parse(lexemes)
-    val error = errorsOf(result).head
+  object FloatFirstParser extends Parser[CalcContext]:
+    val Integer: Rule[String] = rule("integer" { case CalcLexer.Num(_) => "integer" })
+    val Float: Rule[String] = rule("float" { case CalcLexer.Num(_) => "float" })
+    val root: Rule[String] = rule(
+      { case Integer(kind) => kind },
+      { case Float(kind) => kind },
+    )
 
-    result.ctx shouldBe CalcContext()
-    result.toOption shouldBe None
-    result.toEither shouldBe Left(List(error))
-    val exception = intercept[ParserException](result.getOrThrow)
-    exception.errors shouldBe List(error)
-    exception.getMessage shouldBe error.message
+  given Resolutions[FloatFirstParser.type] = resolutions(production.integer.after(production.float))
+
+  test("a reduce/reduce conflict resolved with before or after reduces the winning production") {
+    val lexemes = CalcLexer.tokenize("1").getOrThrow
+    IntegerFirstParser.parse(lexemes) shouldBe Result.Success(CalcContext(), "integer")
+    FloatFirstParser.parse(lexemes) shouldBe Result.Success(CalcContext(), "float")
   }

@@ -14,13 +14,21 @@ import halotukozak.commons.{containsOnly, toArrayOf}
  * [[Line]] or [[Column]]).
  *
  * [[Tracking.materialize]] applies one `Tracking` instance to each case field of
- * the context whose type provides a `given`, threading the result through a
- * functional `copy`; fields whose type has no `Tracking` given are left
- * untouched by the hook (they only change in rule bodies).
+ * the context for which a `given Tracking[FieldType]` resolves at the `lexer`
+ * call, threading the result through a functional `copy`; fields with none are
+ * left untouched by the hook (they only change in rule bodies).
+ *
+ * Lookup is ordinary given resolution at the `lexer` call: a `given` in lexical
+ * scope there wins, otherwise the one in the field type's companion is used.
+ * So a `given Tracking[Int]` in scope tracks every `Int` field of that lexer's
+ * context, and a local `given Tracking[Column]` replaces [[Column]]'s own for
+ * that lexer only.
  *
  * This is how tracking composes without inheritance: define a distinct field
- * type and a `given Tracking[YourType]` in its companion, then use it as a
- * context field.
+ * type (e.g. an opaque type) and a `given Tracking[YourType]` in its companion,
+ * then use it as a context field. A distinct type also keeps the update to the
+ * fields meant for it, where a given for a common type like `Int` would reach
+ * every field of that type.
  *
  * @tparam Field the fragment field type
  */
@@ -37,7 +45,8 @@ object Tracking:
 
   /**
    * Derives the hook run after every token match for a context type: one
-   * [[Tracking]] update per case field whose type provides a `given`,
+   * [[Tracking]] update per case field for which a `given` resolves at the
+   * `lexer` call (see [[Tracking]] for the lookup),
    * followed by the fixed step every context needs regardless of what it
    * tracks -- apply the rule body's context changes and record the lexeme
    * (see [[materializeImpl]]). Cursor advancement itself already happened
@@ -51,7 +60,8 @@ object Tracking:
     )
 
   /**
-   * One `(index, update)` pair per case field that has a `given Tracking`;
+   * One `(index, update)` pair per case field for which `summonFrom` finds a
+   * `given Tracking` where `lexer` is called;
    * fields with none are skipped entirely, rather than carried along as a
    * no-op, so that [[Derived.apply]] can tell -- without inspecting the
    * context -- whether there is any field update to do at all.

@@ -1,7 +1,6 @@
-package halotukozak
-package alpaca
-package internal.parser
+package halotukozak.userland
 
+import halotukozak.alpaca.*
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -14,9 +13,9 @@ final class Issue198FixTest extends AnyFunSuite with Matchers:
 
   case class MyCtx() extends ParserCtx
 
-  test("hyphenated production name should compile") {
+  test("a hyphenated production name can be referenced in resolutions") {
     object Issue198Parser extends Parser[MyCtx]:
-      val root = rule:
+      val root: Rule[Int] = rule:
         case Expr(e) => e
 
       val Expr: Rule[Int] = rule(
@@ -26,5 +25,6 @@ final class Issue198FixTest extends AnyFunSuite with Matchers:
 
     given Resolutions[Issue198Parser.type] = resolutions(production.`if-else`.after(MyLexer.Num))
 
-    assert(summon[Resolutions[Issue198Parser.type]].asInstanceOf[Set[?]].nonEmpty)
+    Issue198Parser.parse(MyLexer.tokenize("if7else").getOrThrow).getOrThrow shouldBe 7
+    Issue198Parser.parse(MyLexer.tokenize("7").getOrThrow).getOrThrow shouldBe 7
   }

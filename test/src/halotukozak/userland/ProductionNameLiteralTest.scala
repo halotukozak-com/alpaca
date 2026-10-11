@@ -1,7 +1,6 @@
-package halotukozak
-package alpaca.internal.parser
+package halotukozak.userland
 
-import halotukozak.alpaca.{apply, lexer, rule, Rule, Token}
+import halotukozak.alpaca.*
 import org.scalatest.LoneElement
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers

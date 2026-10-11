@@ -1,9 +1,6 @@
-package halotukozak
-package alpaca
-package internal
-package parser
+package halotukozak.userland
 
-import halotukozak.alpaca.{lexer, rule, ErrorHandling, ParserCtx, ParserError, Result, Rule, Token}
+import halotukozak.alpaca.*
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 
@@ -15,13 +12,13 @@ final class ParserErrorHandlingTest extends AnyFunSuite with Matchers:
     case "\\*" => Token["*"]
     case value @ "[1-9][0-9]*" => Token["Num"](value.toInt)
 
-  extension [A](result: Result[?, A, ParserError withFields CalcLexer.LexemeFields])
-    private def failure: (recovered: Option[A], errors: List[ParserError withFields CalcLexer.LexemeFields]) =
+  extension [A](result: Result[?, A, ParserError { type Fields = CalcLexer.LexemeFields }])
+    private def failure: (recovered: Option[A], errors: List[ParserError { type Fields = CalcLexer.LexemeFields }]) =
       result match
         case Result.Failure(_, recovered, errors) => (recovered, errors)
         case Result.Success(_, _) => fail("expected a failure")
 
-  extension (error: ParserError withFields CalcLexer.LexemeFields)
+  extension (error: ParserError { type Fields = CalcLexer.LexemeFields })
     private def at: (text: String, column: Int) = (error.unexpected.get.text, error.unexpected.get.column)
 
   case class StoppingContext() extends ParserCtx
@@ -131,4 +128,57 @@ final class ParserErrorHandlingTest extends AnyFunSuite with Matchers:
     result.recovered shouldBe Some(3)
     result.errors.map(_.at) shouldBe List(("*", 2))
     result.errors.head.expected shouldBe List("+")
+  }
+
+  object SkippingListParser extends Parser[SkippingContext]:
+    val root: Rule[List[Int]] = rule:
+      case CalcLexer.Num.List(numbers) => numbers.map(_.value)
+
+  object SkippingSeparatedParser extends Parser[SkippingContext]:
+    val root: Rule[String] = rule:
+      case CalcLexer.Num.SeparatedBy[CalcLexer.`-`](items) => items.map(_.text).mkString
+
+  test("SkipOne recovers a List past the lexemes it skips") {
+    val result = SkippingListParser.parse(CalcLexer.tokenize("1+2*3").getOrThrow).failure
+    result.recovered shouldBe Some(List(1, 2, 3))
+    result.errors.map(_.at) shouldBe List(("+", 2), ("*", 4))
+  }
+
+  test("SkipOne recovers a SeparatedBy past the lexemes it skips") {
+    val result = SkippingSeparatedParser.parse(CalcLexer.tokenize("1-2+-3").getOrThrow).failure
+    result.recovered shouldBe Some("1-2-3")
+    result.errors.map(_.at) shouldBe List(("+", 4))
+  }
+
+  case class BudgetContext(var skipsLeft: Int = 1) extends ParserCtx
+
+  given ErrorHandling[BudgetContext, ParserError] = (ctx, _) =>
+    if ctx.skipsLeft > 0 then
+      ctx.skipsLeft -= 1
+      ErrorHandling.Strategy.SkipOne
+    else ErrorHandling.Strategy.Stop
+
+  object BudgetParser extends Parser[BudgetContext]:
+    val Expr: Rule[Int] = rule(
+      { case (Expr(sum), CalcLexer.`+`(_), CalcLexer.Num(lexeme)) => sum + lexeme.value },
+      { case CalcLexer.Num(lexeme) => lexeme.value },
+    )
+    val root: Rule[Int] = rule:
+      case Expr(result) => result
+
+  test("the strategy is given the parse's context and decides by it") {
+    val lexemes = CalcLexer.tokenize("1++2++3").getOrThrow
+    // each parse starts with a fresh context, so the budget is the same every time
+    for _ <- 1 to 2 do
+      val result = BudgetParser.parse(lexemes)
+      result.ctx shouldBe BudgetContext(skipsLeft = 0)
+      result.failure.recovered shouldBe None
+      result.failure.errors.map(_.at) shouldBe List(("+", 3), ("+", 6))
+  }
+
+  test("getOrThrow throws every error, one message per line") {
+    val exception = intercept[ParserException](SkippingParser.parse(CalcLexer.tokenize("1++2++3").getOrThrow).getOrThrow)
+    exception.errors.map(_.unexpected.map(_.text)) shouldBe List(Some("+"), Some("+"))
+    exception.getMessage shouldBe """Unexpected + "+". Expected one of: Num
+                                    |Unexpected + "+". Expected one of: Num""".stripMargin
   }
