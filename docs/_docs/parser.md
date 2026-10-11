@@ -153,7 +153,7 @@ Production names can contain hyphens, dots, spaces, or any other character that 
 ```scala sc-hidden sc-name:named-prod-lexer
 import halotukozak.alpaca.*
 
-val Lexer = lexer:
+val MyLexer = lexer:
   case "\\+" => Token["PLUS"]
   case "<<" => Token["SHL"]
   case "if" => Token["IF"]
@@ -168,16 +168,16 @@ object MyParser extends Parser:
     case Expr(e) => e
 
   val Expr: Rule[Int] = rule(
-    "left-add" { case (Expr(a), Lexer.PLUS(_), Expr(b)) => a + b },
-    "shift.left" { case (Expr(a), Lexer.SHL(_), Expr(b)) => a << b },
-    "if then" { case (Lexer.IF(_), Expr(c), Lexer.THEN(_), Expr(t)) => if c != 0 then t else 0 },
-    { case Lexer.NUM(n) => n.value },
+    "left-add" { case (Expr(a), MyLexer.PLUS(_), Expr(b)) => a + b },
+    "shift.left" { case (Expr(a), MyLexer.SHL(_), Expr(b)) => a << b },
+    "if then" { case (MyLexer.IF(_), Expr(c), MyLexer.THEN(_), Expr(t)) => if c != 0 then t else 0 },
+    { case MyLexer.NUM(n) => n.value },
   )
 
 given Resolutions[MyParser.type] = resolutions(
-  production.`left-add`.before(Lexer.PLUS, Lexer.SHL, Lexer.THEN),
-  production.`shift.left`.before(Lexer.PLUS, Lexer.SHL, Lexer.THEN),
-  production.`if then`.before(Lexer.PLUS, Lexer.SHL, Lexer.THEN),
+  production.`left-add`.before(MyLexer.PLUS, MyLexer.SHL, MyLexer.THEN),
+  production.`shift.left`.before(MyLexer.PLUS, MyLexer.SHL, MyLexer.THEN),
+  production.`if then`.before(MyLexer.PLUS, MyLexer.SHL, MyLexer.THEN),
 )
 ```
 

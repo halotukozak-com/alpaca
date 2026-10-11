@@ -103,4 +103,4 @@ parsed.ctx.errors.foreach(println)
 - Add your own tracked field, such as an indentation level: [Lexer Context](../lexer-context.md#the-post-match-update).
 - Skip input no pattern matches instead of stopping: [Lexer Error Recovery](../lexer-error-recovery.md#error-handling-strategies).
 - Recover from syntax errors in the parser: [Error Recovery](../parser.md#error-recovery).
-- Follow the data from input to parse result: [Between Stages](../on-token-match.md#data-flow-summary).
+- Follow the data from input to parse result: [Between Stages](../between-stages.md#data-flow-summary).

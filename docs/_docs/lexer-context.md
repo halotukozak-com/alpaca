@@ -114,7 +114,7 @@ val lexemes = lexed.getOrThrow
 
 ## Accessing Context in Patterns
 
-Inside a `lexer[Ctx]:` block, the name `ctx` is implicitly available and refers to the current context object. You can read any field and assign to it -- the assignment is rewritten to a `copy`. Outside a lexer rule, `ctx` and `Token[...]` do not compile:
+Inside a `lexer[Ctx]:` block, the name `ctx` is implicitly available and refers to the current context object. You can read any field and assign to it -- the assignment is rewritten to a `copy`. `ctx` and `Token[...]` compile only inside a lexer rule, like these:
 
 ```scala sc-compile-with:lc-brainlex
 val ExampleLexer = lexer[BrainLexContext]:
@@ -131,9 +131,7 @@ Lexer rules cannot have guards; check the context in the rule body instead, as a
 
 ## Context Snapshots in Lexemes
 
-Each `Lexeme` carries a snapshot of all context fields right after its rule body ran (see [The Lexeme Structure](lexer.md#the-lexeme-structure)), with one exception: fields with a `given Tracking` (such as `Line` and `Column`) hold their values from before the match, even if the rule body assigned them, so a lexeme describes where its token starts. Snapshots are independent: later changes to the context do not reach lexemes that were already produced. Accessing a field the context type does not have (e.g., `.brackets` with `LexerCtx.Default`) is a compile error.
-
-For custom contexts, all case class fields appear in the snapshot:
+Each lexeme carries a snapshot of the context's fields as they were right after its rule body ran; [The Lexeme Structure](lexer.md#the-lexeme-structure) describes the snapshot and its one exception, tracked fields. With a custom context, all of its case class fields appear in the snapshot:
 
 ```scala
 import halotukozak.alpaca.*
@@ -182,11 +180,13 @@ With this context, every lexeme carries `squareBrackets`, `column`, and `line`. 
 
 ## The Post-Match Update
 
-After every successful token match -- once the text cursor has already advanced past the matched text -- the lexer:
+After every successful token match, the lexer:
 
 1. applies each tracked field's `Tracking` update (`column`, `line`, and any custom fragments),
 2. applies the rule body's own context changes,
 3. records the lexeme snapshot, taking every tracked field from before step 1.
+
+So inside a rule body, `ctx.line` and `ctx.column` are already the position *after* the match, while the lexeme gets the position where the token starts.
 
 Steps 1 and 3 are derived by the `lexer` macro from the context's case fields -- there is nothing to wire up by hand.
 
@@ -213,7 +213,7 @@ object Indent:
 case class MyCtx(indent: Indent = Indent.Start) extends LexerCtx
 
 // Step 4: the lexer macro applies the update automatically
-val Lexer = lexer[MyCtx]:
+val MyLexer = lexer[MyCtx]:
   case "\t" => Token.Ignored
   case "\n" => Token.Ignored
   case id @ "[a-z]+" => Token["ID"](id)
@@ -240,11 +240,11 @@ object WideTabs:
     val width = lastLine.map(char => if char == '\t' then 4 else 1).sum
     if matched.contains('\n') then Column(1 + width) else Column(column + width)
 
-  val Lexer = lexer:
+  val MyLexer = lexer:
     case id @ "[a-z]+" => Token["ID"](id)
     case "\\s+" => Token.Ignored
 
-val lexemes = WideTabs.Lexer.tokenize("ab\tcd").getOrThrow
+val lexemes = WideTabs.MyLexer.tokenize("ab\tcd").getOrThrow
 // lexemes(1).column == 7
 ```
 
@@ -257,12 +257,12 @@ For cases where you need no tracking at all -- no column, no line counter, no cu
 ```scala
 import halotukozak.alpaca.*
 
-val Lexer = lexer[LexerCtx.Empty]:
+val MyLexer = lexer[LexerCtx.Empty]:
   case "\\+" => Token["inc"]
   case "." => Token.Ignored
 
-val lexemes = Lexer.tokenize("+ +").getOrThrow
+val lexemes = MyLexer.tokenize("+ +").getOrThrow
 // lexemes(0).text == "+"  -- no context fields: no column, no line
 ```
 
-See [Between Stages](on-token-match.md) to learn how context snapshots in lexemes flow into the parser.
+See [Between Stages](between-stages.md) to learn how context snapshots in lexemes flow into the parser.

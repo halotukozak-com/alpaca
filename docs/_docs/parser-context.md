@@ -67,7 +67,7 @@ Three rules apply:
 
 ## Accessing Context in Rule Bodies
 
-The `ctx` identifier is available inside every `rule { case ... }` body, typed as your specific `ParserCtx` subtype:
+The `ctx` identifier is available inside every production's body, typed as your specific `ParserCtx` subtype:
 
 ```scala sc-name:brain-parser-ctx-example sc-compile-with:brain-defs
 import halotukozak.alpaca.*
@@ -120,6 +120,6 @@ The initial context is created once per `parse()` call. There is no per-rule cop
 
 ## Positional Info from Lexemes, Not ctx
 
-`ParserCtx` and `LexerCtx` are independent: the parser context has no `text`, `column`, or `line`. Positions come from the lexemes a rule binds -- `name.column` and `name.line` after `BrainLexer.functionName(name)`, when the lexer context tracks them (see [Lexeme Bindings](extractors.md#lexeme-bindings)).
+`ParserCtx` and `LexerCtx` are independent: the parser context has no `column` or `line`. Positions come from the lexemes a rule binds -- `name.column` and `name.line` after `BrainLexer.functionName(name)`, when the lexer context tracks them (see [Lexeme Bindings](extractors.md#lexeme-bindings)).
 
 See [Parser](parser.md) for grammar rules and [Extractors](extractors.md) for EBNF operators.

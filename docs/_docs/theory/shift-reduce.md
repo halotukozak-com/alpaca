@@ -70,7 +70,7 @@ The lookahead in each item determines when a reduce fires. Three example items i
 [Expr → Expr • PLUS Expr, $]   — Expr on stack; shift PLUS if it follows
 ```
 
-In Step 2 of the trace, the item `[Expr → NUMBER •, PLUS]` is active. The lookahead `PLUS` matches the actual next token, so the reduce fires. If the next token were `$` instead (input `1` with no operator), the parser would use item `[Expr → NUMBER •, $]` to reduce — a different item with a different lookahead. This per-item lookahead is what LR(1) and Alpaca's LALR(1) have in common; see [Why LR?](why-lr.md) for how the two differ.
+In Step 2 of the trace, the item `[Expr → NUMBER •, PLUS]` is active. The lookahead `PLUS` matches the actual next token, so the reduce fires. If the next token were `$` instead (input `1` with no operator), the parser would use item `[Expr → NUMBER •, $]` to reduce — a different item with a different lookahead. This per-item lookahead is what LR(1) and Alpaca's LALR(1) have in common; see [Why LR Parsing](why-lr.md) for how the two differ.
 
 ## Connection to Alpaca's Runtime
 
@@ -100,9 +100,9 @@ The typed result flows naturally from the bottom up: each reduce step calls a se
 
 ## Cross-links
 
-- See [Why LR?](why-lr.md) for why LR parsing handles left-recursive grammars where top-down parsers fail.
+- See [Why LR Parsing](why-lr.md) for why LR parsing handles left-recursive grammars where top-down parsers fail.
 - See [Context-Free Grammars](cfg.md) for the grammar that drives this parser.
 - See [Conflict Resolution](../conflict-resolution.md) for how Alpaca resolves the shift/reduce conflict in the grammar above.
 - See [Parser](../parser.md) for the complete `rule` DSL reference — how productions map to Alpaca syntax.
 - See [The Compilation Pipeline](pipeline.md) for where the shift-reduce loop fits in the broader tokenize → parse → result flow.
-- Next: [Conflicts and Disambiguation](conflicts.md) — why ambiguous grammars trigger shift/reduce conflicts
+- Next: [Why LR Parsing](why-lr.md) — why LR parsing was chosen over top-down alternatives.

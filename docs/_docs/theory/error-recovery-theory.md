@@ -129,3 +129,4 @@ object BrainParser extends Parser[BrainParserCtx]:
 - See [Error Recovery](../lexer-error-recovery.md) for the lexer error handling API.
 - See [Parser](../parser.md) for the `parse()` return type and what happens on invalid input.
 - See [Parser Context](../parser-context.md) for accumulating semantic errors in a custom context.
+- Next: [Attribute Grammars](attribute-grammars.md) — synthesized and inherited attributes in Alpaca terms.

@@ -93,23 +93,24 @@ Define a parser by extending the `Parser` class and defining grammar rules:
 import halotukozak.alpaca.*
 
 object MyParser extends Parser:
-  val root: Rule[Double] = rule { case Expr(e) => e }
+  val root: Rule[Double] = rule:
+    case Expr(e) => e
 
   val Expr: Rule[Double] = rule(
     { case (Expr(l), MyLexer.PLUS(_), Term(r)) => l + r },
     { case (Expr(l), MyLexer.MINUS(_), Term(r)) => l - r },
-    { case Term(t) => t }
+    { case Term(t) => t },
   )
 
   val Term: Rule[Double] = rule(
     { case (Term(l), MyLexer.STAR(_), Factor(r)) => l * r },
     { case (Term(l), MyLexer.SLASH(_), Factor(r)) => l / r },
-    { case Factor(f) => f }
+    { case Factor(f) => f },
   )
 
   val Factor: Rule[Double] = rule(
     { case MyLexer.NUM(n) => n.value },
-    { case (MyLexer.LP(_), Expr(e), MyLexer.RP(_)) => e }
+    { case (MyLexer.LP(_), Expr(e), MyLexer.RP(_)) => e },
   )
 ```
 
@@ -131,6 +132,8 @@ The full documentation is at [alpaca.halotukozak.com](https://alpaca.halotukozak
 - **[Getting Started](https://alpaca.halotukozak.com/docs/getting-started.html)** — build a BrainFuck interpreter step by step
 - **[Lexer](https://alpaca.halotukozak.com/docs/lexer/index.html)** — the full lexer DSL reference
 - **[Parser](https://alpaca.halotukozak.com/docs/parser/index.html)** — grammar rules, EBNF operators, conflict resolution
+- **[Tooling](https://alpaca.halotukozak.com/docs/tooling/index.html)** — debug output and the IntelliJ plugin
+- **[Cookbook](https://alpaca.halotukozak.com/docs/cookbook/index.html)** — complete examples: an expression evaluator, a JSON parser, contextual lexing
 - **[Theory](https://alpaca.halotukozak.com/docs/theory/index.html)** — formal foundations: finite automata, LR parsing, parse tables
 
 ## Benchmarks

@@ -151,6 +151,6 @@ non-terminals (`Expr`, `root`) become `Rule[Double]` values; the type parameter 
 ## Cross-links
 
 - See [Tokens and Lexemes](tokens.md) for how the terminal symbols (NUMBER, PLUS, etc.) are produced by the lexer.
-- Next: [Why LR?](why-lr.md) — why LR parsing was chosen over top-down alternatives.
+- Next: [EBNF and Extended Notations](ebnf-extended-notations.md) — repetition and optional notation, and how `.List` and `.Option` expand.
 - See [Parser](../parser.md) for the complete `rule` DSL reference and all extractor forms.
 - See [Conflict Resolution](../conflict-resolution.md) for how Alpaca resolves ambiguity in the calculator grammar.

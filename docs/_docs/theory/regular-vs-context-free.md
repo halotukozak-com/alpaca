@@ -68,3 +68,4 @@ The lexer emits a flat stream of tokens. The parser gives them structure.
 
 - See [The Lexer: Regex to Finite Automata](lexer-fa.md) for how Alpaca compiles regex into automata.
 - See [Context-Free Grammars](cfg.md) for the formal definition of CFGs and how Alpaca maps them to parser rules.
+- Next: [Context-Free Grammars](cfg.md) — the formal definition of grammars and how Alpaca rules map to them.

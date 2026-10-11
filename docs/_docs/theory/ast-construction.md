@@ -141,12 +141,12 @@ class Memory(
 extension (ast: BrainAST)
   def eval(mem: Memory): Unit = ast match
     case BrainAST.Root(ops)  => ops.foreach(_.eval(mem))
-    case BrainAST.Next       => mem.pointer = (mem.pointer + 1) % mem.cells.length
-    case BrainAST.Prev       => mem.pointer = (mem.pointer - 1 + mem.cells.length) % mem.cells.length
+    case BrainAST.Next       => mem.pointer = (mem.pointer + 1) & 0xff
+    case BrainAST.Prev       => mem.pointer = (mem.pointer - 1) & 0xff
     case BrainAST.Inc        => mem.cells(mem.pointer) = (mem.cells(mem.pointer) + 1) & 0xff
     case BrainAST.Dec        => mem.cells(mem.pointer) = (mem.cells(mem.pointer) - 1) & 0xff
     case BrainAST.Print      => print(mem.cells(mem.pointer).toChar)
-    case BrainAST.Read       => mem.cells(mem.pointer) = scala.io.StdIn.readChar().toInt & 0xff
+    case BrainAST.Read       => mem.cells(mem.pointer) = scala.io.StdIn.readChar() & 0xff
     case BrainAST.While(ops) => while mem.cells(mem.pointer) != 0 do ops.foreach(_.eval(mem))
     case BrainAST.FunctionDef(name, ops) => mem.functions += (name -> ops)
     case BrainAST.FunctionCall(name) =>
@@ -173,3 +173,4 @@ For most real languages, building an AST is the right choice. Direct computation
 
 - See [Semantic Actions](semantic-actions.md) for how Alpaca executes `case` bodies during reductions.
 - See [Getting Started](../getting-started.md) for the complete BrainFuck AST and evaluator.
+- Next: [Operator Precedence Grammars](operator-precedence.md) — precedence and associativity as conflict resolutions.

@@ -93,23 +93,24 @@ Define a parser by extending the `Parser` class and defining grammar rules:
 import halotukozak.alpaca.*
 
 object MyParser extends Parser:
-  val root: Rule[Double] = rule { case Expr(e) => e }
+  val root: Rule[Double] = rule:
+    case Expr(e) => e
 
   val Expr: Rule[Double] = rule(
     { case (Expr(l), MyLexer.PLUS(_), Term(r)) => l + r },
     { case (Expr(l), MyLexer.MINUS(_), Term(r)) => l - r },
-    { case Term(t) => t }
+    { case Term(t) => t },
   )
 
   val Term: Rule[Double] = rule(
     { case (Term(l), MyLexer.STAR(_), Factor(r)) => l * r },
     { case (Term(l), MyLexer.SLASH(_), Factor(r)) => l / r },
-    { case Factor(f) => f }
+    { case Factor(f) => f },
   )
 
   val Factor: Rule[Double] = rule(
     { case MyLexer.NUM(n) => n.value },
-    { case (MyLexer.LP(_), Expr(e), MyLexer.RP(_)) => e }
+    { case (MyLexer.LP(_), Expr(e), MyLexer.RP(_)) => e },
   )
 ```
 
@@ -129,6 +130,8 @@ println(result) // 14.0
 - **[Getting Started](getting-started.md)** — build a BrainFuck interpreter step by step
 - **[Lexer](lexer.md)** — the full lexer DSL reference
 - **[Parser](parser.md)** — grammar rules, EBNF operators, conflict resolution
+- **[Tooling](tooling.md)** — debug output and the IntelliJ plugin
+- **[Cookbook](cookbook/index.md)** — complete examples: an expression evaluator, a JSON parser, contextual lexing
 - **[Theory](theory/index.md)** — formal foundations: finite automata, LR parsing, parse tables
 
 ## Authors

@@ -125,3 +125,4 @@ For purely synthesized computations (calculators, AST construction), Alpaca's `R
 - See [Semantic Actions](semantic-actions.md) for how Alpaca executes attribute computations during reductions.
 - See [Parser Context](../parser-context.md) for the `ParserCtx` API.
 - See [AST Construction Patterns](ast-construction.md) for when to compute values inline vs build a tree.
+- Next: [Full Calculator Example](full-example.md) — the complete CalcParser with all semantic actions assembled and running.
