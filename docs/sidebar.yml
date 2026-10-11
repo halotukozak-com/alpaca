@@ -36,6 +36,8 @@ subsection:
         page: cookbook/json-parser.md
       - title: Contextual Lexing
         page: cookbook/contextual-lexing.md
+      - title: Common Problems
+        page: cookbook/common-problems.md
   - title: Theory
     index: theory/index.md
     subsection:

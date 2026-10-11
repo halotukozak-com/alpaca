@@ -60,12 +60,12 @@ For a detailed explanation of items and lookahead, see [The Shift-Reduce Loop](s
 
 Resolving a conflict means declaring which action wins. For a shift/reduce conflict: should the reduction or the shift take priority?
 
-Alpaca's `before`/`after` DSL lets you declare priorities directly in the parser definition:
+Alpaca's `before`/`after` DSL lets you declare priorities in a `given Resolutions` next to the parser:
 
 - `production.name.before(tokens*)` — when the conflict is between reducing `name` and shifting one of those tokens, the reduction wins. Use this for left-associativity and higher-precedence reductions.
 - `production.name.after(tokens*)` — prefer shifting those tokens over reducing this production. Use this when another operator should bind more tightly.
 
-Priorities are transitive: if reducing `times` beats shifting `PLUS`, and reducing `plus` beats shifting `MINUS`, then the precedence relationships propagate through the graph.
+Priorities are transitive: if reducing `times` beats shifting `PLUS`, and shifting `PLUS` beats reducing `plus`, then reducing `times` beats reducing `plus`, although no rule names that pair. [Transitivity and Cycle Detection](operator-precedence.md#transitivity-and-cycle-detection) works through a longer chain.
 
 A minimal example — declaring left-associativity for the `plus` production:
 

@@ -18,10 +18,8 @@ import scala.util.Using
  * can efficiently skip over processed characters.
  *
  * Like the `Reader` it wraps, it is consumed as it is read. Create it with [[LazyReader.from]].
- *
- * @param reader the underlying Reader to read from
- * @param size   the exact number of chars `reader` yields
  */
+// `reader` is the underlying Reader to read from; `size` is the exact number of chars it yields.
 final class LazyReader private[alpaca] (reader: Reader, private var size: Long) extends CharSequence, Closeable:
   private val buffer = mutable.ArrayDeque.empty[Char]
   private val chunk = new Array[Char](8192)
