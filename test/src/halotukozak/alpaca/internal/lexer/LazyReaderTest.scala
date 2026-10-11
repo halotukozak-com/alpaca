@@ -2,7 +2,7 @@ package halotukozak
 package alpaca.internal.lexer
 
 import halotukozak.alpaca.internal.lexer.LazyReader
-import halotukozak.alpaca.{lexer, withLazyReader, Token}
+import halotukozak.alpaca.{lexer, withLazyReader, ErrorHandling, LexerCtx, LexerError, Result, Token}
 import org.scalatest.funsuite.AnyFunSuite
 
 import java.io.StringReader
@@ -124,6 +124,54 @@ final class LazyReaderTest extends AnyFunSuite:
 
     withLazyReader(input): lazyReader =>
       assert(Lexer.tokenize(lazyReader).getOrThrow.map(_.text) == Lexer.tokenize(input).getOrThrow.map(_.text))
+  }
+
+  test("lexer errors and peek past the compaction threshold are the same as for the String") {
+    var peeked = List.empty[String]
+    given ErrorHandling[LexerCtx.Default, LexerError] = (ctx, _) =>
+      peeked = peeked :+ ctx.peek(5)
+      ErrorHandling.Strategy.SkipOne
+
+    val Lexer = lexer:
+      case w @ "[a-z]+" => Token["WORD"](w)
+      case "\\s+" => Token.Ignored
+    val line = "word " * 10 + "\n"
+    // the first error comes after more than 64K chars have been consumed and compacted away
+    val input = line * 1500 + "!word\n" + line * 10 + "?"
+
+    def errorsOf(text: CharSequence) = Lexer.tokenize(text) match
+      case Result.Failure(_, _, errors) => errors.map(error => (error.unexpected, error.line, error.column))
+      case Result.Success(_, _) => fail("expected a failure")
+
+    val fromReader = withLazyReader(input)(errorsOf)
+    assert(fromReader == List(("!", 1501, 1), ("?", 1512, 1)))
+    assert(peeked == List("!word", "?"))
+    peeked = Nil
+    assert(errorsOf(input) == fromReader)
+    assert(peeked == List("!word", "?"))
+  }
+
+  test("a surrogate pair split across two reads is one code point") {
+    // the reader is read 8192 chars at a time, so the emoji's two chars arrive in different reads
+    val input = "a" * 8191 + "😀" + "a"
+    assert(input.charAt(8191).isHighSurrogate)
+
+    val Lexer = lexer:
+      case a @ "a+" => Token["A"](a)
+      case "😀" => Token["EMOJI"]
+    withLazyReader(input): lazyReader =>
+      assert(
+        Lexer.tokenize(lazyReader).getOrThrow.map(lexeme => (lexeme.name, lexeme.text.length, lexeme.column)) ==
+          List(("A", 8191, 1), ("EMOJI", 2, 8192), ("A", 1, 8193)),
+      )
+
+    val OnlyA = lexer:
+      case a @ "a+" => Token["A"](a)
+    withLazyReader(input): lazyReader =>
+      OnlyA.tokenize(lazyReader) match
+        case Result.Failure(_, _, errors) =>
+          assert(errors.map(error => (error.unexpected, error.column)) == List(("😀", 8192)))
+        case Result.Success(_, _) => fail("expected a failure")
   }
 
   test("tokenizing a LazyReader consumes it") {

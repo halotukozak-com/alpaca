@@ -121,7 +121,7 @@ given Resolutions[CalcParser.type] = resolutions(
 )
 ```
 
-The name must be a string literal placed immediately before the brace; a name held in a variable is a compile error. Not all productions need names -- only those you reference in `resolutions`. Referencing an undefined name produces: _"Production with name 'typo' not found"_.
+The name must be a string literal placed immediately before the brace; a name held in a variable is a compile error. Not all productions need names -- only those you reference in `resolutions`. Referencing an undefined name, such as `production.typo`, is a compile error: _"value typo is not a member of ..."_.
 
 ## The before/after DSL
 

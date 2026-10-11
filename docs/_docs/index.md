@@ -19,7 +19,7 @@ A type-safe lexer and parser library for Scala 3, featuring compile-time validat
 Add Alpaca as a dependency in your `build.mill`:
 
 ```mill
-//| mill-version: 1.1.10
+//| mill-version: 1.3.0
 //| mill-jvm-version: 21
 
 import mill._

@@ -35,7 +35,7 @@ import scala.reflect.NameTransformer
  * in the first place: the real setter is used directly, the assignment
  * mutates in place, and this class leaves it untouched.
  *
- * Engine-internal bookkeeping (`text`, `lastRawMatched`, `lastLexeme`) is
+ * Engine-internal bookkeeping (`input`, `lastRawMatched`, `lastLexeme`) is
  * ''not'' preserved by a `case class`'s generated `copy()` — it only knows
  * about its own constructor fields. Each rewritten update therefore carries
  * it over explicitly (see `LexerCtx.carryEngineStateFrom`), so that e.g. a
