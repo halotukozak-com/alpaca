@@ -47,25 +47,30 @@ private[parser] type Binding[B] = (bind: Option[B], adapt: Expr[Any] => Expr[Any
  * Analyzes a single pattern from a parser rule definition during macro expansion,
  * extracting the grammar symbol it matches (terminal or non-terminal) together
  * with any EBNF desugaring (`Option`, `List`, `SeparatedBy`) it requires.
+ *
+ * Gives `None` for a pattern of a known shape that is reported as invalid, so that its production is skipped.
  */
 private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, Diagnostics): PartialFunction[
   quotes.reflect.Tree,
-  (
-    symbol: parser.Symbol.NonEmpty,
-    binding: Binding[quotes.reflect.Bind],
-    others: List[ProductionWithAction[Ctx]],
-  ),
+  Option[
+    (
+      symbol: parser.Symbol.NonEmpty,
+      binding: Binding[quotes.reflect.Bind],
+      others: List[ProductionWithAction[Ctx]],
+    ),
+  ],
 ] = {
   import quotes.reflect.*
 
-  def symbolFromType(separator: TypeTree): parser.Symbol.NonEmpty = separator.tpe.dealias.widen.asType match
-    case '[type name <: ValidName; Token[name, ?, ?]] => Terminal(Printable(ValidName.from[name]))
-    case '[Rule[?]] => NonTerminal(Printable(NameTransformer.decode(separator.tpe.termSymbol.name)))
+  def symbolFromType(separator: TypeTree): Option[parser.Symbol.NonEmpty] = separator.tpe.dealias.widen.asType match
+    case '[type name <: ValidName; Token[name, ?, ?]] => Some(Terminal(Printable(ValidName.from[name])))
+    case '[Rule[?]] => Some(NonTerminal(Printable(NameTransformer.decode(separator.tpe.termSymbol.name))))
     case _ =>
-      errorAndAbort(
+      error(
         show"SeparatedBy separator must be a Token or Rule type, but got: ${separator.tpe.show.showRaw}",
         separator.pos,
       )
+      None
 
   type SymbolExtractor = PartialFunction[Tree, (name: String, bind: Option[Bind], extractor: String | Null)]
 
@@ -106,13 +111,14 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
       case Apply(q @ Extractor.Name(extractor), List(Extractor.Name(name))) => (q, name, extractor)
       case q @ Extractor.Name(name) => (q, name, null)
 
-    val SeparatedBy: PartialFunction[Tree, (element: parser.Symbol.NonEmpty, separator: parser.Symbol.NonEmpty)] =
+    // the separator is only read in the case using it, so an invalid one is reported once
+    val SeparatedBy: PartialFunction[Tree, (element: parser.Symbol.NonEmpty, separator: TypeTree)] =
       case TypeApply(Select(q @ Extractor.Name(name), Names.SeparatedBy), List(separator)) =>
         val decoded = NameTransformer.decode(name)
         val element: parser.Symbol.NonEmpty =
           if q.tpe <:< TypeRepr.of[Token[?, ?, ?]] then parser.Terminal(Printable(decoded))
           else parser.NonTerminal(Printable(decoded))
-        (element, symbolFromType(separator))
+        (element, separator)
 
     val Bind: PartialFunction[Tree, Option[Bind]] =
       case bind: Bind => Some(bind)
@@ -127,59 +133,62 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
   {
     case pattern @ skipTypedOrTest(
           Unapply(
-            Select(Extractor.WithoutScope(Extractor.SeparatedBy(element, separator)), Names.Unapply),
+            Select(Extractor.WithoutScope(Extractor.SeparatedBy(element, separatorType)), Names.Unapply),
             _,
             List(Extractor.Bind(bind)),
           ),
         ) =>
-      val source = Source(pattern.pos)
-      val synthetic = NonTerminal.synthetic("SeparatedBy", element, separator)
-      val nonEmpty = NonTerminal.synthetic("SeparatedBy.nonEmpty", element, separator)
-      (
-        symbol = synthetic,
-        binding = (bind = bind, adapt = identity),
-        others = List(
-          (
-            production = Production.Empty(synthetic),
-            source = source,
-            action = '{ emptyRepeatedAction },
+      symbolFromType(separatorType).map: separator =>
+        val source = Source(pattern.pos)
+        val synthetic = NonTerminal.synthetic("SeparatedBy", element, separator)
+        val nonEmpty = NonTerminal.synthetic("SeparatedBy.nonEmpty", element, separator)
+        (
+          symbol = synthetic,
+          binding = (bind = bind, adapt = identity),
+          others = List(
+            (
+              production = Production.Empty(synthetic),
+              source = source,
+              action = '{ emptyRepeatedAction },
+            ),
+            (
+              production = Production.NonEmpty(synthetic, NEL(nonEmpty)),
+              source = source,
+              action = '{ reverseAction },
+            ),
+            (
+              production = Production.NonEmpty(nonEmpty, NEL(element)),
+              source = source,
+              action = '{ headAction },
+            ),
+            (
+              production = Production.NonEmpty(nonEmpty, NEL(nonEmpty, separator, element)),
+              source = source,
+              action = '{ separatedByAction },
+            ),
           ),
-          (
-            production = Production.NonEmpty(synthetic, NEL(nonEmpty)),
-            source = source,
-            action = '{ reverseAction },
-          ),
-          (
-            production = Production.NonEmpty(nonEmpty, NEL(element)),
-            source = source,
-            action = '{ headAction },
-          ),
-          (
-            production = Production.NonEmpty(nonEmpty, NEL(nonEmpty, separator, element)),
-            source = source,
-            action = '{ separatedByAction },
-          ),
-        ),
-      )
+        )
 
     case Extractor.NonTerminal(name, bind, null) =>
-      (symbol = NonTerminal(Printable(name)), binding = (bind = bind, adapt = identity), others = Nil)
+      Some((symbol = NonTerminal(Printable(name)), binding = (bind = bind, adapt = identity), others = Nil))
 
     case Extractor.Terminal(name, bind, null) =>
-      (symbol = Terminal(Printable(name)), binding = (bind = bind, adapt = identity), others = Nil)
+      Some((symbol = Terminal(Printable(name)), binding = (bind = bind, adapt = identity), others = Nil))
 
     case pattern @ Extractor.Symbol(symbol, bind, Names.Option) =>
       val source = Source(pattern.pos)
       val synthetic = NonTerminal.synthetic("Option", symbol)
-      (
-        symbol = synthetic,
-        binding = (bind = bind, adapt = identity),
-        others = List(
-          (production = Production.Empty(synthetic), source = source, action = '{ noneAction }),
-          (
-            production = Production.NonEmpty(synthetic, NEL(symbol)),
-            source = source,
-            action = '{ someAction },
+      Some(
+        (
+          symbol = synthetic,
+          binding = (bind = bind, adapt = identity),
+          others = List(
+            (production = Production.Empty(synthetic), source = source, action = '{ noneAction }),
+            (
+              production = Production.NonEmpty(synthetic, NEL(symbol)),
+              source = source,
+              action = '{ someAction },
+            ),
           ),
         ),
       )
@@ -187,15 +196,17 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
     case pattern @ Extractor.Symbol(symbol, bind, Names.List) =>
       val source = Source(pattern.pos)
       val synthetic = NonTerminal.synthetic("List", symbol)
-      (
-        symbol = synthetic,
-        binding = (bind = bind, adapt = v => '{ $v.asInstanceOf[List[?]].reverse }),
-        others = List(
-          (production = Production.Empty(synthetic), source = source, action = '{ emptyRepeatedAction }),
-          (
-            production = Production.NonEmpty(synthetic, NEL(synthetic, symbol)),
-            source = source,
-            action = '{ repeatedAction },
+      Some(
+        (
+          symbol = synthetic,
+          binding = (bind = bind, adapt = v => '{ $v.asInstanceOf[List[?]].reverse }),
+          others = List(
+            (production = Production.Empty(synthetic), source = source, action = '{ emptyRepeatedAction }),
+            (
+              production = Production.NonEmpty(synthetic, NEL(synthetic, symbol)),
+              source = source,
+              action = '{ repeatedAction },
+            ),
           ),
         ),
       )

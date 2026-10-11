@@ -375,3 +375,54 @@ final class ParseTableTest extends AnyFunSuite with Matchers with LoneElement:
     separator.lineContent.trim shouldBe "case Num.SeparatedBy[Int](items) => items"
     separator.column shouldBe 29
   }
+
+  test("every invalid SeparatedBy separator is reported, without follow-up errors") {
+    typeCheckErrors("""
+    object SeparatorsParser extends Parser[CalcContext]:
+      val Num = rule:
+        case CalcLexer.Num(lexem) => lexem.value
+      val Nums = rule:
+        case Num.SeparatedBy[String](items) => items
+      val root = rule:
+        case (Nums(first), Num.SeparatedBy[Int](items)) => first ++ items
+    """).map(error => (error.message, error.lineContent.trim)) shouldBe List(
+      (
+        "SeparatedBy separator must be a Token or Rule type, but got: scala.Int\n(at line 8: Int)",
+        "case (Nums(first), Num.SeparatedBy[Int](items)) => first ++ items",
+      ),
+      (
+        "SeparatedBy separator must be a Token or Rule type, but got: scala.Predef.String\n(at line 6: String)",
+        "case Num.SeparatedBy[String](items) => items",
+      ),
+    )
+  }
+
+  test("every invalid reference in the resolutions is reported, without an unresolved conflict") {
+    typeCheckErrors("""
+    object BadReferencesParser extends Parser[CalcContext]:
+      val Expr: Rule[Int] = rule(
+        { case (Expr(a), CalcLexer.`+`(_), Expr(b)) => a + b },
+        { case CalcLexer.Num(lexem) => lexem.value },
+      )
+      val root = rule:
+       case Expr(e) => e
+
+    given Resolutions[BadReferencesParser.type] = resolutions(
+      P(CalcLexer.Num, CalcLexer.Num).before(P(CalcLexer.`+`)),
+      if true then CalcLexer.`+`.before(CalcLexer.Num) else CalcLexer.Num.before(CalcLexer.`+`),
+    )
+    """).map(error => (error.message, error.lineContent.trim)) shouldBe List(
+      (
+        "Each conflict resolution must be a direct `x.before(...)` or `x.after(...)` call\n(at line 12: if true then CalcLexer.`+`.before(CalcLexer.Num) else CalcLexer.Num.before(CalcLexer.`+`))",
+        "if true then CalcLexer.`+`.before(CalcLexer.Num) else CalcLexer.Num.before(CalcLexer.`+`),",
+      ),
+      (
+        "Production with RHS '+' not found\n(at line 11: P(CalcLexer.`+`))",
+        "P(CalcLexer.Num, CalcLexer.Num).before(P(CalcLexer.`+`)),",
+      ),
+      (
+        "Production with RHS 'Num Num' not found\n(at line 11: P(CalcLexer.Num, CalcLexer.Num))",
+        "P(CalcLexer.Num, CalcLexer.Num).before(P(CalcLexer.`+`)),",
+      ),
+    )
+  }

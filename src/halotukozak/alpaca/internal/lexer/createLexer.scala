@@ -182,7 +182,9 @@ import scala.reflect.NameTransformer
 
       acc ::: pairs
 
-    case (_, CaseDef(_, Some(guard), _)) => errorAndAbort(show"Guards are not supported yet", guard.pos)
+    case (acc, CaseDef(_, Some(guard), _)) =>
+      error(show"Guards are not supported yet", guard.pos)
+      acc
 
   // A token name in quotes, readable even when it holds a tab or another non-printable character.
   def quote(name: Printable): Shown = show"\"$name\""

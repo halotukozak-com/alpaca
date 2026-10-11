@@ -65,6 +65,38 @@ final class ParserMacroErrorsTest extends AnyFunSuite with Matchers with LoneEle
       "Guards are not supported yet\n(at line 3: case ErrLexer.NUM(n) if n.value > 0 => n.value)"
   }
 
+  test("every production with more than one case is reported, without follow-up errors") {
+    typeCheckErrors("""
+    object MultiCaseParser extends Parser:
+      val Num: Rule[Int] = rule({ case ErrLexer.NUM(n) => n.value; case ErrLexer.PLUS(_) => 0 })
+      val root: Rule[Int] = rule({ case Num(n) => n; case ErrLexer.TIMES(_) => 0 })
+    """).map(error => (error.message.linesIterator.next(), error.lineContent.trim)) shouldBe List(
+      (
+        "Each production must have exactly one case. Split multiple cases into separate productions:",
+        "val root: Rule[Int] = rule({ case Num(n) => n; case ErrLexer.TIMES(_) => 0 })",
+      ),
+      (
+        "Each production must have exactly one case. Split multiple cases into separate productions:",
+        "val Num: Rule[Int] = rule({ case ErrLexer.NUM(n) => n.value; case ErrLexer.PLUS(_) => 0 })",
+      ),
+    )
+  }
+
+  test("every production that is not a `case` lambda is reported, without follow-up errors") {
+    typeCheckErrors("""
+    object ReferencedProductionParser extends Parser:
+      val first: ProductionDefinition[Int] = { case ErrLexer.NUM(n) => n.value }
+      val second: ProductionDefinition[Int] = { case ErrLexer.PLUS(_) => 0 }
+      val root: Rule[Int] = rule(
+        first,
+        second,
+      )
+    """).map(error => (error.message.linesIterator.next(), error.lineContent.trim)) shouldBe List(
+      ("Unexpected production definition: ReferencedProductionParser.this.second", "second,"),
+      ("Unexpected production definition: ReferencedProductionParser.this.first", "first,"),
+    )
+  }
+
   test("every rule declared as a `def`, with or without parameters, is reported at its declaration") {
     val errors = typeCheckErrors("""
     object DefRuleParser extends Parser:

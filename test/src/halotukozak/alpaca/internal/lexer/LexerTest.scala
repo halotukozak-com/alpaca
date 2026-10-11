@@ -467,6 +467,18 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
     guard.column shouldBe 18
   }
 
+  test("every guard in a lexer is reported, without follow-up errors") {
+    typeCheckErrors("""
+    val GuardedLexer = lexer:
+      case "a" if true => Token["a"]
+      case "b" => Token["b"]
+      case "c" if false => Token["c"]
+    """).map(error => (error.message, error.lineContent.trim)) shouldBe List(
+      ("Guards are not supported yet", "case \"c\" if false => Token[\"c\"]"),
+      ("Guards are not supported yet", "case \"a\" if true => Token[\"a\"]"),
+    )
+  }
+
   test("invalid token name is reported at its case") {
     val invalid: scala.compiletime.testing.Error = typeCheckErrors("""
     val UnderscoreLexer = lexer:
