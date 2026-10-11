@@ -121,11 +121,9 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
   @publicInBinary
   private[alpaca] def matcher: TokenMatcher
 
-  private lazy val tokensArray: Vector[Token[?, Ctx, ?]] = tokens.toVector
-
-  /** The token at `index` in [[tokens]]; generated `selectDynamic` looks tokens up by index. */
+  /** [[tokens]] with indexed access; generated `selectDynamic` looks tokens up by index. */
   @publicInBinary
-  private[alpaca] final def tokenAt(index: Int): Token[?, Ctx, ?] = tokensArray(index)
+  private[alpaca] lazy val tokensArray: Vector[Token[?, Ctx, ?]] = tokens.toVector
 
   private val fieldNames: Array[String] = initialCtx().productElementNames.toArray
 
