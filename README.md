@@ -65,6 +65,20 @@ import halotukozak.alpaca.*
 // Your code here
 ```
 
+### Scala.js and Scala Native
+
+Alpaca is also published for Scala.js 1 and Scala Native 0.5 (built with Scala.js 1.22.0 and Scala Native 0.5.12). The
+same dependency works there, with `%%%` in sbt:
+
+```sbt
+libraryDependencies += "com.halotukozak" %%% "alpaca" % "1.0.0-RC2"
+```
+
+In Mill, the `mvn"com.halotukozak::alpaca::1.0.0-RC2"` line above picks the right artifact in a `ScalaJSModule` or
+`ScalaNativeModule`. In Scala CLI, add `//> using platform js` (or `native`) and write the dependency with two colons
+before the version: `//> using dep "com.halotukozak::alpaca::1.0.0-RC2"`. The `-Yretain-trees` flag is needed on every
+platform.
+
 ## Quick Start
 
 ### Creating a Lexer

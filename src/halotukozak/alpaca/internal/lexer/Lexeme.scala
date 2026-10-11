@@ -8,24 +8,19 @@ import halotukozak.alpaca.internal.ValidName
 import scala.NamedTuple.AnyNamedTuple
 
 /**
- * A lexeme represents a token that has been matched and extracted from the input.
+ * A token matched in the input, as `tokenize` returns it: the token's name, its value, the matched text, and the
+ * lexer context's fields, read by name (`lexeme.line` when the context has a `line` field). In a signature, write a
+ * lexer's lexemes as `MyLexer.Lexeme` to keep those fields.
  *
- * A lexeme contains the token's name and the value that was extracted from
- * the matched text. This is the output of the tokenization process.
- *
- * Fields exposed via `selectDynamic` are kept as two parallel arrays plus the
- * matched `text` rather than a `Map[String, Any]`, so every token match only
- * allocates one small `Array[Any]` for the values (field names are cached
- * per-context-class). Lookup is a linear scan, which is optimal for the
- * tiny field counts typical of `LexerCtx` subclasses.
- *
- * The context fields are a snapshot taken after the rule body ran, except that a field with a [[Tracking]] given
- * keeps its value from before the match (even if the rule body assigned it), so it describes where the token starts.
+ * The context fields are a snapshot taken after the rule body ran, except that a tracked field, like `line` or
+ * `column`, keeps its value from before the match (even if the rule body assigned it), so it describes where the
+ * token starts.
  *
  * @tparam Name the token name type
  * @tparam Value the value type
  * @param name the token name
- * @param value the extracted value
+ * @param value the token's value: what the rule passed to `Token["NAME"](value)`, or `()`
+ * @param text the matched text
  */
 final class Lexeme[+Name <: ValidName, +Value] private[alpaca] (
   val name: Name,
@@ -34,6 +29,11 @@ final class Lexeme[+Name <: ValidName, +Value] private[alpaca] (
   private[alpaca] val fieldNames: Array[String],
   private[alpaca] val fieldValues: Array[Any],
 ) extends Selectable:
+  // Context fields are kept as two parallel arrays rather than a `Map[String, Any]`, so every token match only
+  // allocates one small `Array[Any]` for the values (field names are cached per context class). Lookup is a linear
+  // scan, which is optimal for the tiny field counts typical of contexts.
+
+  /** The lexer context's fields, which the lexeme carries; a lexer's own lexemes have them as `MyLexer.Lexeme`. */
   type Fields <: AnyNamedTuple
 
   /** Backs context field selection by name (`lexeme.NAME`); not meant to be called directly. */

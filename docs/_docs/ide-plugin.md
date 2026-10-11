@@ -59,6 +59,15 @@ Each file is a JSON envelope `{"version": ..., "context": ...}`: `context` holds
 
 Each token and production also records the line and file of the rule that defines it, which the Alpaca Grammar tool window uses to jump to it. The file is relative to the repository root (the nearest directory with a `.git` entry), so exports of the same code don't differ between checkouts; the plugin resolves it against the project base directory, then each content root. A source file outside any repository is recorded with its absolute path.
 
+Each plugin release reads one format version:
+
+| Alpaca | Export format | Plugin |
+|---|---|---|
+| 0.3.1 to 1.0.0-RC1 | 1 | 0.2.0, 0.2.1 |
+| 1.0.0-RC2 | 2 | none released |
+| 1.0.0-RC3 | 3 | none released |
+| later releases | 4 | releases after 0.2.1 |
+
 `<name>` identifies *where* the declaration lives, not just its own name: `<source-file>.<declaration-name>@L<line>`, e.g. a `val BrainLexer = lexer[...]` on line 12 of `Brainfuck.scala` exports as `Brainfuck.BrainLexer@L12`. This disambiguates two grammars that happen to share a name (a common `val Lexer = lexer[...]` reused across multiple test files, say) once they land in the same export directory.
 
 This env var is independent from `ALPACA_DEBUG_DIR` (see [Debug Settings](debug-settings.md)): one exports grammar *shape* for tooling to consume, the other dumps the constructed tables for you to read.

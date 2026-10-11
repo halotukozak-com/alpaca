@@ -48,9 +48,9 @@ given Resolutions[CalcParser.type] = resolutions(
 )
 ```
 
-It can also go inside the parser object, but only as its last member, after every rule. Declared any earlier in the object, it cannot see the rules: `production.plus` fails with "value plus is not a member of ...ProductionSelector", or the compiler asks you to "Define resolutions as the last field of the parser."
+It can also go inside the parser object. There, a `given` that uses `production.name` must be the last member, after every rule; declared any earlier, it reports "Define resolutions as the last field of the parser." A `given` that refers to productions only with [`Production(symbols*)`](#the-productionsymbols-selector) can go anywhere in the object.
 
-`production.name` inside `resolutions(...)` still refers to productions by name without qualification -- it is resolved by the inferred parser type `ParserType`, not by textual scope. Only bare non-terminal references passed to `Production(symbols*)` need to be qualified with the parser object's name (see [The Production(symbols*) Selector](#the-productionsymbols-selector)).
+`production.name` inside `resolutions(...)` refers to productions by name without qualification, wherever the `given` is declared -- it is resolved by the inferred parser type `ParserType`, not by textual scope. Rules passed to `Production(symbols*)` are ordinary Scala references, so outside the parser object they must be qualified with its name (see [The Production(symbols*) Selector](#the-productionsymbols-selector)).
 
 ## Reading the Error Messages
 
@@ -178,7 +178,7 @@ Reading `production.plus.before(CalcLexer.PLUS, CalcLexer.MINUS)`: when the pars
 
 ## The Production(symbols*) Selector
 
-For unnamed productions, use `Production(symbols*)` to identify them by their right-hand side. Because `resolutions` is declared *outside* the parser object (see [Where resolutions Live](#where-resolutions-live) above), non-terminals must be qualified with the parser object's name:
+For unnamed productions, use `Production(symbols*)` to identify them by their right-hand side. When the `given` is declared outside the parser object, as here, non-terminals must be qualified with the parser object's name:
 
 ```scala sc-compile-with:cr-plusminus-lexer
 import halotukozak.alpaca.Production as P

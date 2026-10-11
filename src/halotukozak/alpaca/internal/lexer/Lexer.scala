@@ -24,6 +24,7 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
   initialCtx: () => Ctx,
 )(using errorHandling: ErrorHandling[Ctx, alpaca.LexerError.Of[Ctx]],
 ) extends Selectable:
+  /** The lexer's tokens by name, as a named tuple: what `MyLexer.NAME` selects. */
   type Fields <: AnyNamedTuple
 
   /** The context fields every lexeme and error of this lexer carries, as a named tuple. */
@@ -51,7 +52,8 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
    * Processes the input from start to finish, matching tokens and building
    * a list of lexemes. Input that matches no token does not throw: it is
    * reported as a [[LexerError]], and the context's [[ErrorHandling]] decides
-   * whether tokenizing stops there or skips it and goes on.
+   * whether tokenizing stops there or skips it and goes on. An exception thrown
+   * by a rule body, such as a failed `require`, propagates out of `tokenize`.
    *
    * @param input the input to tokenize
    * @return the lexemes and the final lexer context, or the errors if any input did not match; with a recovering

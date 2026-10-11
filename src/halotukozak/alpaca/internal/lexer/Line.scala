@@ -11,11 +11,10 @@ package lexer
  * case class MyCtx(line: Line = Line.Start) extends LexerCtx
  * }}}
  *
- * [[Tracking.materialize]] finds the `given Tracking[Line]` below and applies it
- * to that field after every match, threading a functional `copy` -- so `line`
- * stays an immutable `val`. `Line <: Int`, so `ctx.line` reads as a plain `Int`
- * everywhere; assigning it inside a rule body (`ctx.line = Line(...)`) is
- * rewritten to a `copy` too.
+ * The lexer updates it after every match with the `given Tracking[Line]` below,
+ * so the field can stay an immutable `val`. `Line <: Int`, so `ctx.line` reads
+ * as a plain `Int` everywhere; a rule body can also assign it
+ * (`ctx.line = Line(...)`).
  *
  * In a lexeme it is the line the token starts on, in a [[LexerError]] the line
  * the unmatched input starts on.
@@ -26,6 +25,7 @@ object Line:
   /** The line number a fresh context starts on. */
   val Start: Line = 1
 
+  /** The line number `n`, e.g. to assign in a rule body: `ctx.line = Line(1)`. */
   def apply(n: Int): Line = n
 
   /** Advances by the number of `\n`s in the match, so `\r\n` and newlines inside a longer match count too. */

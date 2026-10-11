@@ -13,24 +13,23 @@ package lexer
  * case class MyCtx(column: Column = Column.Start) extends LexerCtx
  * }}}
  *
- * [[Tracking.materialize]] finds the `given Tracking[Column]` below and applies
- * it to that field after every match, threading a functional `copy` -- so
- * `column` stays an immutable `val`. `Column <: Int`, so `ctx.column`
- * reads as a plain `Int` everywhere; assigning it inside a rule body
- * (`ctx.column = Column(...)`) is rewritten to a `copy` too.
+ * The lexer updates it after every match with the `given Tracking[Column]`
+ * below, so the field can stay an immutable `val`. `Column <: Int`, so
+ * `ctx.column` reads as a plain `Int` everywhere; a rule body can also assign it
+ * (`ctx.column = Column(...)`).
  *
  * In a lexeme it is the column the token starts at, in a [[LexerError]] the
  * column the unmatched input starts at.
- *
- * (Named `Column`, not `Position`, to avoid shadowing the unrelated source
- * `Position` type used throughout this library's own error reporting.)
  */
+// Named `Column`, not `Position`, to avoid shadowing the unrelated source `Position` type used throughout this
+// library's own error reporting.
 opaque type Column <: Int = Int
 
 object Column:
   /** The column a fresh context starts on. */
   val Start: Column = 1
 
+  /** The column `n`, e.g. to assign in a rule body: `ctx.column = Column(1)`. */
   def apply(n: Int): Column = n
 
   /**
