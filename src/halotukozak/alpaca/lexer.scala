@@ -307,7 +307,8 @@ object LexerError:
   /** An error for `unexpected`, with `ctx`'s fields as they are before it. */
   private[alpaca] def apply[CtxFields <: AnyNamedTuple](unexpected: String, fieldNames: Array[String], ctx: LexerCtx)
     : LexerError withFields CtxFields =
-    new LexerError(unexpected, fieldNames, ctx.productIterator.toArray).asInstanceOf[LexerError withFields CtxFields]
+    new LexerError(unexpected, fieldNames, Array.better.tabulate(ctx.productArity)(ctx.productElement))
+      .asInstanceOf[LexerError withFields CtxFields]
 
 /**
  * Thrown by `getOrThrow` on a lexer [[Result]] when some input did not match a token.

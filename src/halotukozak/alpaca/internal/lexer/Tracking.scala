@@ -107,11 +107,9 @@ object Tracking:
         if trackedIndices.isEmpty then ctx
         else
           val values = fieldValuesOf(ctx)
-          var step = 0
-          while step < trackedIndices.length do
+          Array.better.foreachIndex(trackedIndices.length): step =>
             val index = trackedIndices(step)
             values(index) = trackedUpdates(step)(raw, values(index))
-            step += 1
           val updated = m.fromProduct(Tuple.fromArray(values))
           updated.carryEngineStateFrom(ctx)
 
@@ -119,11 +117,9 @@ object Tracking:
         case DefinedToken(info, modifyCtx, remapping) =>
           val modified = modifyCtx(afterFields).carryEngineStateFrom(afterFields)
           val values = fieldValuesOf(modified)
-          var step = 0
-          while step < trackedIndices.length do
+          Array.better.foreachIndex(trackedIndices.length): step =>
             val index = trackedIndices(step)
             values(index) = ctx.productElement(index)
-            step += 1
           val name = info.name.raw
           modified.lastLexeme = Lexeme(
             name = name,
@@ -141,10 +137,4 @@ object Tracking:
   }
 
   // a fresh array of the context's fields, sized up front rather than grown through `productIterator.toArray`
-  private def fieldValuesOf(ctx: Product): Array[Any] =
-    val values = new Array[Any](ctx.productArity)
-    var index = 0
-    while index < values.length do
-      values(index) = ctx.productElement(index)
-      index += 1
-    values
+  private def fieldValuesOf(ctx: Product): Array[Any] = Array.better.tabulate(ctx.productArity)(ctx.productElement)
