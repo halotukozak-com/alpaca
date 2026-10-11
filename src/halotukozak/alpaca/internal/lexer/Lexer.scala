@@ -38,9 +38,9 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
   /** An error of a parser run on this lexer's lexemes, with their context fields: `def report(error: MyLexer.ParserError)`. */
   final type ParserError = alpaca.ParserError withFields LexemeFields
 
-  /** List of all tokens defined in this lexer, including ignored tokens. */
+  /** All tokens defined in this lexer, including ignored tokens, in priority order; `selectDynamic` reads them by index. */
   @publicInBinary
-  private[alpaca] def tokens: List[Token[?, Ctx, ?]]
+  private[alpaca] def tokens: IArray[Token[?, Ctx, ?]]
 
   /** Backs token selection by name (`myLexer.PLUS`); not meant to be called directly. */
   def selectDynamic(fieldName: String): Token[?, Ctx, ?]
@@ -72,7 +72,7 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
         case m if m != null && m.end > 0 =>
           val matchedStr = globalCtx.input.subSequence(0, m.end).toString
           globalCtx.lastRawMatched = matchedStr
-          val found = tokensArray(m.priority)
+          val found = tokens(m.priority)
           globalCtx.input = globalCtx.input.from(m.end)
           Step.Matched(found, matchedStr)
 
@@ -120,10 +120,6 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
   /** Compiled token-matcher; built at macro time. */
   @publicInBinary
   private[alpaca] def matcher: TokenMatcher
-
-  /** [[tokens]] with indexed access; generated `selectDynamic` looks tokens up by index. */
-  @publicInBinary
-  private[alpaca] lazy val tokensArray: Vector[Token[?, Ctx, ?]] = tokens.toVector
 
   private val fieldNames: Array[String] = initialCtx().productElementNames.toArray
 

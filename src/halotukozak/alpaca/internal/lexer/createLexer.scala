@@ -258,16 +258,16 @@ import scala.reflect.NameTransformer
 
   (refinementTpeFrom(fields).asType, fieldsTpeFrom(fields).asType, types.asType).runtimeChecked match {
     case ('[refinedTpe], '[fields], '[types]) =>
-      val tokensExpr = Expr.ofList(tokens.map(_.expr))
+      val tokensExpr = '{ IArray[lexer.Token[?, Ctx, ?]](${ Varargs(tokens.map(_.expr)) }*) }
       val matcherExpr = '{ TokenMatcher.fromRegexes(${ Varargs(parsed.map(p => Expr(p.regex))) }*) }
 
       '{
         {
           new Lexer[Ctx]($onTokenMatch, $initialCtx)(using $errorHandling):
             @publicInBinary
-            override private[alpaca] val tokens: List[lexer.Token[?, Ctx, ?]] = $tokensExpr
+            override private[alpaca] val tokens: IArray[lexer.Token[?, Ctx, ?]] = $tokensExpr
 
-            override def selectDynamic(name: String): lexer.Token[?, Ctx, ?] = tokensArray(${
+            override def selectDynamic(name: String): lexer.Token[?, Ctx, ?] = tokens(${
               tokenIndexImpl('{ name })
             })
 
