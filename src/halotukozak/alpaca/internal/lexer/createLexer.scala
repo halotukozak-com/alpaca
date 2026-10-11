@@ -267,9 +267,8 @@ import scala.reflect.NameTransformer
             @publicInBinary
             override private[alpaca] val tokens: IArray[lexer.Token[?, Ctx, ?]] = $tokensExpr
 
-            override def selectDynamic(name: String): lexer.Token[?, Ctx, ?] = tokens(${
-              tokenIndexImpl('{ name })
-            })
+            override def selectDynamic(name: String): lexer.Token[?, Ctx, ?] =
+              tokens(${ tokenIndexImpl('{ name }) })
 
             @publicInBinary
             override private[alpaca] val matcher: TokenMatcher = $matcherExpr
