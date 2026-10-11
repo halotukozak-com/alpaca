@@ -36,16 +36,10 @@ The word *lexeme* is used throughout this documentation to mean this complete re
 
 ## Alpaca's Lexeme Type
 
-In Alpaca, each matched token is represented as a `Lexeme[Name, Value]`. A lexeme carries:
-
-- `name` — the token class name string, e.g., `"NUMBER"` or `"PLUS"`
-- `value` — the extracted value with its Scala type, e.g., `3.14: Double` for a `Token["NUMBER"](num.toDouble)`,
-  or `()` for a plain `Token["PLUS"]`
-- `text` — the matched characters, e.g., `"3.14"` or `"+"`
-- a snapshot of the lexer context's fields at match time, accessible as typed fields (e.g., `.column`, `.line` with
-  `LexerCtx.Default`)
-
-The tokenization output for a simple expression illustrates this:
+In Alpaca, each matched token is a `Lexeme`: the token's name, its value with its Scala type (e.g. `3.14: Double`
+for `Token["NUMBER"](num.toDouble)`, or `()` for a plain `Token["PLUS"]`), the matched text, and the lexer context's
+fields. [The Lexeme Structure](../lexer.md#the-lexeme-structure) describes it in full. Tokenizing a simple
+expression:
 
 ```scala sc-hidden sc-name:tokens-brain-lexer
 import halotukozak.alpaca.*
@@ -73,12 +67,6 @@ import halotukozak.alpaca.*
 val lexemes = BrainLexer.tokenize("foo(++)").getOrThrow
 // lexemes: List[Lexeme] =
 //   functionName("foo"), functionOpen, inc, inc, functionClose
-//
-// Each Lexeme carries:
-//   .name     — token class name (e.g., "functionName")
-//   .value    — extracted value  (e.g., "foo": String)
-//   .column   — column the token starts at
-//   .line     — line the token starts on
 ```
 
 Input matched as `Token.Ignored` — such as whitespace or other non-command characters — does not produce a lexeme and disappears from the stream.

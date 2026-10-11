@@ -67,7 +67,7 @@ Three rules apply:
 
 ## Accessing Context in Rule Bodies
 
-The `ctx` identifier is available inside every `rule { case ... }` body, typed as your specific `ParserCtx` subtype:
+The `ctx` identifier is available inside every production's body, typed as your specific `ParserCtx` subtype:
 
 ```scala sc-name:brain-parser-ctx-example sc-compile-with:brain-defs
 import halotukozak.alpaca.*

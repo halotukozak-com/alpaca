@@ -28,7 +28,7 @@ The parse table is built when the parser object is compiled, so the `given` has 
 ```scala sc-hidden sc-name:cr-plus-lexer
 import halotukozak.alpaca.*
 
-val Lexer = lexer:
+val CalcLexer = lexer:
   case num @ "[0-9]+" => Token["NUMBER"](num.toInt)
   case "\\+" => Token["PLUS"]
   case "\\s+" => Token.Ignored
@@ -37,14 +37,14 @@ val Lexer = lexer:
 ```scala sc-compile-with:cr-plus-lexer
 object CalcParser extends Parser:
   val Expr: Rule[Int] = rule(
-    "plus" { case (Expr(a), Lexer.PLUS(_), Expr(b)) => a + b },
-    { case Lexer.NUMBER(n) => n.value },
+    "plus" { case (Expr(a), CalcLexer.PLUS(_), Expr(b)) => a + b },
+    { case CalcLexer.NUMBER(n) => n.value },
   )
   val root = rule:
     case Expr(e) => e
 
 given Resolutions[CalcParser.type] = resolutions(
-  production.plus.before(Lexer.PLUS),
+  production.plus.before(CalcLexer.PLUS),
 )
 ```
 
@@ -59,8 +59,8 @@ Without a `given Resolutions`, the `CalcParser` from [Where resolutions Live](#w
 ```scala sc-compile-with:cr-plus-lexer sc:fail
 object CalcParser extends Parser: // error
   val Expr: Rule[Int] = rule(
-    "plus" { case (Expr(a), Lexer.PLUS(_), Expr(b)) => a + b },
-    { case Lexer.NUMBER(n) => n.value },
+    "plus" { case (Expr(a), CalcLexer.PLUS(_), Expr(b)) => a + b },
+    { case CalcLexer.NUMBER(n) => n.value },
   )
   val root = rule:
     case Expr(e) => e
@@ -80,14 +80,14 @@ The fix is the rule the message suggests -- here, reducing `plus` before shiftin
 ```scala sc-compile-with:cr-plus-lexer
 object CalcParser extends Parser:
   val Expr: Rule[Int] = rule(
-    "plus" { case (Expr(a), Lexer.PLUS(_), Expr(b)) => a + b },
-    { case Lexer.NUMBER(n) => n.value },
+    "plus" { case (Expr(a), CalcLexer.PLUS(_), Expr(b)) => a + b },
+    { case CalcLexer.NUMBER(n) => n.value },
   )
   val root = rule:
     case Expr(e) => e
 
 given Resolutions[CalcParser.type] = resolutions(
-  production.plus.before(Lexer.PLUS),
+  production.plus.before(CalcLexer.PLUS),
 )
 ```
 
@@ -98,7 +98,7 @@ To reference a production in `resolutions`, name it with a string literal placed
 ```scala sc-hidden sc-name:cr-plusminus-lexer
 import halotukozak.alpaca.*
 
-val Lexer = lexer:
+val CalcLexer = lexer:
   case num @ "[0-9]+" => Token["NUMBER"](num.toInt)
   case "\\+" => Token["PLUS"]
   case "-" => Token["MINUS"]
@@ -108,16 +108,16 @@ val Lexer = lexer:
 ```scala sc-compile-with:cr-plusminus-lexer
 object CalcParser extends Parser:
   val Expr: Rule[Int] = rule(
-    "plus"  { case (Expr(a), Lexer.PLUS(_), Expr(b))  => a + b },
-    "minus" { case (Expr(a), Lexer.MINUS(_), Expr(b)) => a - b },
-    { case Lexer.NUMBER(n) => n.value },   // unnamed -- not referenced in resolutions
+    "plus"  { case (Expr(a), CalcLexer.PLUS(_), Expr(b))  => a + b },
+    "minus" { case (Expr(a), CalcLexer.MINUS(_), Expr(b)) => a - b },
+    { case CalcLexer.NUMBER(n) => n.value },   // unnamed -- not referenced in resolutions
   )
   val root = rule:
     case Expr(e) => e
 
 given Resolutions[CalcParser.type] = resolutions(
-  production.plus.before(Lexer.PLUS, Lexer.MINUS),
-  production.minus.before(Lexer.PLUS, Lexer.MINUS),
+  production.plus.before(CalcLexer.PLUS, CalcLexer.MINUS),
+  production.minus.before(CalcLexer.PLUS, CalcLexer.MINUS),
 )
 ```
 
@@ -137,7 +137,7 @@ Full example for a calculator:
 ```scala sc-hidden sc-name:cr-full-lexer
 import halotukozak.alpaca.*
 
-val Lexer = lexer:
+val CalcLexer = lexer:
   case num @ "[0-9]+" => Token["NUMBER"](num.toInt)
   case "\\+" => Token["PLUS"]
   case "-" => Token["MINUS"]
@@ -149,28 +149,28 @@ val Lexer = lexer:
 ```scala sc-compile-with:cr-full-lexer
 object CalcParser extends Parser:
   val Expr: Rule[Int] = rule(
-    "plus"  { case (Expr(a), Lexer.PLUS(_), Expr(b))  => a + b },
-    "minus" { case (Expr(a), Lexer.MINUS(_), Expr(b)) => a - b },
-    "times" { case (Expr(a), Lexer.TIMES(_), Expr(b)) => a * b },
-    "div"   { case (Expr(a), Lexer.DIVIDE(_), Expr(b)) => a / b },
-    { case Lexer.NUMBER(n) => n.value },
+    "plus"  { case (Expr(a), CalcLexer.PLUS(_), Expr(b))  => a + b },
+    "minus" { case (Expr(a), CalcLexer.MINUS(_), Expr(b)) => a - b },
+    "times" { case (Expr(a), CalcLexer.TIMES(_), Expr(b)) => a * b },
+    "div"   { case (Expr(a), CalcLexer.DIVIDE(_), Expr(b)) => a / b },
+    { case CalcLexer.NUMBER(n) => n.value },
   )
   val root = rule:
     case Expr(e) => e
 
 given Resolutions[CalcParser.type] = resolutions(
   // + and - are left-associative and have equal precedence
-  production.plus.before(Lexer.PLUS, Lexer.MINUS),
-  production.minus.before(Lexer.PLUS, Lexer.MINUS),
+  production.plus.before(CalcLexer.PLUS, CalcLexer.MINUS),
+  production.minus.before(CalcLexer.PLUS, CalcLexer.MINUS),
   // * and / bind tighter than + and -
-  production.plus.after(Lexer.TIMES, Lexer.DIVIDE),
-  production.minus.after(Lexer.TIMES, Lexer.DIVIDE),
-  production.times.before(Lexer.TIMES, Lexer.DIVIDE, Lexer.PLUS, Lexer.MINUS),
-  production.div.before(Lexer.TIMES, Lexer.DIVIDE, Lexer.PLUS, Lexer.MINUS),
+  production.plus.after(CalcLexer.TIMES, CalcLexer.DIVIDE),
+  production.minus.after(CalcLexer.TIMES, CalcLexer.DIVIDE),
+  production.times.before(CalcLexer.TIMES, CalcLexer.DIVIDE, CalcLexer.PLUS, CalcLexer.MINUS),
+  production.div.before(CalcLexer.TIMES, CalcLexer.DIVIDE, CalcLexer.PLUS, CalcLexer.MINUS),
 )
 ```
 
-Reading `production.plus.before(Lexer.PLUS, Lexer.MINUS)`: when the parser has reduced `plus` and the next token is `+` or `-`, prefer the reduction. This gives `+` left associativity.
+Reading `production.plus.before(CalcLexer.PLUS, CalcLexer.MINUS)`: when the parser has reduced `plus` and the next token is `+` or `-`, prefer the reduction. This gives `+` left associativity.
 
 ### Transitivity
 
@@ -185,16 +185,16 @@ import halotukozak.alpaca.Production as P
 
 object CalcParser extends Parser:
   val Expr: Rule[Int] = rule(
-    "plus" { case (Expr(a), Lexer.PLUS(_), Expr(b)) => a + b },
-    { case (Expr(a), Lexer.MINUS(_), Expr(b)) => a - b },   // unnamed -- referenced via P(...) below
-    { case Lexer.NUMBER(n) => n.value },
+    "plus" { case (Expr(a), CalcLexer.PLUS(_), Expr(b)) => a + b },
+    { case (Expr(a), CalcLexer.MINUS(_), Expr(b)) => a - b },   // unnamed -- referenced via P(...) below
+    { case CalcLexer.NUMBER(n) => n.value },
   )
   val root = rule:
     case Expr(e) => e
 
 given Resolutions[CalcParser.type] = resolutions(
-  production.plus.before(Lexer.PLUS, Lexer.MINUS),
-  P(CalcParser.Expr, Lexer.MINUS, CalcParser.Expr).before(Lexer.PLUS, Lexer.MINUS),
+  production.plus.before(CalcLexer.PLUS, CalcLexer.MINUS),
+  P(CalcParser.Expr, CalcLexer.MINUS, CalcParser.Expr).before(CalcLexer.PLUS, CalcLexer.MINUS),
 )
 ```
 
@@ -238,14 +238,14 @@ This is the token-side spelling of `production.pow.after(UnaryLexer.exp)`. Use w
 ```scala sc-compile-with:cr-plus-lexer
 object CalcParser extends Parser:
   val Expr: Rule[Int] = rule(
-    "plus" { case (Expr(a), Lexer.PLUS(_), Expr(b)) => a + b },
-    { case Lexer.NUMBER(n) => n.value },
+    "plus" { case (Expr(a), CalcLexer.PLUS(_), Expr(b)) => a + b },
+    { case CalcLexer.NUMBER(n) => n.value },
   )
   val root = rule:
     case Expr(e) => e
 
 given Resolutions[CalcParser.type] = resolutions(
-  production.plus.before(Lexer.PLUS)   // reduce first -> left grouping
+  production.plus.before(CalcLexer.PLUS),  // reduce first -> left grouping
 )
 ```
 
@@ -270,7 +270,7 @@ object AssignParser extends Parser:
     case Expr(e) => e
 
 given Resolutions[AssignParser.type] = resolutions(
-  production.assign.after(AssignLexer.ASSIGN)  // shift first -> right grouping
+  production.assign.after(AssignLexer.ASSIGN), // shift first -> right grouping
 )
 ```
 
@@ -291,6 +291,6 @@ Consider revising the before/after rules to eliminate cycles
 
 - **Only resolve actual conflicts.** Add resolutions only for conflicts the compiler reports.
 - **Use named productions.** They make resolutions readable and survive refactoring better than `Production(symbols*)`.
-- **Think in terms of trees.** `production.plus.after(Lexer.TIMES)` gives `*` higher precedence than `plus`: the `*` operation ends up lower in the parse tree -- it binds tighter.
+- **Think in terms of trees.** `production.plus.after(CalcLexer.TIMES)` gives `*` higher precedence than `plus`: the `*` operation ends up lower in the parse tree -- it binds tighter.
 
 See [Parser](parser.md) for grammar rules and EBNF operators.

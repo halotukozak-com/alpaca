@@ -227,7 +227,7 @@ object MixedEbnfParser extends Parser:
 
 ## Lexeme Bindings
 
-A terminal extractor binds a `Lexeme` (see [The Lexeme Structure](lexer.md#the-lexeme-structure)): its `value`, `name` and matched `text`, plus every field of the lexer context as it was right after the match -- `column` and `line` with `LexerCtx.Default`, or your own fields with a custom context (see [Context Snapshots in Lexemes](lexer-context.md#context-snapshots-in-lexemes)). The fields are typed, so `id.column` is an `Int`, and a field the context does not have is a compile error:
+A terminal extractor binds a `Lexeme`, with its `value`, `name`, `text` and the lexer context's fields (see [The Lexeme Structure](lexer.md#the-lexeme-structure)). The fields are typed, so `id.column` is an `Int`:
 
 ```scala sc-compile-with:CalcLexerPreamble
 object FieldAccessParser extends Parser:
@@ -235,6 +235,4 @@ object FieldAccessParser extends Parser:
     case CalcLexer.ID(id) => (id.value, id.column, id.line)
 ```
 
-Tracked fields such as `Line` and `Column` are the exception to "right after the match": they record where the token starts. For a token `"42"` at the start of the input, `column` is 1.
-
-See [Parser](parser.md) for grammar rules and [Between Stages](on-token-match.md) for how lexemes are built.
+See [Parser](parser.md) for grammar rules and [Between Stages](between-stages.md) for how lexemes are built.

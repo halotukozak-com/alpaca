@@ -57,14 +57,14 @@ This is the rule used by flex, JFlex and ocamllex (which, like Alpaca, writes it
 ```scala sc-name:longest-match
 import halotukozak.alpaca.*
 
-val Lexer = lexer:
+val MyLexer = lexer:
   case "=" => Token["ASSIGN"]
   case "==" => Token["EQ"]
   case "if" => Token["IF"]
   case id @ "[a-z]+" => Token["ID"](id)
   case "\\s+" => Token.Ignored
 
-println(Lexer.tokenize("== = if iffy").getOrThrow.map(_.name)) // List(EQ, ASSIGN, IF, ID)
+println(MyLexer.tokenize("== = if iffy").getOrThrow.map(_.name)) // List(EQ, ASSIGN, IF, ID)
 ```
 
 `"=="` beats the earlier `"="` because it is longer. `if` is matched equally long by `IF` and `ID`, so the earlier `IF` wins the tie. `iffy` is longer only for `ID`, so it stays a single identifier instead of splitting into `if` + `fy`.
@@ -84,12 +84,12 @@ Longest match decides one token at a time, so it has some consequences that surp
 ```scala sc-name:longest-match-comment
 import halotukozak.alpaca.*
 
-val Lexer = lexer:
+val MyLexer = lexer:
   case "/\\*([^*]|\\*+[^*/])*\\*+/" => Token.Ignored
   case id @ "[a-z]+" => Token["ID"](id)
   case "\\s+" => Token.Ignored
 
-println(Lexer.tokenize("/* a */ x /* b */").getOrThrow.map(_.name)) // List(ID)
+println(MyLexer.tokenize("/* a */ x /* b */").getOrThrow.map(_.name)) // List(ID)
 ```
 
 ## Regular Expressions
@@ -99,7 +99,7 @@ Patterns use Java-style regex syntax and are validated at compile time by Alpaca
 ```scala
 import halotukozak.alpaca.*
 
-val Lexer = lexer:
+val MyLexer = lexer:
   // Literals that are regex metacharacters need escaping
   case "\\+" => Token["inc"]         // literal +
   case "\\." => Token["print"]       // literal .
@@ -180,7 +180,7 @@ The `@` syntax binds the matched text to a variable, giving you a `String` to tr
 ```scala
 import halotukozak.alpaca.*
 
-val Lexer = lexer:
+val MyLexer = lexer:
   case num @ "[0-9]+" => Token["NUM"](num.toInt)
   case name @ "[A-Za-z]+" => Token["functionName"](name)
   case "\\s+" => Token.Ignored
@@ -204,14 +204,14 @@ When several patterns share the same structure, use alternation with `variable.t
 ```scala
 import halotukozak.alpaca.*
 
-val Lexer = lexer:
+val MyLexer = lexer:
   case keyword @ ("if" | "else" | "while") => Token[keyword.type]
   case op @ ("\\+" | "-" | "\\*") => Token[op.type]
   case id @ "[a-zA-Z_][a-zA-Z0-9_]*" => Token["ID"](id)
   case "\\s+" => Token.Ignored
 
 // Each alternative becomes a separate token, named by its path:
-// Lexer.`if`, Lexer.`else`, Lexer.`while`, Lexer.`\\+`, Lexer.-, Lexer.`\\*`
+// MyLexer.`if`, MyLexer.`else`, MyLexer.`while`, MyLexer.`\\+`, MyLexer.-, MyLexer.`\\*`
 ```
 
 Keywords like `if` always need backticks. `-` is a valid Scala identifier and does not.
@@ -261,25 +261,27 @@ The value type depends on how the token is defined:
 
 ## The Lexeme Structure
 
-Every non-ignored match produces a `Lexeme`. From the caller's perspective, a lexeme exposes:
+Every non-ignored match produces a `Lexeme`. This is the one place that describes it; the other pages link here. A lexeme has:
 
 - **`name`** -- the token name as a string literal type (e.g., `"inc"`, `"functionName"`)
 - **`value`** -- the extracted value (`Unit` for `Token["NAME"]`, or the computed type for `Token["NAME"](expr)`)
+- **`text`** -- the matched string, not the remaining input
+- **the lexer context's fields** -- `column` and `line` with `LexerCtx.Default`, or your own fields with a custom context, read by name with their types
 
-Each lexeme also carries a snapshot of all context fields at match time. The snapshot is accessed via `Selectable` -- you write `lexeme.column` or `lexeme.line` and the compiler resolves the types:
+The context fields are a snapshot taken right after the rule body ran, with one exception: fields with a `given Tracking` (such as `Line` and `Column`) keep their values from before the match, even if the rule body assigned them, so `line` and `column` point at the **start** of the token. Snapshots are independent: later changes to the context don't reach lexemes already produced. Reading a field the context doesn't have (e.g., `.indent` with `LexerCtx.Default`) is a compile error.
 
 ```scala
 import halotukozak.alpaca.*
 
-val Lexer = lexer:
+val MyLexer = lexer:
   case num @ "[0-9]+" => Token["NUM"](num.toInt)
   case "\\s+" => Token.Ignored
 
-val lexemes = Lexer.tokenize("42 13").getOrThrow
+val lexemes = MyLexer.tokenize("42 13").getOrThrow
 lexemes(0).column    // 1: Int (where the token starts)
 lexemes(1).column    // 4: Int
 lexemes(0).line      // 1: Int
-lexemes(0).text      // "42": String (the matched text, not remaining input)
+lexemes(0).text      // "42": String
 ```
 
 Lexemes compare by value: two are equal when their name, value, text and context fields are. They print the same way, e.g. `Lexeme(NUM, 42, "42", column = 1, line = 1)`.
@@ -287,10 +289,6 @@ Lexemes compare by value: two are equal when their name, value, text and context
 <details>
 <summary>Under the hood: how context snapshots work</summary>
 
-The `Lexeme` class extends `Selectable` with a structural refinement that encodes every context field and its type. The compiler resolves `lexeme.column` to `Int` at compile time -- not by casting from `Any` at runtime. If you access a field that does not exist on the context type (e.g., `.indent` when using `LexerCtx.Default`), you get a compile error.
-
-A lexeme's `text` is the **matched string**, not the remaining input.
-
-Fields are snapshotted after the rule body runs, except fields with a `given Tracking` (such as `Line` and `Column`), which keep their values from before the match, so `line` and `column` point at the **start** of the token: `"42"` has `column = 1`, while the context's `column` after it is 3.
+The `Lexeme` class extends `Selectable` with a structural refinement that encodes every context field and its type. The compiler resolves `lexeme.column` to `Int` at compile time -- not by casting from `Any` at runtime.
 
 </details>
