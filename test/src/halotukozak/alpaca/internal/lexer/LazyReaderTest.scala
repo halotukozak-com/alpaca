@@ -116,6 +116,16 @@ final class LazyReaderTest extends AnyFunSuite:
       assert(lazyReader.toString == "world")
   }
 
+  test("looking far ahead while skipping a few chars at a time reads the right chars") {
+    val input = String.valueOf(Array.tabulate(50000)(i => ('a' + i % 26).toChar))
+    Using.resource(new LazyReader(new StringReader(input), input.length)): lazyReader =>
+      for skipped <- 0 until 30000 by 3 do
+        assert(lazyReader.charAt(0) == input(skipped))
+        assert(lazyReader.charAt(8000) == input(skipped + 8000))
+        assert(lazyReader.subSequence(7990, 8000).toString == input.substring(skipped + 7990, skipped + 8000))
+        lazyReader.from(3): Unit
+  }
+
   test("tokenizing a LazyReader past its compaction threshold gives the same lexemes as the String") {
     val Lexer = lexer:
       case w @ "[a-zżółw]+" => Token["WORD"](w)

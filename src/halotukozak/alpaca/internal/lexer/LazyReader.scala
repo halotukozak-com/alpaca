@@ -22,11 +22,11 @@ import scala.util.Using
  * @param size   the exact number of chars `reader` yields
  */
 final class LazyReader private[alpaca] (reader: Reader, private var size: Long) extends CharSequence, Closeable:
-  // `buffer(start until end)` holds the chars read but not yet skipped; `start` may run past `end` when `from` skips
-  // chars that have not been read yet
+  // `buffer(bufferStart until bufferEnd)` holds the chars read but not yet skipped; `bufferStart` may run past
+  // `bufferEnd` when `from` skips chars that have not been read yet
   private var buffer = new Array[Char](8192)
-  private var start: Int = 0
-  private var end: Int = 0
+  private var bufferStart: Int = 0
+  private var bufferEnd: Int = 0
 
   /**
    * Gets the character at the specified position.
@@ -39,7 +39,7 @@ final class LazyReader private[alpaca] (reader: Reader, private var size: Long) 
    */
   def charAt(pos: Int): Char =
     ensure(pos)
-    buffer(pos + start)
+    buffer(pos + bufferStart)
 
   /**
    * Gets the length of the input.
@@ -59,7 +59,7 @@ final class LazyReader private[alpaca] (reader: Reader, private var size: Long) 
     ensure(end - 1)
     val len = end - start
     require(len >= 0, s"Invalid subsequence range: start=$start, end=$end")
-    new String(buffer, start + this.start, len)
+    new String(buffer, start + bufferStart, len)
 
   /**
    * Skips the first count characters.
@@ -71,7 +71,7 @@ final class LazyReader private[alpaca] (reader: Reader, private var size: Long) 
    * @return this LazyReader for chaining
    */
   private[alpaca] def from(count: Int): LazyReader =
-    start += count
+    bufferStart += count
     size -= count
     this
 
@@ -81,23 +81,24 @@ final class LazyReader private[alpaca] (reader: Reader, private var size: Long) 
 
   @tailrec
   private def ensure(pos: Int): Unit =
-    if pos + start >= end then
-      if end == buffer.length then makeRoom()
-      val charsRead = reader.read(buffer, end, buffer.length - end)
+    if pos + bufferStart >= bufferEnd then
+      if bufferEnd == buffer.length then makeRoom()
+      val charsRead = reader.read(buffer, bufferEnd, buffer.length - bufferEnd)
       if charsRead == -1 then
         throw IndexOutOfBoundsException(s"Position $pos is out of bounds for LazyReader of size $size")
       else
-        end += charsRead
+        bufferEnd += charsRead
         ensure(pos)
 
-  // drops the skipped chars from the front of the full buffer, and grows it if that frees nothing
+  // drops the skipped chars from the front of the full buffer, and grows it unless that frees at least half of it, so
+  // that a long lookahead doesn't shift almost the whole buffer to read only a few chars
   private def makeRoom(): Unit =
-    val dropped = math.min(start, end)
-    if dropped > 0 then
-      System.arraycopy(buffer, dropped, buffer, 0, end - dropped)
-      start -= dropped
-      end -= dropped
-    else buffer = java.util.Arrays.copyOf(buffer, buffer.length * 2)
+    val dropped = math.min(bufferStart, bufferEnd)
+    val target = if dropped >= buffer.length / 2 then buffer else new Array[Char](buffer.length * 2)
+    System.arraycopy(buffer, dropped, target, 0, bufferEnd - dropped)
+    buffer = target
+    bufferStart -= dropped
+    bufferEnd -= dropped
 
 /**
  * Factory methods for creating LazyReader instances.
