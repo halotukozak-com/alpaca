@@ -98,7 +98,7 @@ import scala.reflect.NameTransformer
                   DefinedToken[name, Ctx, Unit, Lexeme[name, Unit] withFields NamedTuple.From[Ctx]](
                     ${ Expr(tokenInfo) },
                     $ctxManipulation,
-                    TokenFunctions.discard,
+                    discard,
                   )
                 },
                 regex = regex,
@@ -116,7 +116,7 @@ import scala.reflect.NameTransformer
                   DefinedToken[name, Ctx, String, Lexeme[name, String] withFields NamedTuple.From[Ctx]](
                     ${ Expr(tokenInfo) },
                     $ctxManipulation,
-                    TokenFunctions.rawMatched,
+                    rawMatched,
                   )
                 },
                 regex = regex,
@@ -156,7 +156,7 @@ import scala.reflect.NameTransformer
               raiseShouldNeverBeCalled[CompiledRule](tokenInfo)
       }
 
-      val pairs = extractSimple('{ TokenFunctions.unchangedCtx[Ctx] })
+      val pairs = extractSimple('{ unchangedCtx[Ctx] })
         .lift(body.asExprOf[TokenDef[ValidName, Ctx, Any]])
         .orElse:
           body match {
