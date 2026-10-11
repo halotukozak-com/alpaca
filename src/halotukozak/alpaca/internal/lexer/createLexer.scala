@@ -253,8 +253,7 @@ import scala.reflect.NameTransformer
     '{ $fieldName: @switch }.asTerm,
     tokens.zipWithIndex.map((token, index) =>
       CaseDef(Literal(StringConstant(NameTransformer.encode(token.info.name.raw))), None, Literal(IntConstant(index))),
-    ) :+
-      CaseDef(Wildcard(), None, '{ throw new NoSuchElementException(s"No token named \"${$fieldName}\"") }.asTerm),
+    ) :+ CaseDef(Wildcard(), None, '{ throw new NoSuchElementException(s"No token named \"${$fieldName}\"") }.asTerm),
   ).asExprOf[Int]
 
   (refinementTpeFrom(fields).asType, fieldsTpeFrom(fields).asType, types.asType).runtimeChecked match {

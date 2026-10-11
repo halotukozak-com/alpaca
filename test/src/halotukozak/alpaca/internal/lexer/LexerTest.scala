@@ -423,7 +423,7 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
       case "a" => Token["A"]
 
     Lexer.selectDynamic("A").info.name.raw shouldBe "A"
-    Lexer.selectDynamic("A") should be theSameInstanceAs Lexer.tokens.head
+    assert(Lexer.selectDynamic("A") eq Lexer.tokens.head)
     intercept[NoSuchElementException](Lexer.selectDynamic("missing")).getMessage shouldBe "No token named \"missing\""
   }
 
