@@ -59,6 +59,8 @@ val BrainLexer = lexer:
   case "," => Token["read"]
   case "\\[" => Token["jumpForward"]
   case "\\]" => Token["jumpBack"]
+  case count @ "[0-9]+" => Token["repeat"](count.toInt)
+  case cell @ "\\$[A-Za-z]+" => Token["cell"](cell.drop(1))
   case name @ "[A-Za-z]+" => Token["functionName"](name)
   case "\\(" => Token["functionOpen"]
   case "\\)" => Token["functionClose"]
@@ -97,12 +99,14 @@ The `BrainLexer` running example defines these token classes:
 | `read`         | `,`           | `Unit`     | `","`                |
 | `jumpForward`  | `\[`          | `Unit`     | `"["`                |
 | `jumpBack`     | `\]`          | `Unit`     | `"]"`                |
+| `repeat`       | `[0-9]+`      | `Int`      | `"3"` → `3`         |
+| `cell`         | `\$[A-Za-z]+` | `String`   | `"$x"` → `"x"`      |
 | `functionName` | `[A-Za-z]+`   | `String`   | `"foo"` → `"foo"`   |
 | `functionOpen` | `\(`          | `Unit`     | `"("`                |
 | `functionClose`| `\)`          | `Unit`     | `")"`                |
 | `functionCall` | `!`           | `Unit`     | `"!"`                |
 
-`functionName` is the only value-bearing token: the `@` binding captures the matched text and passes it to `Token["functionName"](name)`. The other tokens use `Token["NAME"]` without a value argument — they carry `Unit`. Their presence in the stream is enough; the matched text is accessible via `lexeme.text` if needed.
+`repeat`, `cell` and `functionName` carry values: the `@` binding captures the matched text, and the rule passes it to the token as-is (`functionName`), converted (`repeat`) or trimmed (`cell`). The other tokens use `Token["NAME"]` without a value argument — they carry `Unit`. Their presence in the stream is enough; the matched text is accessible via `lexeme.text` if needed.
 
 ## Cross-links
 

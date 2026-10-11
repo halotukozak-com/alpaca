@@ -25,12 +25,12 @@ object brainfuck extends ScalaModule {
   def scalaVersion = "3.9.0"
   def scalacOptions = Seq("-Yretain-trees")
   def mvnDeps = Seq(
-    mvn"com.halotukozak::alpaca::1.0.0-RC1"
+    mvn"com.halotukozak::alpaca::1.0.0-RC2"
   )
 }
 ```
 
-The `-Yretain-trees` flag is required. Alpaca's macros inspect the AST of your lexer and parser definitions at compile time, and this flag tells the compiler to preserve that information. Alpaca 0.3.2 and earlier also need the `-experimental` flag; later versions do not.
+The `-Yretain-trees` flag is required. Alpaca's macros inspect the AST of your lexer and parser definitions at compile time, and this flag tells the compiler to preserve that information. Without it, every parser fails to compile (see [Compile Errors](compile-errors.md#missing--yretain-trees)). Alpaca 0.3.2 and earlier also need the `-experimental` flag; later versions do not.
 
 ## Step 1: The Lexer
 
@@ -95,7 +95,7 @@ Three tokens carry values via the `@` binding:
 - `cell @ "\\$[A-Za-z]+"` captures the full match (including `$`), then `Token["cell"](cell.drop(1))` strips the prefix.
 - `name @ "[A-Za-z]+"` captures the function name as-is.
 
-The custom context `BrainLexContext` tracks bracket depth. Inside rule bodies, `ctx` gives access to the context — the lexer increments and decrements counters and uses `require` to catch mismatched brackets at lex time.
+The custom context `BrainLexContext` tracks bracket depth. Inside rule bodies, `ctx` gives access to the context — the lexer increments and decrements counters and uses `require` to catch a closing bracket with no opening one at lex time. A failed `require` throws out of `tokenize`; it is not reported as a `LexerError` (see [Runtime Error Handling](lexer-error-recovery.md#runtime-error-handling)).
 
 Pattern order matters: `"\\."` (literal dot — the print command) must appear before `"."` (any character — the catch-all). Both match one character, so the earlier one wins; in the other order the print command could never match, and the lexer reports that as a compile error (see [How a Token Is Chosen](lexer.md#how-a-token-is-chosen)).
 

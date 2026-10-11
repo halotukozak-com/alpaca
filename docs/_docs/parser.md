@@ -63,7 +63,7 @@ object BrainParser extends Parser:
   )
 ```
 
-Declare every rule with `val`. A `def` rule is a compile error.
+Declare every rule with `val`. A `def` rule is a compile error; [Compile Errors](compile-errors.md#parser) lists every error a parser definition can report.
 
 ## Rules and Productions
 
@@ -216,7 +216,7 @@ extension (ast: BrainAST)
 ```scala sc-name:brain-tokenize sc-compile-with:brain-eval-defs
 val lexemes = BrainLexer.tokenize("++[>+<-]").getOrThrow
 val parsed = BrainParser.parse(lexemes)
-// parsed: Result[ParserCtx.Empty, BrainAST, ParserError]
+// parsed: Result[ParserCtx.Empty, BrainAST, BrainLexer.ParserError]
 ```
 
 `parse()` does not throw when the input does not match the grammar. It returns a `Result` -- the same type `tokenize` returns -- which is one of two cases, both carrying the parser context (`ctx`) as it was when parsing ended:
@@ -240,7 +240,7 @@ parsed.toOption                   // Some(ast), or None
 parsed.toEither                   // Right(ast), or Left(errors)
 ```
 
-A `ParserError` is plain data: it carries the lexeme the parser could not accept (`unexpected`, `None` when the input ended too early), what the grammar would have accepted there (`expected`, token names and `ParserError.EndOfInput`), and, at the end of the input, the last lexeme before it (`last`, otherwise `None`). The errors `parse` returns have a `Fields` type member, the lexer context's fields that the lexemes carry, so the error's position is in the lexer context's fields: `error.unexpected.map(_.line)` and `error.unexpected.map(_.column)` with `LexerCtx.Default`, a compile error when the context has no such field. At the end of the input, read the position from `error.last` instead. Its `message` names the lexemes but no position, e.g. for `1 + + 2` in a grammar of numbers and `+`:
+A `ParserError` is plain data: it carries the lexeme the parser could not accept (`unexpected`, `None` when the input ended too early), what the grammar would have accepted there (`expected`, token names and `ParserError.EndOfInput`), and, at the end of the input, the last lexeme before it (`last`, otherwise `None`). The errors `parse` returns have a `Fields` type member, the lexer context's fields that the lexemes carry (in a signature, write their type as `BrainLexer.ParserError`; see [Naming the Types](lexer.md#naming-the-types)), so the error's position is in the lexer context's fields: `error.unexpected.map(_.line)` and `error.unexpected.map(_.column)` with `LexerCtx.Default`, a compile error when the context has no such field. At the end of the input, read the position from `error.last` instead. Its `message` names the lexemes but no position, e.g. for `1 + + 2` in a grammar of numbers and `+`:
 
 ```
 Unexpected PLUS "+". Expected one of: NUMBER
@@ -314,6 +314,6 @@ given Resolutions[CalcParser.type] = resolutions(
 )
 ```
 
-`Resolutions` is a type class: declare the `given` next to the parser object (before or after it), or inside it as its last member. See [Conflict Resolution](conflict-resolution.md#where-resolutions-live) for details.
+`Resolutions` is a type class: declare the `given` next to the parser object (before or after it), or inside it. See [Where resolutions Live](conflict-resolution.md#where-resolutions-live) for the details.
 
 See [Parser Context](parser-context.md) for custom state, [Extractors](extractors.md) for all pattern forms, and [Debug Settings](debug-settings.md) for compile-time debugging.

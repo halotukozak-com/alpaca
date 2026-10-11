@@ -20,6 +20,8 @@ subsection:
         page: extractors.md
       - title: Conflict Resolution
         page: conflict-resolution.md
+  - title: Compile Errors
+    page: compile-errors.md
   - title: Tooling
     index: tooling.md
     subsection:

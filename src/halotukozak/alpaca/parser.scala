@@ -9,6 +9,13 @@ import scala.NamedTuple.AnyNamedTuple
 import scala.annotation.{compileTimeOnly, implicitNotFound, unused}
 import scala.quoted.*
 
+/**
+ * The base of a parser: extend it with an `object` whose rules are `val`s built with [[rule]], one of them `root`.
+ * `extends Parser` uses the empty [[ParserCtx.Empty]] context; `extends Parser[MyCtx]` carries `MyCtx` through the
+ * actions, as `ctx`.
+ *
+ * @tparam Ctx the parser context type
+ */
 type Parser[Ctx <: ParserCtx] = parser.Parser[Ctx]
 
 /**
@@ -214,8 +221,8 @@ sealed trait Rule[Value]:
  *
  * The type member `Fields` is the lexer context's fields, which the lexemes carry. `parse` returns errors with
  * the fields of the lexemes it was given, so positions are the lexer context's fields, e.g.
- * `error.unexpected.map(_.line)`, or `error.last.map(_.line)` at the end of the input. Plain `ParserError` is an error
- * over any lexemes.
+ * `error.unexpected.map(_.line)`, or `error.last.map(_.line)` at the end of the input. In a signature, write that type
+ * as `MyLexer.ParserError`; plain `ParserError` is an error over any lexemes, without their fields.
  */
 sealed abstract class ParserError:
   /** The lexer context's fields, which the lexemes carry. */
@@ -267,6 +274,7 @@ object ParserError:
   object EndOfInput:
     override def toString: String = "EndOfInput"
 
+  /** The type of [[EndOfInput]], for matching on the elements of [[ParserError.expected]]. */
   type EndOfInput = EndOfInput.type
 
   extension [Ctx, Value](result: Result[Ctx, Value, ParserError])
@@ -284,11 +292,14 @@ final class ParserException private[alpaca] (val errors: ::[ParserError])
   extends RuntimeException(errors.map(_.message).mkString("\n"))
 
 /**
- * Base trait for parser global context.
+ * The base of every parser context: state carried through a parse, such as a symbol table, read and changed as
+ * `ctx` in the actions and returned in the [[Result]].
  *
- * Unlike the lexer, the parser's global context is typically empty by default,
- * but can be extended to track custom state during parsing such as symbol tables,
- * type information, or other semantic data.
+ * A context must be a case class whose fields all have default values, since the parser builds the initial context
+ * from those defaults:
+ * {{{
+ * case class BrainParserCtx(functions: mutable.Set[String] = mutable.Set.empty) extends ParserCtx
+ * }}}
  */
 trait ParserCtx
 
@@ -341,12 +352,7 @@ object ParserCtx:
   /** Default error handler for any [[ParserCtx]]: stop at the first input that does not match the grammar. */
   given ErrorHandling[ParserCtx, ParserError] = (_, _) => ErrorHandling.Strategy.Stop
 
-  /**
-   * An empty parser context with no state.
-   *
-   * This is the default context used by parsers when no custom context
-   * is needed. Most simple parsers can use this.
-   */
+  /** A parser context with no state: the context of `extends Parser` without a type argument. */
   final case class Empty(
   ) extends ParserCtx
 

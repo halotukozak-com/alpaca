@@ -1,108 +1,12 @@
 # Lexer Error Recovery
 
-The Alpaca lexer provides two layers of error feedback: compile-time validation that catches many problems before your program runs, and runtime error strategies for input that does not match any pattern.
-
-<details>
-<summary>Under the hood: compile-time validation</summary>
-
-The `lexer` macro validates token definitions at compile time. Pattern shadowing, invalid or unsupported regex syntax, and guards are caught during compilation. The macro checks every pattern against the ones declared before it -- each on its own, and together -- using Alpaca's own `regex` library, so that every pattern can produce a token.
-
-</details>
-
-## Compile-Time Errors
-
-### Shadowed Patterns
-
-The lexer uses **longest match**: at each position it takes the longest text any pattern matches, and when several patterns match equally long text, the one declared first wins. A shadowing error occurs when a pattern can never win. The classic case is a keyword declared after a general identifier pattern -- `if` is matched equally long by both, so the identifier always takes it:
-
-```scala sc:fail
-import halotukozak.alpaca.*
-
-val Lexer = lexer:
-  case id @ "[a-z]+" => Token["ID"](id)
-  case "if" => Token["IF"]  // error: shadowed by ID
-```
-
-The compiler reports:
-
-```
-Token "IF" can never match: every input it matches is also matched by "ID",
-which is defined earlier, so it always wins.
-Declare "IF" ("if") before "ID" ("[a-z]+").
-```
-
-The fix: declare the keyword first. Longest match still turns `iffy` into a single `ID`, so keywords never split identifiers.
-
-A pattern can also be dead because several earlier patterns cover it together, though none does alone:
-
-```scala sc:fail
-import halotukozak.alpaca.*
-
-val Lexer = lexer:
-  case "a" => Token["A"]
-  case "b" => Token["B"]
-  case "[ab]" => Token["AB"]  // error: covered by A and B together
-```
-
-```
-Token "AB" can never match: every input it matches is also matched by "A" or "B",
-which are defined earlier, so one of them always wins.
-"AB" is redundant: remove it, or narrow "A" and "B" so they no longer cover it.
-```
-
-A pattern is reported only when it really can never win -- an earlier pattern matching just a *prefix* of it (`"a"` before `"ab"`) is fine. When one pattern's language contains the other's in the wrong order, e.g. `"[0-9]+(\\.[0-9]+)?"` before `"[0-9]+"`, give the later pattern inputs of its own -- e.g. `"[0-9]+\\.[0-9]+"` before `"[0-9]+"` -- or use a single pattern. See [How a Token Is Chosen](lexer.md#how-a-token-is-chosen) for which pattern wins where two can match, and [Shadowing Detection](theory/lexer-fa.md#shadowing-detection) for how the check works.
-
-### Invalid Regex
-
-Patterns use Java-style regex syntax, but they are parsed by Alpaca's own [`regex`](https://github.com/halotukozak-com/regex) library, not by `java.util.regex`. Malformed patterns -- unmatched parentheses, invalid quantifiers, bad character class syntax -- and the few constructs the library does not support (for example lookbehind `(?<=...)`, lazy quantifiers like `*?`, possessive quantifiers like `++`, and `\\p{...}` classes) produce a compile-time error naming the token and the position in the pattern:
-
-```
-Invalid regex pattern for token "T": unsupported regex feature `lookbehind` (at position 3 in "(?<=a)b")
-```
-
-Lookahead (`(?=...)`, `(?!...)`) and anchors (`^`, `$`, `\\A`, `\\Z`, `\\z`) parse, but are not supported in token patterns yet, so they are a compile-time error at the rule:
-
-```
-Token "A" uses a lookahead `(?=...)` ("a(?=b)"), which is not supported yet
-```
-
-### Empty Matches
-
-A pattern that can match the empty string, such as `"a*"` or `"[0-9]*"`, would let the lexer match without moving forward. It is a compile-time error at its rule, for ignored tokens too:
-
-```
-Token "A" can match the empty string ("a*"); a token must consume at least one character
-```
-
-Require at least one character, e.g. `"a+"` instead of `"a*"`.
-
-### Guards Not Supported
-
-Pattern guards (`case "regex" if condition =>`) are not supported in lexer rules. The workaround is to move the condition into the rule body:
-
-```scala
-import halotukozak.alpaca.*
-
-case class BrainLexContext(
-  squareBrackets: Int = 0,
-) extends LexerCtx
-
-val BrainLexer = lexer[BrainLexContext]:
-  case "\\[" =>
-    ctx.squareBrackets += 1
-    Token["jumpForward"]
-  case "\\]" =>
-    // Validate inside the body, not as a guard
-    require(ctx.squareBrackets > 0, "Mismatched brackets")
-    ctx.squareBrackets -= 1
-    Token["jumpBack"]
-  case "\\+" => Token["inc"]
-  case "." => Token.Ignored
-```
+When the input contains text that matches no pattern, the lexer reports it as a `LexerError` and an error-handling strategy decides whether to stop or skip it and go on. This page covers those runtime errors. Mistakes in the lexer definition itself, such as a pattern that can never match or an invalid regex, are compile errors, listed in [Compile Errors](compile-errors.md#lexer).
 
 ## Runtime Error Handling
 
 When `tokenize()` hits input that matches no pattern, it records a `LexerError` and consults the `ErrorHandling` strategy for the context type to decide how to go on. Either way, `tokenize()` does not throw: it returns a `Result.Failure` listing the errors.
+
+Only unmatched input becomes a `LexerError`. An exception thrown by a rule body, like the failed `require` in the bracket-counting lexer of [Lexer Context](lexer-context.md#custom-context), propagates out of `tokenize()` unchanged.
 
 ### Default Behavior
 
@@ -168,6 +72,26 @@ import halotukozak.alpaca.*
 // Skip unrecognized characters on the first line, stop on any later one
 given ErrorHandling[LexerCtx.Default, LexerError.Of[LexerCtx.Default]] = (_, error) =>
   if error.line > 1 then ErrorHandling.Strategy.Stop else ErrorHandling.Strategy.SkipOne
+```
+
+To look past the unmatched character, call `ctx.peek(n)`: it returns at most the next `n` characters of the input, starting with that character. Here a stray character is skipped, but a comment that is never closed stops the lexer:
+
+```scala
+import halotukozak.alpaca.*
+
+given ErrorHandling[LexerCtx.Default, LexerError] = (ctx, _) =>
+  if ctx.peek(2) == "/*" then ErrorHandling.Strategy.Stop else ErrorHandling.Strategy.SkipOne
+
+val Lexer = lexer:
+  case "/\\*([^*]|\\*+[^*/])*\\*+/" => Token.Ignored
+  case "[a-z]+" => Token["WORD"]
+  case "\\s+" => Token.Ignored
+
+Lexer.tokenize("a @ b /* c") match
+  case Result.Failure(_, recovered, errors) =>
+    println(recovered)             // None: it stopped at the comment
+    println(errors.map(_.message)) // List(Unexpected character '@', Unexpected character '/')
+  case Result.Success(_, _) => ()
 ```
 
 Note that the BrainFuck lexer from [Getting Started](getting-started.md) handles unknown characters with a `"." => Token.Ignored` catch-all pattern instead. That is the recommended approach when unknown input is not an error at all, as BrainFuck comments are: a catch-all produces no `LexerError`.
