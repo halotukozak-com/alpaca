@@ -351,12 +351,11 @@ object Tables:
             case _ => unsupported(rhs.pos)
       }
 
-      def extractKey(expr: Expr[alpaca.Production | Token[?, ?, ?]]): Option[ConflictKey] = expr match
+      def extractKey(expr: Expr[alpaca.Production | Token[?, ?, ?]]): ConflictKey | Null = expr match
         case '{ $prod: alpaca.Production } =>
-          findProduction(prod) match
-            case null => None
-            case production => Some(ConflictKey.Reduction(production))
-        case '{ $_ : Token[name, ?, ?] } => Some(ConflictKey.Shift(Printable(ValidName.from[name])))
+          val production = findProduction(prod)
+          if production == null then null else ConflictKey.Reduction(production)
+        case '{ $_ : Token[name, ?, ?] } => ConflictKey.Shift(Printable(ValidName.from[name]))
 
       // each rule remembers the `.before(...)`/`.after(...)` argument it came from, so errors about it can point there;
       // kept in declaration order, so a cycle is searched from the first declared rule and reported at the one closing it
@@ -372,20 +371,19 @@ object Tables:
           .flatMap:
             case '{ ($after: alpaca.Production | Token[?, ?, ?]).after[`p`](${ Varargs(befores) }*)(using $_) } =>
               val afterKey = extractKey(after)
-              befores.flatMap: before =>
-                extractKey(before).zip(afterKey).map((_, _, Source(before.asTerm.pos)))
+              befores.map(before => (extractKey(before), afterKey, Source(before.asTerm.pos)))
             case '{ ($before: alpaca.Production | Token[?, ?, ?]).before[`p`](${ Varargs(afters) }*)(using $_) } =>
               val beforeKey = extractKey(before)
-              afters.flatMap: after =>
-                beforeKey.zip(extractKey(after)).map((_, _, Source(after.asTerm.pos)))
+              afters.map(after => (beforeKey, extractKey(after), Source(after.asTerm.pos)))
             case other =>
               error(
                 show"Each conflict resolution must be a direct `x.before(...)` or `x.after(...)` call",
                 other.asTerm.pos,
               )
           .foldLeft(VectorMap.empty[ConflictKey, Map[ConflictKey, Source]]):
-            case (table, (before, after, source)) =>
-              table + (before -> (table.getOrElse(before, VectorMap.empty) + (after -> source))),
+            case (table, (before: ConflictKey, after: ConflictKey, source)) =>
+              table + (before -> (table.getOrElse(before, VectorMap.empty) + (after -> source)))
+            case (table, _) => table,
       ).tap: table =>
         logger.toFile(s"${parserName.raw}/conflictResolutions.dbg", true)(table)
         logger.toFile(s"${parserName.raw}/conflictResolutions.mmd", true)(table.toMermaid.showRaw)
