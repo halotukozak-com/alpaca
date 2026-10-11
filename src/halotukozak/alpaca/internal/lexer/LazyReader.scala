@@ -7,7 +7,6 @@ import java.io.{Closeable, Reader}
 import java.nio.charset.{Charset, StandardCharsets}
 import java.nio.file.{Files, Path}
 import scala.annotation.tailrec
-import scala.collection.mutable
 import scala.util.Using
 
 /**
@@ -23,9 +22,11 @@ import scala.util.Using
  * @param size   the exact number of chars `reader` yields
  */
 final class LazyReader private[alpaca] (reader: Reader, private var size: Long) extends CharSequence, Closeable:
-  private val buffer = mutable.ArrayDeque.empty[Char]
-  private val chunk = new Array[Char](8192)
-  private var offset: Int = 0 // logical offset into buffer
+  // `buffer(start until end)` holds the chars read but not yet skipped; `start` may run past `end` when `from` skips
+  // chars that have not been read yet
+  private var buffer = new Array[Char](8192)
+  private var start: Int = 0
+  private var end: Int = 0
 
   /**
    * Gets the character at the specified position.
@@ -37,8 +38,8 @@ final class LazyReader private[alpaca] (reader: Reader, private var size: Long) 
    * @throws IndexOutOfBoundsException if the position is beyond the end of input
    */
   def charAt(pos: Int): Char =
-    ensure(pos + offset)
-    buffer(pos + offset)
+    ensure(pos)
+    buffer(pos + start)
 
   /**
    * Gets the length of the input.
@@ -55,30 +56,23 @@ final class LazyReader private[alpaca] (reader: Reader, private var size: Long) 
    * @return a string containing the subsequence
    */
   def subSequence(start: Int, end: Int): CharSequence =
-    ensure(end - 1 + offset)
+    ensure(end - 1)
     val len = end - start
     require(len >= 0, s"Invalid subsequence range: start=$start, end=$end")
-    val base = start + offset
-    val out = Array.better.tabulate(len)(i => buffer(base + i))
-    new String(out)
+    new String(buffer, start + this.start, len)
 
   /**
    * Skips the first count characters.
    *
    * This is used to advance past tokens that have been processed.
-   * Uses O(1) logical offset advancement instead of O(n) buffer shifting.
-   * Periodically compacts the buffer when offset exceeds 64KB to bound memory waste.
+   * Only advances the start index; the skipped chars are dropped from the buffer when it next fills up.
    *
    * @param count the number of characters to skip
    * @return this LazyReader for chaining
    */
   private[alpaca] def from(count: Int): LazyReader =
-    offset += count
+    start += count
     size -= count
-    // Compact when offset exceeds 64KB to bound memory waste
-    if offset > 65536 then
-      buffer.remove(0, offset)
-      offset = 0
     this
 
   override def toString: String = subSequence(0, length).toString
@@ -87,13 +81,23 @@ final class LazyReader private[alpaca] (reader: Reader, private var size: Long) 
 
   @tailrec
   private def ensure(pos: Int): Unit =
-    if pos >= buffer.length then
-      val charsRead = reader.read(chunk)
+    if pos + start >= end then
+      if end == buffer.length then makeRoom()
+      val charsRead = reader.read(buffer, end, buffer.length - end)
       if charsRead == -1 then
         throw IndexOutOfBoundsException(s"Position $pos is out of bounds for LazyReader of size $size")
       else
-        buffer.appendAll(chunk.iterator.take(charsRead))
+        end += charsRead
         ensure(pos)
+
+  // drops the skipped chars from the front of the full buffer, and grows it if that frees nothing
+  private def makeRoom(): Unit =
+    val dropped = math.min(start, end)
+    if dropped > 0 then
+      System.arraycopy(buffer, dropped, buffer, 0, end - dropped)
+      start -= dropped
+      end -= dropped
+    else buffer = java.util.Arrays.copyOf(buffer, buffer.length * 2)
 
 /**
  * Factory methods for creating LazyReader instances.
