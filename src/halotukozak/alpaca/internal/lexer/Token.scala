@@ -180,8 +180,16 @@ private[alpaca] final case class IgnoredToken[Name <: ValidName, -Ctx <: LexerCt
 private[alpaca] def RecoveredToken[Ctx <: LexerCtx](matched: String): IgnoredToken[matched.type, Ctx] =
   IgnoredToken(
     TokenInfo(Printable(matched), s"<unrecognized \"$matched\">", Printable(matched), ignored = true),
-    identity,
+    unchangedCtx,
   )
+
+// Function values shared by generated tokens, so the lexer macro doesn't emit the same lambda for every token.
+private val identityFunction: Any => Any = identity
+
+@publicInBinary private[alpaca] def unchangedCtx[Ctx <: LexerCtx]: CtxManipulation[Ctx] =
+  identityFunction.asInstanceOf[CtxManipulation[Ctx]]
+@publicInBinary private[alpaca] val discard: LexerCtx => Unit = _ => ()
+@publicInBinary private[alpaca] val rawMatched: LexerCtx => String = _.lastRawMatched
 
 @publicInBinary private[alpaca] object DefinedToken
 
