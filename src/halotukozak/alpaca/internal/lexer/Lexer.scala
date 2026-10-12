@@ -24,6 +24,7 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
   initialCtx: () => Ctx,
 )(using errorHandling: ErrorHandling[Ctx, alpaca.LexerError.Of[Ctx]],
 ) extends Selectable:
+  /** The lexer's tokens by name, as a named tuple: what `MyLexer.NAME` selects. */
   type Fields <: AnyNamedTuple
 
   /** The context fields every lexeme and error of this lexer carries, as a named tuple. */
@@ -38,9 +39,9 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
   /** An error of a parser run on this lexer's lexemes, with their context fields: `def report(error: MyLexer.ParserError)`. */
   final type ParserError = alpaca.ParserError withFields LexemeFields
 
-  /** List of all tokens defined in this lexer, including ignored tokens. */
+  /** All tokens defined in this lexer, including ignored tokens, in priority order; `selectDynamic` reads them by index. */
   @publicInBinary
-  private[alpaca] def tokens: List[Token[?, Ctx, ?]]
+  private[alpaca] def tokens: IArray[Token[?, Ctx, ?]]
 
   /** Backs token selection by name (`myLexer.PLUS`); not meant to be called directly. */
   def selectDynamic(fieldName: String): Token[?, Ctx, ?]
@@ -51,7 +52,8 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
    * Processes the input from start to finish, matching tokens and building
    * a list of lexemes. Input that matches no token does not throw: it is
    * reported as a [[LexerError]], and the context's [[ErrorHandling]] decides
-   * whether tokenizing stops there or skips it and goes on.
+   * whether tokenizing stops there or skips it and goes on. An exception thrown
+   * by a rule body, such as a failed `require`, propagates out of `tokenize`.
    *
    * @param input the input to tokenize
    * @return the lexemes and the final lexer context, or the errors if any input did not match; with a recovering
@@ -72,9 +74,9 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
         case m if m != null && m.end > 0 =>
           val matchedStr = globalCtx.input.subSequence(0, m.end).toString
           globalCtx.lastRawMatched = matchedStr
-          val found = tokensArray(m.priority)
+          val found = tokens(m.priority)
           globalCtx.input = globalCtx.input.from(m.end)
-          Step.Matched(found, matchedStr)
+          Step.Matched(found)
 
         case _ =>
           val cpLen = Character.charCount(Character.codePointAt(globalCtx.input, 0))
@@ -88,14 +90,14 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
               errors += alpaca.LexerError[LexemeFields](matchedStr, fieldNames, globalCtx)
               globalCtx.lastRawMatched = matchedStr
               globalCtx.input = globalCtx.input.from(skipped)
-              Step.Matched(RecoveredToken(matchedStr), matchedStr)
+              Step.Matched(RecoveredToken(matchedStr))
 
             case Strategy.SkipOne =>
               val matchedStr = unexpected.unexpected
               errors += unexpected
               globalCtx.lastRawMatched = matchedStr
               globalCtx.input = globalCtx.input.from(cpLen)
-              Step.Matched(RecoveredToken(matchedStr), matchedStr)
+              Step.Matched(RecoveredToken(matchedStr))
 
             case Strategy.Stop =>
               errors += unexpected
@@ -105,11 +107,11 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
           }
       }
 
-      step match
-        case Step.Matched(token, matched) =>
-          globalCtx = onTokenMatch(token, matched, globalCtx)
-          if token.isInstanceOf[DefinedToken[?, Ctx, ?, ?]] then acc.addOne(globalCtx.lastLexeme.nn.asInstanceOf[Lexeme])
-        case Step.Stopped =>
+      if !step.isStopped then
+        val token = step.asToken
+        // every step that matches stores its text in `lastRawMatched`
+        globalCtx = onTokenMatch(token, globalCtx.lastRawMatched, globalCtx)
+        if token.isInstanceOf[DefinedToken[?, Ctx, ?, ?]] then acc.addOne(globalCtx.lastLexeme.nn.asInstanceOf[Lexeme])
     }
 
     errors.toList match
@@ -121,14 +123,21 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
   @publicInBinary
   private[alpaca] def matcher: TokenMatcher
 
-  private lazy val tokensArray: Vector[Token[?, Ctx, ?]] = tokens.toVector
-
   private val fieldNames: Array[String] = initialCtx().productElementNames.toArray
 
-/** The outcome of one step of [[Lexer.tokenize]]: a token matched (or recovered) from `text`, or a stop. */
-private enum Step[-Ctx <: LexerCtx]:
-  case Matched(token: Token[?, Ctx, ?], text: String)
-  case Stopped
+/**
+ * The outcome of one step of [[Lexer.tokenize]]: a token matched (or recovered), or a stop. Opaque over the token so
+ * that a step allocates nothing; the matched text is the context's `lastRawMatched`.
+ */
+opaque private type Step[Ctx <: LexerCtx] = Token[?, Ctx, ?] | Null
+
+private object Step:
+  def Matched[Ctx <: LexerCtx](token: Token[?, Ctx, ?]): Step[Ctx] = token
+  def Stopped[Ctx <: LexerCtx]: Step[Ctx] = null
+
+  extension [Ctx <: LexerCtx](step: Step[Ctx])
+    def isStopped: Boolean = step == null
+    def asToken: Token[?, Ctx, ?] = step.nn
 
 extension (input: CharSequence)
   private[alpaca] def from(pos: Int): CharSequence = input match

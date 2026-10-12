@@ -94,7 +94,7 @@ println(MyLexer.tokenize("/* a */ x /* b */").getOrThrow.map(_.name)) // List(ID
 
 ## Regular Expressions
 
-Patterns use Java-style regex syntax and are validated at compile time by Alpaca's own regex library (a few Java constructs -- lookbehind, lazy and possessive quantifiers, `\\p{...}` classes -- are not supported; see [Invalid Regex](lexer-error-recovery.md#invalid-regex)). Backslashes must be doubled inside Scala string literals: `"\\+"` matches a literal `+`, and `"\\d+"` matches one or more digits.
+Patterns use Java-style regex syntax and are validated at compile time by Alpaca's own regex library (a few Java constructs -- lookbehind, lazy and possessive quantifiers -- are not supported; see [Invalid Regex](lexer-error-recovery.md#invalid-regex)). Backslashes must be doubled inside Scala string literals: `"\\+"` matches a literal `+`, and `"\\d+"` matches one or more digits.
 
 ```scala
 import halotukozak.alpaca.*
@@ -230,7 +230,7 @@ The method returns a `Result` -- the same type `parse` returns (see [Parsing Inp
 - **`ctx`** -- the final lexer context after processing all input. With `LexerCtx.Default`, this includes `column` and `line`: the position after the last match.
 - **`getOrThrow`** -- the lexemes: matched tokens with `Token.Ignored` entries removed. Each `Lexeme` carries the token `name`, extracted `value`, and a snapshot of context fields at match time.
 
-If the input contains a character that matches no pattern, `tokenize` does not throw: it returns a `Result.Failure` listing `LexerError`s, and `getOrThrow` throws them as a `LexerException`. See [Runtime Error Handling](lexer-error-recovery.md#runtime-error-handling) for how to handle the errors, or skip unmatched input instead of stopping.
+If the input contains a character that matches no pattern, `tokenize` does not throw: it returns a `Result.Failure` listing `LexerError`s, and `getOrThrow` throws them as a `LexerException`. An exception thrown by a rule body, such as a failed `require`, is different: it propagates out of `tokenize`. See [Runtime Error Handling](lexer-error-recovery.md#runtime-error-handling) for how to handle the errors, or skip unmatched input instead of stopping.
 
 ### Tokenizing Files with LazyReader
 
@@ -245,7 +245,7 @@ val lexemes =
   finally reader.close()
 ```
 
-`LazyReader.from(path)` accepts an optional `Charset` parameter (defaults to UTF-8). Always close the reader in a `finally` block (or use `scala.util.Using.resource`) so the file handle is released even if tokenization throws.
+`LazyReader.from(path)` accepts an optional `Charset` parameter (defaults to UTF-8). It reads the file with `java.nio.file`, which Scala Native provides but Scala.js does not, so on Scala.js read the input into a `String` yourself. Always close the reader in a `finally` block (or use `scala.util.Using.resource`) so the file handle is released even if tokenization throws.
 
 `tokenize` reads the file in chunks, so memory does not grow with the file size. Like the `Reader` it wraps, a `LazyReader` is consumed as it is read, so create a new one per run.
 
@@ -292,3 +292,26 @@ Lexemes compare by value: two are equal when their name, value, text and context
 The `Lexeme` class extends `Selectable` with a structural refinement that encodes every context field and its type. The compiler resolves `lexeme.column` to `Int` at compile time -- not by casting from `Any` at runtime.
 
 </details>
+
+## Naming the Types
+
+Every lexer has type members for its lexemes and errors, to use in your own signatures:
+
+| Type | What it is |
+|------|------------|
+| `BrainLexer.Lexeme` | a lexeme of this lexer, with its context fields |
+| `BrainLexer.LexerError` | an error `tokenize` returns |
+| `BrainLexer.ParserError` | an error `parse` returns for this lexer's lexemes (see [Parsing Input](parser.md#parsing-input)) |
+| `BrainLexer.LexemeFields` | the context fields, as a named tuple |
+
+```scala sc-compile-with:BrainLexer
+def describe(lexeme: BrainLexer.Lexeme): String =
+  s"${lexeme.name} at ${lexeme.line}:${lexeme.column}"
+
+def describe(error: BrainLexer.LexerError): String =
+  s"${error.message} at ${error.line}:${error.column}"
+
+val lexemes: List[BrainLexer.Lexeme] = BrainLexer.tokenize("+>").getOrThrow
+```
+
+The plain `Lexeme`, `LexerError` and `ParserError` types compile too, but they don't carry the context fields, so `lexeme.line` doesn't compile on them.

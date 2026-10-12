@@ -163,11 +163,15 @@ transparent inline def ctx[Ctx <: LexerCtx: LexerScope.Of as scope]: Ctx = ${ ct
 // $COVERAGE-ON$
 
 /**
- * Trait for the global context used during tokenization.
+ * The base of every lexer context: the state a lexer carries from one token to the next, read and assigned as `ctx`
+ * in rule bodies, and snapshotted into every lexeme and [[LexerError]].
  *
- * The global context maintains state during lexing, including the current
- * position in the input, the last matched token, and the remaining text to process.
- * Users can extend this trait to add custom state tracking.
+ * A context must be a case class whose fields all have default values, since the `lexer` macro builds the initial
+ * context from those defaults:
+ * {{{
+ * case class BrainLexContext(squareBrackets: Int = 0, line: Line = Line.Start) extends LexerCtx
+ * }}}
+ * A field whose type has a `given` [[Tracking]], like [[Line]] or [[Column]], is updated after every match.
  */
 trait LexerCtx extends Product, Selectable:
   // Engine state. `private`, not `private[alpaca]`: private members aren't inherited, so a user context may have
@@ -206,12 +210,7 @@ trait LexerCtx extends Product, Selectable:
     lastLexeme = prev.lastLexeme
     this
 
-  /**
-   * Structural fallback for the getter/setter refinement that `ctx` (see
-   * below) types itself with, so that `ctx.field += 1` type-checks even when
-   * `field` is an immutable `val`. The `lexer` macro rewrites away every such
-   * structural access inside a rule before it is inlined; anywhere else it is a compile error.
-   */
+  /** Not meant to be called: assigning a context field outside a lexer rule is a compile error. */
   inline def applyDynamic(@unused inline name: String)(@unused inline args: Any*): Any =
     compiletime.error("Lexer context fields can only be assigned inside a lexer rule")
 
@@ -236,24 +235,14 @@ object LexerCtx:
   given ErrorHandling[LexerCtx, LexerError] = (_, _) => ErrorHandling.Strategy.Stop
 
   /**
-   * An empty lexer context with no extra state tracking.
-   *
-   * This is the simplest context that only tracks the remaining text.
-   * Use this when you don't need line or column tracking.
+   * A lexer context with no fields, so lexemes and errors carry no position. Use it when you need neither line nor
+   * column tracking.
    */
   final case class Empty() extends LexerCtx
 
   /**
-   * The default lexer context, composed of the [[Column]] and [[Line]]
-   * tracking fragments.
-   *
-   * This is the most commonly used context and provides useful information
-   * for error reporting.
-   *
-   * `column` and `line` are immutable `val`s of a subtype of `Int`:
-   * `Tracking.materialize` finds each fragment's `given Tracking` and threads a
-   * fresh `copy` of this case class through the lexer rather than mutating a
-   * field in place. Read them as plain `Int`s (`ctx.line`, `ctx.column`).
+   * The context of a `lexer` block without a type parameter: the [[Column]] and [[Line]] tracking fields, updated
+   * after every match. Read them as plain `Int`s (`ctx.line`, `ctx.column`).
    *
    * In the context they are the position after the last match; in a lexeme they
    * are the position where its token starts.
@@ -280,6 +269,7 @@ final class LexerError private[alpaca] (
   private[alpaca] val fieldNames: Array[String],
   private[alpaca] val fieldValues: Array[Any],
 ) extends Selectable:
+  /** The lexer context's fields, which the error carries; a lexer's own errors have them as `MyLexer.LexerError`. */
   type Fields <: AnyNamedTuple
 
   /** Backs context field selection by name (`error.NAME`); not meant to be called directly. */
@@ -317,7 +307,8 @@ object LexerError:
   /** An error for `unexpected`, with `ctx`'s fields as they are before it. */
   private[alpaca] def apply[CtxFields <: AnyNamedTuple](unexpected: String, fieldNames: Array[String], ctx: LexerCtx)
     : LexerError withFields CtxFields =
-    new LexerError(unexpected, fieldNames, ctx.productIterator.toArray).asInstanceOf[LexerError withFields CtxFields]
+    new LexerError(unexpected, fieldNames, Array.better.tabulate(ctx.productArity)(ctx.productElement))
+      .asInstanceOf[LexerError withFields CtxFields]
 
 /**
  * Thrown by `getOrThrow` on a lexer [[Result]] when some input did not match a token.

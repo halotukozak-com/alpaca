@@ -107,7 +107,7 @@ import scala.reflect.NameTransformer
                   DefinedToken[name, Ctx, Unit, Lexeme[name, Unit] withFields NamedTuple.From[Ctx]](
                     ${ Expr(tokenInfo) },
                     $ctxManipulation,
-                    _ => (),
+                    discard,
                   )
                 },
                 regex = regex,
@@ -125,7 +125,7 @@ import scala.reflect.NameTransformer
                   DefinedToken[name, Ctx, String, Lexeme[name, String] withFields NamedTuple.From[Ctx]](
                     ${ Expr(tokenInfo) },
                     $ctxManipulation,
-                    _.lastRawMatched,
+                    rawMatched,
                   )
                 },
                 regex = regex,
@@ -165,7 +165,7 @@ import scala.reflect.NameTransformer
               raiseShouldNeverBeCalled[CompiledRule](tokenInfo)
       }
 
-      val pairs = extractSimple('{ (c: Ctx) => c })
+      val pairs = extractSimple('{ unchangedCtx[Ctx] })
         .lift(body.asExprOf[TokenDef[ValidName, Ctx, Any]])
         .orElse:
           body match {
@@ -259,24 +259,27 @@ import scala.reflect.NameTransformer
             case Refinement(_, _, alias) => alias
       Refinement(acc, name, alias)
 
-  def selectDynamicImpl(fieldName: Expr[String])(using Quotes) = Match(
+  // Maps a token name to its index in `tokens`, so `selectDynamic` returns the token built once there.
+  def tokenIndexImpl(fieldName: Expr[String])(using Quotes) = Match(
     '{ $fieldName: @switch }.asTerm,
-    tokens.map(t => CaseDef(Literal(StringConstant(NameTransformer.encode(t.info.name.raw))), None, t.expr.asTerm)) :+
-      CaseDef(Wildcard(), None, '{ throw new NoSuchElementException(s"No token named \"${$fieldName}\"") }.asTerm),
-  ).asExprOf[lexer.Token[?, Ctx, ?]]
+    tokens.zipWithIndex.map((token, index) =>
+      CaseDef(Literal(StringConstant(NameTransformer.encode(token.info.name.raw))), None, Literal(IntConstant(index))),
+    ) :+ CaseDef(Wildcard(), None, '{ throw new NoSuchElementException(s"No token named \"${$fieldName}\"") }.asTerm),
+  ).asExprOf[Int]
 
   (refinementTpeFrom(fields).asType, fieldsTpeFrom(fields).asType, types.asType).runtimeChecked match {
     case ('[refinedTpe], '[fields], '[types]) =>
-      val tokensExpr = Expr.ofList(tokens.map(_.expr))
+      val tokensExpr = '{ IArray[lexer.Token[?, Ctx, ?]](${ Varargs(tokens.map(_.expr)) }*) }
       val matcherExpr = '{ TokenMatcher.fromRegexes(${ Varargs(parsed.map(p => Expr(p.regex))) }*) }
 
       '{
         {
           new Lexer[Ctx]($onTokenMatch, $initialCtx)(using $errorHandling):
             @publicInBinary
-            override private[alpaca] val tokens: List[lexer.Token[?, Ctx, ?]] = $tokensExpr
+            override private[alpaca] val tokens: IArray[lexer.Token[?, Ctx, ?]] = $tokensExpr
 
-            override def selectDynamic(name: String): lexer.Token[?, Ctx, ?] = ${ selectDynamicImpl('{ name }) }
+            override def selectDynamic(name: String): lexer.Token[?, Ctx, ?] =
+              tokens(${ tokenIndexImpl('{ name }) })
 
             @publicInBinary
             override private[alpaca] val matcher: TokenMatcher = $matcherExpr

@@ -31,7 +31,7 @@ object myproject extends ScalaModule {
   def scalacOptions = Seq("-Yretain-trees")
 
   def mvnDeps = Seq(
-    mvn"com.halotukozak::alpaca::1.0.0-RC2"
+    mvn"com.halotukozak::alpaca::1.0.0-RC3"
   )
 }
 ```
@@ -41,7 +41,7 @@ object myproject extends ScalaModule {
 Add Alpaca to your `build.sbt`:
 
 ```sbt
-libraryDependencies += "com.halotukozak" %% "alpaca" % "1.0.0-RC2"
+libraryDependencies += "com.halotukozak" %% "alpaca" % "1.0.0-RC3"
 ```
 
 Make sure you're using Scala 3.9.0 or later and enable the required compiler flag (Alpaca 0.3.2 and earlier also need `-experimental`):
@@ -57,13 +57,27 @@ Use Alpaca directly in your Scala CLI scripts:
 
 ```scala
 //> using scala "3.9.0"
-//> using dep "com.halotukozak::alpaca:1.0.0-RC2"
+//> using dep "com.halotukozak::alpaca:1.0.0-RC3"
 //> using options "-Yretain-trees"
 
 import halotukozak.alpaca.*
 
 // Your code here
 ```
+
+### Scala.js and Scala Native
+
+Alpaca is also published for Scala.js 1 and Scala Native 0.5 (built with Scala.js 1.22.0 and Scala Native 0.5.12). The
+same dependency works there, with `%%%` in sbt:
+
+```sbt
+libraryDependencies += "com.halotukozak" %%% "alpaca" % "1.0.0-RC3"
+```
+
+In Mill, the `mvn"com.halotukozak::alpaca::1.0.0-RC3"` line above picks the right artifact in a `ScalaJSModule` or
+`ScalaNativeModule`. In Scala CLI, add `//> using platform js` (or `native`) and write the dependency with two colons
+before the version: `//> using dep "com.halotukozak::alpaca::1.0.0-RC3"`. The `-Yretain-trees` flag is needed on every
+platform.
 
 ## Quick Start
 
