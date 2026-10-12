@@ -9,7 +9,6 @@ import halotukozak.mcodec.MCodec
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.quoted.*
-import scala.quoted.QuotedFactoryGivens.given
 
 /**
  * An opaque type representing the LR parse table.
@@ -255,72 +254,93 @@ private[parser] object ParseTable:
     result.result().showRaw
   }
 
+  /**
+   * Decodes a table from the [[TableEncoding]] text [[encode]] wrote, with one [[ProductionRule]] per production,
+   * shared by the cells that reduce by it.
+   *
+   * @param actions the semantic action of every production after the synthetic start production, in the order they
+   *                were encoded in
+   * @throws IllegalStateException if the text was written in another format
+   */
+  def decode[Ctx <: ParserCtx](encoded: Array[String], actions: Array[Action[Ctx]]): ParseTable[ProductionRule[Ctx]] = {
+    val reader = TableEncoding.Reader(encoded)
+    val symbols = Array.better.tabulate[Symbol.NonEmpty](reader.readInt()): _ =>
+      val isTerminal = reader.readInt() == 0
+      // interned like the names in the lexer's code, so that comparing a lexeme's name with it is mostly a reference check
+      val name = Printable(reader.readString().intern())
+      if isTerminal then Terminal(name) else NonTerminal(name)
+
+    val rules = Array.better.tabulate[ProductionRule[Ctx]](reader.readInt()): index =>
+      val lhs = symbols(reader.readInt()).asInstanceOf[NonTerminal & Symbol.NonEmpty]
+      val rhs = Vector.fill(reader.readInt())(symbols(reader.readInt()))
+      val name = if reader.readInt() == 0 then null else Printable(reader.readString())
+      val production =
+        if rhs.isEmpty then Production.Empty(lhs, name) else Production.NonEmpty(lhs, NEL.unsafe(rhs), name)
+      if index == 0 then ProductionRule.accept(production) else ProductionRule(production, actions(index - 1))
+
+    Array.better.tabulate[Map[Symbol, ParseAction[ProductionRule[Ctx]]]](reader.readInt()): _ =>
+      val row = Map.newBuilder[Symbol, ParseAction[ProductionRule[Ctx]]]
+      for _ <- 0 until reader.readInt() do
+        val symbol = symbols(reader.readInt())
+        val action = reader.readInt()
+        row += symbol -> (if action % 2 == 0 then Shift(action / 2) else Reduction(rules(action / 2)))
+      row.result()
+  }
+
   // $COVERAGE-OFF$
   extension (table: ParseTable[Production]) {
 
     /**
-     * The code that builds this table at runtime, with each production's [[ProductionRule]] built once from `actions` and shared
-     * by the cells that reduce by it.
+     * Encodes the table as [[TableEncoding]] text, split into string constants: the symbols (kind, 0 for a terminal,
+     * and name), the productions (left-hand side, right-hand side size and symbols, 0 or 1 and the name), and the
+     * states (cell count, then each cell's symbol and action, `2 * state` for a shift and `2 * production + 1` for a
+     * reduction). Symbols and productions are written once, and referred to by their index in the text.
      *
-     * @param actions the semantic action of every production but the synthetic start production
+     * @param productions the grammar productions, the synthetic start production first, in the order [[decode]] gets
+     *                    their actions in
      */
-    def toExpr[Ctx <: ParserCtx: Type](actions: Map[Production, Expr[Action[Ctx]]])(using Quotes)
-      : Expr[ParseTable[ProductionRule[Ctx]]] = {
-      type Row = Map[Symbol, ParseAction[ProductionRule[Ctx]]]
-      type RowBuilder = mutable.Builder[(Symbol, ParseAction[ProductionRule[Ctx]]), Row]
+    def encode(productions: Seq[Production]): List[String] = {
+      val productionSymbols = productions.iterator.flatMap:
+        case Production.NonEmpty(lhs, rhs, _) => lhs +: rhs
+        case Production.Empty(lhs, _) => List(lhs)
+      val symbols = (productionSymbols ++ table.iterator.flatMap(_.keysIterator)).distinct.toVector
+      val symbolIndex = symbols.zipWithIndex.toMap
+      val productionIndex = productions.zipWithIndex.toMap
+      val writer = TableEncoding.Writer()
 
-      // where each rule is in the generated array of rules
-      val ruleIndex = table.iterator
-        .flatMap(_.valuesIterator)
-        .collect:
-          case Reduction(production) => production
-        .distinct
-        .zipWithIndex
-        .toMap
+      writer.writeInt(symbols.size)
+      for symbol <- symbols do
+        writer.writeInt(if symbol.isInstanceOf[Terminal] then 0 else 1)
+        writer.writeString(symbol.name.raw)
 
-      val rulesExpr =
-        avoidTooLargeMethod[ProductionRule[Ctx], Array[ProductionRule[Ctx]], mutable.ArrayBuilder[ProductionRule[Ctx]]](
-          builder = '{ mutable.ArrayBuilder.ofRef[ProductionRule[Ctx]].tap(_.sizeHint(${ Expr(ruleIndex.size) })) },
-          elements = ruleIndex.toSeq
-            .sortBy(_._2)
-            .map: (production, _) =>
-              actions.get(production) match
-                case Some(action) => '{ ProductionRule(${ Expr(production) }, $action) }
-                case None => '{ ProductionRule.accept[Ctx](${ Expr(production) }) },
-          empty = '{ Array.empty[ProductionRule[Ctx]] },
-        )
+      writer.writeInt(productions.size)
+      for production <- productions do
+        writer.writeInt(symbolIndex(production.lhs))
+        production match
+          case Production.NonEmpty(_, rhs, _) =>
+            writer.writeInt(rhs.size)
+            rhs.foreach(symbol => writer.writeInt(symbolIndex(symbol)))
+          case Production.Empty(_, _) => writer.writeInt(0)
+        production.name match
+          case null => writer.writeInt(0)
+          case name =>
+            writer.writeInt(1)
+            writer.writeString(name.raw)
 
-      // takes the Quotes of the splice it is called in, as `rules` is only valid there
-      def rowsExpr(rules: Expr[Array[ProductionRule[Ctx]]])(using Quotes): Expr[Array[Row]] = {
-        def actionExpr(action: ParseAction[Production]): Expr[ParseAction[ProductionRule[Ctx]]] = action match
-          case Shift(state) => '{ Shift(${ Expr(state) }) }
-          case Reduction(production) => '{ Reduction($rules(${ Expr(ruleIndex(production)) })) }
+      writer.writeInt(table.length)
+      for row <- table do
+        writer.writeInt(row.size)
+        for (symbol, action) <- row do
+          writer.writeInt(symbolIndex(symbol))
+          writer.writeInt(action match
+            case Shift(state) => 2 * state
+            case Reduction(production) => 2 * productionIndex(production) + 1)
 
-        def rowExpr(row: Map[Symbol, ParseAction[Production]]): Expr[Row] = avoidTooLargeMethod[
-          (Symbol, ParseAction[ProductionRule[Ctx]]),
-          Row,
-          RowBuilder,
-        ](
-          builder = '{ Map.newBuilder },
-          elements = row.map((symbol, action) => '{ (${ Expr(symbol) }, ${ actionExpr(action) }) }),
-          empty = '{ Map.empty },
-        )
-
-        avoidTooLargeMethod[Row, Array[Row], mutable.ArrayBuilder[Row]](
-          builder = '{ mutable.ArrayBuilder.ofRef[Row].tap(_.sizeHint(${ Expr(table.length) })) },
-          elements = table.map(rowExpr),
-          empty = '{ Array.empty[Row] },
-        )
-      }
-
-      '{
-        val rules = $rulesExpr
-        ${ rowsExpr('rules) }
-      }.asInstanceOf[Expr[ParseTable[ProductionRule[Ctx]]]]
+      writer.chunks
     }
   }
 
-  // No constructor for a raw ParseTable outside the algorithm above, hence write-only below.
+  // Write-only: tooling reads the export, nothing reads it back into a table.
   // The export carries the parser's own symbol names, so a consumer need not hardcode them.
   given MCodec[Production] => MCodec[ParseTable[Production]] =
     import JsonExport.TableFormat

@@ -6,8 +6,6 @@ package parser
 import halotukozak.alpaca.ParserCtx
 import halotukozak.alpaca.internal.RevertedArray
 
-import scala.annotation.publicInBinary
-
 /**
  * Type alias for semantic actions in the parser.
  *
@@ -30,12 +28,12 @@ private[parser] type Action[-Ctx <: ParserCtx] = (Ctx, RevertedArray[Any]) => An
  *
  * @tparam Ctx the parser context type
  */
-final class ProductionRule[-Ctx <: ParserCtx] @publicInBinary private[parser] (
+final class ProductionRule[-Ctx <: ParserCtx] private[parser] (
   val production: Production,
   val action: Action[Ctx],
 )
 
-@publicInBinary private[parser] object ProductionRule:
+private[parser] object ProductionRule:
   /** The rule of the synthetic start production, whose reduction accepts the input instead of running an action. */
   def accept[Ctx <: ParserCtx](production: Production): ProductionRule[Ctx] =
     ProductionRule(

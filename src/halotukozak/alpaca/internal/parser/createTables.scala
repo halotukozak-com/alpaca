@@ -36,6 +36,22 @@ object Tables:
    */
   inline given [Ctx <: ParserCtx]: Tables[Ctx] = ${ createTablesImpl[Ctx] }
 
+  /**
+   * Builds a parser's tables from what its `Tables` given was compiled to; the only thing the generated code calls, so
+   * that it takes plain data and the classes behind the tables stay internal (#733).
+   *
+   * @param parseTable the parse table as encoded by [[ParseTable.encode]]
+   * @param actions the actions of the productions after the start production, in the order they were encoded in
+   * @param initialCtx the factory of the initial context
+   * @throws IllegalStateException if the parse table was encoded by a version of Alpaca with another format
+   */
+  @publicInBinary private[alpaca] def decode[Ctx <: ParserCtx](
+    parseTable: Array[String],
+    actions: Array[Action[Ctx]],
+    initialCtx: () => Ctx,
+  ): Tables[Ctx] =
+    (parseTable = ParseTable.decode(parseTable, actions), initialCtx = initialCtx)
+
   extension [Ctx <: ParserCtx](tables: Tables[Ctx])
     private[alpaca] def parseTable: ParseTable[ProductionRule[Ctx]] = tables.parseTable
     private[alpaca] def initialCtx: () => Ctx = tables.initialCtx
@@ -60,12 +76,12 @@ object Tables:
  *
  * @tparam Ctx the parser context type
  * @param quotes the Quotes instance
- * @return an expression containing the parse and action tables, and the initial context factory
+ * @return an expression building the parse table, and the initial context factory
  */
 // $COVERAGE-OFF$
 @publicInBinary private[parser] def createTablesImpl[Ctx <: ParserCtx: Type](
   using quotes: Quotes,
-): Expr[(parseTable: ParseTable[ProductionRule[Ctx]], initialCtx: () => Ctx)] = {
+): Expr[Tables[Ctx]] = {
   import quotes.reflect.*
   given Diagnostics = Diagnostics()
   val initialCtx = fromDefaults[Ctx]
@@ -403,14 +419,21 @@ object Tables:
       val start = Production.NonEmpty(parser.Symbol.Start, NEL(root.lhs))
       val allSources = sources.updated(start, sources(root))
 
-      val parseTable =
-        ParseTable(start :: table.map(_.production), allSources, conflictResolutionTable)
+      val allProductions = start :: productions
+
+      // plain strings, so that the generated code builds none of the table's internal classes itself
+      val encodedParseTable = Varargs:
+        ParseTable(allProductions, allSources, conflictResolutionTable)
           .tap: parseTable =>
             logger.toFile(s"${parserName.raw}/parseTable.dbg.csv", true)(parseTable.toCsv)
           .tap: parseTable =>
             given MCodec[Production] = Production.exportCodec(allSources)
             JsonExport.maybeWrite(exportName, "table", parseTable)
-          .toExpr(table.iterator.map(entry => entry.production -> entry.action).toMap)
+          .encode(allProductions)
+          .map(Expr(_))
+
+      // in the order of the encoded productions, after the start production
+      val actions = Varargs(table.map(_.action))
 
       // referenced only to avoid an unused-implicit warning; kept lazy and never forced,
       // since eagerly forcing it here (during Tables[Ctx] construction, i.e. during the
@@ -422,10 +445,7 @@ object Tables:
 
       '{
         $referenceGivenResolutions
-        (
-          $parseTable.asInstanceOf[ParseTable[ProductionRule[Ctx]]],
-          $initialCtx,
-        )
+        Tables.decode(Array($encodedParseTable*), Array[Action[Ctx]]($actions*), $initialCtx)
       }
   }
 }

@@ -6,8 +6,6 @@ package parser
 import halotukozak.alpaca.internal.{DebugSettings, NEL, Printable, Showable}
 import halotukozak.mcodec.MCodec
 
-import scala.quoted.ToExprFactory
-
 /**
  * Represents a grammar production rule.
  *
@@ -17,7 +15,7 @@ import scala.quoted.ToExprFactory
  *
  * @param rhs the right-hand side sequence of symbols
  */
-private[alpaca] enum Production(val rhs: NEL[Symbol.NonEmpty] | Symbol.Empty.type) derives ToExprFactory:
+private[alpaca] enum Production(val rhs: NEL[Symbol.NonEmpty] | Symbol.Empty.type):
 
   /** The left-hand side non-terminal of the production. */
   val lhs: NonTerminal
