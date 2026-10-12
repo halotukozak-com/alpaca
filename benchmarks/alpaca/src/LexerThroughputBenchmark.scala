@@ -1,11 +1,13 @@
 package bench.alpaca
 
-import halotukozak.alpaca.{lexer, LexerCtx, Token}
+import halotukozak.alpaca.{lexer, LazyReader, LexerCtx, Token}
 import org.openjdk.jmh.annotations.*
 import org.openjdk.jmh.infra.Blackhole
 
+import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
 import scala.compiletime.uninitialized
+import scala.util.Using
 
 // Same token set, defined twice against different context types so the JMH
 // benchmark below can compare tokenization cost with (Default) and without
@@ -67,9 +69,18 @@ class LexerThroughputBenchmark:
 
   private var input: String = uninitialized
 
+  // the same input written to a file, for tokenizing through a LazyReader
+  private var inputFile: Path = uninitialized
+
   @Setup(Level.Trial)
   def setup(): Unit =
     input = ThroughputInputs.forClass(inputClass, size.toInt)
+    inputFile = Files.createTempFile("lexer-throughput", ".txt")
+    Files.writeString(inputFile, input): Unit
+
+  @TearDown(Level.Trial)
+  def tearDown(): Unit =
+    Files.deleteIfExists(inputFile): Unit
 
   @Benchmark
   def tokenizeDefault(bh: Blackhole): Unit =
@@ -78,3 +89,8 @@ class LexerThroughputBenchmark:
   @Benchmark
   def tokenizeEmpty(bh: Blackhole): Unit =
     bh.consume(ThroughputLexerEmpty.tokenize(input))
+
+  @Benchmark
+  def tokenizeLazyReaderDefault(bh: Blackhole): Unit =
+    Using.resource(LazyReader.from(inputFile)): reader =>
+      bh.consume(ThroughputLexerDefault.tokenize(reader))
