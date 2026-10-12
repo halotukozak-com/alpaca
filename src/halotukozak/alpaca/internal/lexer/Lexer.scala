@@ -108,7 +108,7 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
       }
 
       if !step.isStopped then
-        val token = step.token
+        val token = step.asToken
         // every step that matches stores its text in `lastRawMatched`
         globalCtx = onTokenMatch(token, globalCtx.lastRawMatched, globalCtx)
         if token.isInstanceOf[DefinedToken[?, Ctx, ?, ?]] then acc.addOne(globalCtx.lastLexeme.nn.asInstanceOf[Lexeme])
@@ -132,12 +132,12 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
 opaque private type Step[Ctx <: LexerCtx] = Token[?, Ctx, ?] | Null
 
 private object Step:
-  inline def Matched[Ctx <: LexerCtx](token: Token[?, Ctx, ?]): Step[Ctx] = token
-  inline def Stopped[Ctx <: LexerCtx]: Step[Ctx] = null
+  def Matched[Ctx <: LexerCtx](token: Token[?, Ctx, ?]): Step[Ctx] = token
+  def Stopped[Ctx <: LexerCtx]: Step[Ctx] = null
 
   extension [Ctx <: LexerCtx](step: Step[Ctx])
-    inline def isStopped: Boolean = step == null
-    inline def token: Token[?, Ctx, ?] = step.nn
+    def isStopped: Boolean = step == null
+    def asToken: Token[?, Ctx, ?] = step.nn
 
 extension (input: CharSequence)
   private[alpaca] def from(pos: Int): CharSequence = input match
