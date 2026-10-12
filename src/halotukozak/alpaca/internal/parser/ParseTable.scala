@@ -290,7 +290,8 @@ private[parser] object ParseTable:
           empty = '{ Array.empty[ProductionRule[Ctx]] },
         )
 
-      def rowsExpr(rules: Expr[Array[ProductionRule[Ctx]]]): Expr[Array[Row]] = {
+      // takes the Quotes of the splice it is called in, as `rules` is only valid there
+      def rowsExpr(rules: Expr[Array[ProductionRule[Ctx]]])(using Quotes): Expr[Array[Row]] = {
         def actionExpr(action: ParseAction[Production]): Expr[ParseAction[ProductionRule[Ctx]]] = action match
           case Shift(state) => '{ Shift(${ Expr(state) }) }
           case Reduction(production) => '{ Reduction($rules(${ Expr(ruleIndex(production)) })) }
