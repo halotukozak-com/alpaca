@@ -13,7 +13,12 @@ permissions:
 # halotukozak-com/.github to the scala-cli repos) adapted for Mill.
 #
 # Report-only: on a PR, labels `needs-major` (binary break) or `needs-minor`
-# (TASTy-only break), removed once compatible. Fails only if a check can't run.
+# (new API, or a TASTy-only break), removed once compatible. Fails only if a
+# check can't run.
+#
+# New API needs a minor bump too: code compiled against it doesn't link
+# against the baseline, so a patch release, which must be compatible both
+# ways, can't carry it.
 #
 # Two checks run against the same baseline:
 # - MiMa (.mima/bin-compat-check.scala): do classfiles compiled against the
@@ -106,12 +111,13 @@ jobs:
           tasty_status=${PIPESTATUS[0]}
           set -e
 
-          # 0 = compatible, 2 = incompatible, else the check couldn't run: fail
-          # here so the label/comment steps are skipped.
+          # 0 = compatible, 2 = incompatible, 3 = compatible with new API (MiMa
+          # only), else the check couldn't run: fail here so the label/comment
+          # steps are skipped.
           tool_errors=0
           for check in "MiMa (bin-compat-check.scala):$bin_status" "TASTy-MiMa (tasty-compat-check.scala):$tasty_status"; do
             status=${check##*:}
-            if [ "$status" != 0 ] && [ "$status" != 2 ]; then
+            if [ "$status" != 0 ] && [ "$status" != 2 ] && [ "$status" != 3 ]; then
               echo "::error title=Binary compatibility::${check%:*} could not run (exit code $status) — see the log above"
               tool_errors=1
             fi
@@ -122,9 +128,10 @@ jobs:
           fi
 
           if [ "$bin_status" = 2 ]; then binary=broken; else binary=ok; fi
+          if [ "$bin_status" = 3 ]; then added=yes; else added=no; fi
           if [ "$tasty_status" = 2 ]; then tasty=broken; else tasty=ok; fi
           if [ "$binary" = broken ]; then bump=major
-          elif [ "$tasty" = broken ]; then bump=minor
+          elif [ "$tasty" = broken ] || [ "$added" = yes ]; then bump=minor
           else bump=none
           fi
 
@@ -135,6 +142,7 @@ jobs:
             echo "| Check vs \`$baseline_label\` | Result |"
             echo '| --- | --- |'
             echo "| Binary (MiMa) | $(mark "$binary") |"
+            echo "| New API (MiMa, forward) | $(if [ "$added" = yes ]; then echo '➕ added'; else echo 'none'; fi) |"
             echo "| TASTy (TASTy-MiMa) | $(mark "$tasty") |"
             echo "| Implied version bump | **$bump** |"
             echo
@@ -156,7 +164,9 @@ jobs:
           cat "$RUNNER_TEMP/compat-report.md" >> "$GITHUB_STEP_SUMMARY"
           case "$bump" in
             major) echo "::warning title=Binary compatibility::binary incompatibility vs $baseline_label (needs a major version bump) — see the job summary" ;;
-            minor) echo "::warning title=Binary compatibility::TASTy incompatibility vs $baseline_label (needs at least a minor version bump) — see the job summary" ;;
+            minor)
+              if [ "$tasty" = broken ]; then reason="TASTy incompatibility"; else reason="new API"; fi
+              echo "::warning title=Binary compatibility::$reason vs $baseline_label (needs at least a minor version bump) — see the job summary" ;;
           esac
           {
             echo "binary=$binary"
@@ -178,7 +188,7 @@ jobs:
           gh label create needs-major --repo "$REPO" --color B60205 --force \
             --description "Binary-incompatible change — needs a major version bump" >/dev/null
           gh label create needs-minor --repo "$REPO" --color FBCA04 --force \
-            --description "TASTy-incompatible (other libraries' inline code may fail to re-typecheck) — needs a minor bump" >/dev/null
+            --description "New API, or TASTy-incompatible (other libraries' inline code may fail to re-typecheck) — needs a minor bump" >/dev/null
 
           case "$BUMP" in
             major) wanted=needs-major ;;
@@ -203,6 +213,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           BASELINE: ${{ steps.mima.outputs.baseline }}
           BUMP: ${{ steps.mima.outputs.bump }}
+          TASTY: ${{ steps.mima.outputs.tasty }}
         run: |
           set -euo pipefail
 
@@ -219,8 +230,13 @@ jobs:
               title="### ❌ MiMa: binary incompatibility vs \`$BASELINE\`"
               lead="This PR breaks binary compatibility — it needs a major version bump." ;;
             minor)
-              title="### ⚠️ MiMa: TASTy incompatibility vs \`$BASELINE\`"
-              lead="This PR breaks TASTy (but not binary) compatibility — it needs at least a minor version bump." ;;
+              if [ "$TASTY" = broken ]; then
+                title="### ⚠️ MiMa: TASTy incompatibility vs \`$BASELINE\`"
+                lead="This PR breaks TASTy (but not binary) compatibility — it needs at least a minor version bump."
+              else
+                title="### ➕ MiMa: new API vs \`$BASELINE\`"
+                lead="This PR adds API, which code compiled against it needs at runtime — it needs at least a minor version bump."
+              fi ;;
             *)
               # Compatible and never flagged: stay quiet.
               [ -n "$comment_id" ] || exit 0
