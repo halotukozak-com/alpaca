@@ -9,13 +9,13 @@
 //   newJar          the freshly built library JAR (scala-cli package --library)
 //   sharedClasspath pathSeparator-joined dependency classpath (scala3-library, deps, …)
 //
-// Only *backward* compatibility (can code compiled against oldJar still link
-// against newJar) gates the exit code — that's the actual SemVer contract a
-// same-major release makes. *Forward* is printed for context (it's what's new
-// since oldJar) but always has "problems" whenever you add API, so it's never
-// a reason to fail on its own.
+// *Backward* compatibility (can code compiled against oldJar still link
+// against newJar) is the SemVer contract a same-major release makes. *Forward*
+// problems (code compiled against newJar doesn't link against oldJar) are the
+// API added since oldJar: compatible, but too much for a patch release.
 //
-// Exit code: 0 compatible, 2 incompatible, anything else = the check failed to run.
+// Exit code: 0 compatible, 2 incompatible, 3 compatible with new API, anything
+// else = the check failed to run.
 
 import java.io.File
 import com.typesafe.tools.mima.lib.MiMaLib
@@ -47,5 +47,6 @@ object BinCompatCheck {
     report("forward  (new API vs the release — expected to list additions)", forward)
 
     if (backward.nonEmpty) sys.exit(2)
+    if (forward.nonEmpty) sys.exit(3)
   }
 }
