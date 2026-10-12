@@ -19,13 +19,12 @@ import scala.quoted.QuotedFactoryGivens.given
  * action map. Lookup is a single array index plus one symbol hash, with no
  * boxing on the state key.
  *
- * A reduction refers to its production by index into `productions`, which holds each production once; the synthetic
- * start production is at index 0.
+ * @tparam Reduce what a reduction reduces by: its [[Production]] while the table is built, its [[ProductionRule]] at runtime
  */
-opaque private[parser] type ParseTable = (rows: Array[Map[Symbol, ParseAction]], productions: Array[Production])
+opaque private[parser] type ParseTable[Reduce] = Array[Map[Symbol, ParseAction[Reduce]]]
 
 private[parser] object ParseTable:
-  extension (table: ParseTable) {
+  extension [Reduce](table: ParseTable[Reduce]) {
 
     /**
      * Gets the parse action for a given state and symbol.
@@ -35,16 +34,27 @@ private[parser] object ParseTable:
      * @return the parse action to take
      * @throws AlgorithmError if no action is defined for this state/symbol combination
      */
-    def action(state: Int, symbol: Symbol): ParseAction = table.rows(state).get(symbol) match
+    def action(state: Int, symbol: Symbol): ParseAction[Reduce] = table(state).get(symbol) match
       case Some(action) => action
       case None =>
-        val expected = table.rows(state).keysIterator.toList.sortBy(_.show).mkShow(", ")
+        val expected = table(state).keysIterator.toList.sortBy(_.show).mkShow(", ")
         throw AlgorithmError(show"Unexpected symbol '$symbol' in state $state. Expected one of: $expected")
 
     /** The parse action for a given state and symbol, or `null` if the grammar accepts no such symbol there. */
-    def get(state: Int, symbol: Symbol): ParseAction | Null = table.rows(state).get(symbol) match
+    def get(state: Int, symbol: Symbol): ParseAction[Reduce] | Null = table(state).get(symbol) match
       case Some(action) => action
       case None => null
+
+    /** The state the parser moves to after reducing to `nonTerminal` with `state` uncovered on top of the stack. */
+    private[parser] def goto(state: Int, nonTerminal: NonTerminal): Int =
+      table.action(state, nonTerminal).runtimeChecked match
+        case Shift(gotoState) => gotoState
+
+    private def allSymbols: List[Symbol] =
+      table.iterator.flatMap(_.keysIterator).distinct.toList
+  }
+
+  extension [Ctx <: ParserCtx](table: ParseTable[ProductionRule[Ctx]]) {
 
     /**
      * The terminals the input may continue with on `stateStack` (bottom first), sorted by name, with the end of the
@@ -55,9 +65,7 @@ private[parser] object ParseTable:
      */
     def expectedTerminals(stateStack: collection.IndexedSeq[Int]): List[Terminal] =
       val reversedStack = stateStack.reverseIterator.toList
-      table
-        .rows(reversedStack.head)
-        .keysIterator
+      table(reversedStack.head).keysIterator
         .collect:
           case terminal: Terminal if table.leadsToShift(reversedStack, terminal) =>
             terminal
@@ -69,32 +77,15 @@ private[parser] object ParseTable:
       table.get(reversedStack.head, terminal) match
         case null => false
         case Shift(_) => true
-        case Reduction(index) =>
-          val production = table.production(index)
+        case Reduction(rule) =>
+          val production = rule.production
           val rest = reversedStack.drop(production.size)
           if production.lhs == Symbol.Start && rest.head == 0 then true
           else table.leadsToShift(table.goto(rest.head, production.lhs) :: rest, terminal)
 
-    /** The state the parser moves to after reducing to `nonTerminal` with `state` uncovered on top of the stack. */
-    private[parser] def goto(state: Int, nonTerminal: NonTerminal): Int =
-      table.action(state, nonTerminal).runtimeChecked match
-        case Shift(gotoState) => gotoState
+  }
 
-    /** The production a [[ParseAction.Reduction]] reduces by. */
-    private[parser] def production(index: Int): Production = table.productions(index)
-
-    private def allSymbols: List[Symbol] =
-      table.rows.iterator.flatMap(_.keysIterator).distinct.toList
-
-    private def showAction(action: ParseAction): Shown = action match
-      case Shift(state) => show"S$state"
-      case Reduction(index) => show"${table.production(index)}"
-
-    // $COVERAGE-OFF$
-    private def exported(action: ParseAction): ParseAction.Export = action match
-      case Shift(state) => ParseAction.Export.Shift(state)
-      case Reduction(index) => ParseAction.Export.Reduce(table.production(index))
-    // $COVERAGE-ON$
+  extension (table: ParseTable[Production]) {
 
     /**
      * Converts the parse table to CSV format for debugging.
@@ -108,10 +99,10 @@ private[parser] object ParseTable:
       val symbols = table.allSymbols
 
       val headers = show"State" :: symbols.map(s => show"$s")
-      val rows = table.rows.indices
+      val rows = table.indices
         .map: i =>
-          val row = table.rows(i)
-          show"$i" :: symbols.map(s => row.get(s).fold(show"")(table.showAction))
+          val row = table(i)
+          show"$i" :: symbols.map(s => row.get(s).fold(show"")(_.show))
         .toList
 
       Csv(headers, rows)
@@ -139,14 +130,12 @@ private[parser] object ParseTable:
     productions: List[Production],
     sources: Map[Production, Source],
     conflictResolutionTable: ConflictResolutionTable,
-  ): ParseTable = {
-    val productionArray = productions.toArray
-    val productionIndex = productions.iterator.zipWithIndex.toMap
+  ): ParseTable[Production] = {
     val reported = mutable.HashSet.empty[Set[Production] | (Symbol, Production)]
 
     // $COVERAGE-OFF$
-    def raiseReduceReduceConflict(red1: Reduction, red2: Reduction, path: List[Symbol]): Unit =
-      val (production1, production2) = (productionArray(red1.production), productionArray(red2.production))
+    def raiseReduceReduceConflict(red1: Reduction[Production], red2: Reduction[Production], path: List[Symbol]): Unit =
+      val (production1, production2) = (red1.rule, red2.rule)
       if reported.add(Set(production1, production2)) then
         error(
           show"""
@@ -159,8 +148,8 @@ private[parser] object ParseTable:
           sources(production2),
         )
 
-    def raiseShiftReduceConflict(symbol: Symbol, red: Reduction, path: List[Symbol]): Unit =
-      val production = productionArray(red.production)
+    def raiseShiftReduceConflict(symbol: Symbol, red: Reduction[Production], path: List[Symbol]): Unit =
+      val production = red.rule
       if reported.add((symbol, production)) then
         error(
           show"""
@@ -178,21 +167,23 @@ private[parser] object ParseTable:
     val automaton = LR0Automaton(productionsByLhs)
     val lookaheads = Lookaheads(automaton, productionsByLhs, firstSet)
 
-    val tableRows = mutable.ArrayBuffer.fill(automaton.states.length)(mutable.HashMap.empty[Symbol, ParseAction])
+    val tableRows =
+      mutable.ArrayBuffer.fill(automaton.states.length)(mutable.HashMap.empty[Symbol, ParseAction[Production]])
 
-    def addToTable(stateId: Int, symbol: Symbol, action: ParseAction): Unit =
+    def addToTable(stateId: Int, symbol: Symbol, action: ParseAction[Production]): Unit =
       val row = tableRows(stateId)
       row.get(symbol) match
         case None => row.update(symbol, action)
         case Some(existingAction) =>
-          conflictResolutionTable.get(existingAction, action)(symbol, productionArray(_)) match
+          conflictResolutionTable.get(existingAction, action)(symbol) match
             case Some(action) => row.update(symbol, action)
             case None =>
               val path = toPath(stateId, List(symbol))
               (existingAction, action) match
-                case (red1: Reduction, red2: Reduction) => raiseReduceReduceConflict(red1, red2, path)
-                case (Shift(_), red: Reduction) => raiseShiftReduceConflict(symbol, red, path)
-                case (red: Reduction, Shift(_)) => raiseShiftReduceConflict(symbol, red, path)
+                case (red1: Reduction[Production], red2: Reduction[Production]) =>
+                  raiseReduceReduceConflict(red1, red2, path)
+                case (Shift(_), red: Reduction[Production]) => raiseShiftReduceConflict(symbol, red, path)
+                case (red: Reduction[Production], Shift(_)) => raiseShiftReduceConflict(symbol, red, path)
                 case (Shift(_), Shift(_)) => throw AlgorithmError("Shift-Shift conflict should never happen")
 
     // read off the automaton, not the table: a shift lost to an unresolved conflict is still a way into its state
@@ -221,8 +212,7 @@ private[parser] object ParseTable:
       val currState =
         kernelItems.foldLeft(State.empty)((acc, item) => State.fromItem(acc, item, productionsByLhs, firstSet))
 
-      for item <- currState if item.isLastItem do
-        addToTable(stateId, item.lookAhead, Reduction(productionIndex(item.production)))
+      for item <- currState if item.isLastItem do addToTable(stateId, item.lookAhead, Reduction(item.production))
 
       for (stepSymbol, targetStateId) <- automaton.goto(stateId) do addToTable(stateId, stepSymbol, Shift(targetStateId))
     }
@@ -232,10 +222,10 @@ private[parser] object ParseTable:
     abortOnErrors()
     // $COVERAGE-ON$
 
-    (rows = Array.better.tabulate(tableRows.length)(tableRows(_).toMap), productions = productionArray)
+    Array.better.tabulate(tableRows.length)(tableRows(_).toMap)
   }
 
-  given Showable[ParseTable] = table => {
+  given Showable[ParseTable[Production]] = table => {
     val symbols = table.allSymbols
 
     def centerText(text: String, width: Int = 10): String =
@@ -253,60 +243,94 @@ private[parser] object ParseTable:
       result.append(centerText(s.show))
       result.append("|")
 
-    for i <- table.rows.indices do
-      val row = table.rows(i)
+    for i <- table.indices do
+      val row = table(i)
       result.append('\n')
       result.append(centerText(i.toString))
       result.append("|")
       for s <- symbols do
-        result.append(centerText(row.get(s).fold("")(table.showAction)))
+        result.append(centerText(row.get(s).fold("")(_.show)))
         result.append("|")
     result.append('\n')
     result.result().showRaw
   }
 
   // $COVERAGE-OFF$
-  given ToExpr[ParseTable]:
-    def apply(table: ParseTable)(using quotes: Quotes): Expr[ParseTable] = {
-      type Row = Map[Symbol, ParseAction]
-      type RowBuilder = mutable.Builder[(Symbol, ParseAction), Row]
+  extension (table: ParseTable[Production]) {
 
-      def rowExpr(row: Row): Expr[Row] = avoidTooLargeMethod[(Symbol, ParseAction), Row, RowBuilder](
-        builder = '{ Map.newBuilder },
-        elements = row.map(Expr(_)),
-        empty = '{ Map.empty },
-      )
+    /**
+     * The code that builds this table at runtime, with each production's [[ProductionRule]] built once from `actions` and shared
+     * by the cells that reduce by it.
+     *
+     * @param actions the semantic action of every production but the synthetic start production
+     */
+    def toExpr[Ctx <: ParserCtx: Type](actions: Map[Production, Expr[Action[Ctx]]])(using Quotes)
+      : Expr[ParseTable[ProductionRule[Ctx]]] = {
+      type Row = Map[Symbol, ParseAction[ProductionRule[Ctx]]]
+      type RowBuilder = mutable.Builder[(Symbol, ParseAction[ProductionRule[Ctx]]), Row]
 
-      val rowsExpr = avoidTooLargeMethod[Row, Array[Row], mutable.ArrayBuilder[Row]](
-        builder = '{ mutable.ArrayBuilder.ofRef[Row].tap(_.sizeHint(${ Expr(table.rows.length) })) },
-        elements = table.rows.map(rowExpr),
-        empty = '{ Array.empty[Row] },
-      )
+      // where each rule is in the generated array of rules
+      val ruleIndex = table.iterator
+        .flatMap(_.valuesIterator)
+        .collect:
+          case Reduction(production) => production
+        .distinct
+        .zipWithIndex
+        .toMap
 
-      // each production once; the cells refer to them by index
-      val productionsExpr = avoidTooLargeMethod[Production, Array[Production], mutable.ArrayBuilder[Production]](
-        builder = '{ mutable.ArrayBuilder.ofRef[Production].tap(_.sizeHint(${ Expr(table.productions.length) })) },
-        elements = table.productions.map(Expr(_)),
-        empty = '{ Array.empty[Production] },
-      )
-      '{ (rows = $rowsExpr, productions = $productionsExpr).asInstanceOf[ParseTable] }
+      val rulesExpr =
+        avoidTooLargeMethod[ProductionRule[Ctx], Array[ProductionRule[Ctx]], mutable.ArrayBuilder[ProductionRule[Ctx]]](
+          builder = '{ mutable.ArrayBuilder.ofRef[ProductionRule[Ctx]].tap(_.sizeHint(${ Expr(ruleIndex.size) })) },
+          elements = ruleIndex.toSeq
+            .sortBy(_._2)
+            .map: (production, _) =>
+              actions.get(production) match
+                case Some(action) => '{ ProductionRule(${ Expr(production) }, $action) }
+                case None => '{ ProductionRule.accept[Ctx](${ Expr(production) }) },
+          empty = '{ Array.empty[ProductionRule[Ctx]] },
+        )
+
+      def rowsExpr(rules: Expr[Array[ProductionRule[Ctx]]]): Expr[Array[Row]] = {
+        def actionExpr(action: ParseAction[Production]): Expr[ParseAction[ProductionRule[Ctx]]] = action match
+          case Shift(state) => '{ Shift(${ Expr(state) }) }
+          case Reduction(production) => '{ Reduction($rules(${ Expr(ruleIndex(production)) })) }
+
+        def rowExpr(row: Map[Symbol, ParseAction[Production]]): Expr[Row] = avoidTooLargeMethod[
+          (Symbol, ParseAction[ProductionRule[Ctx]]),
+          Row,
+          RowBuilder,
+        ](
+          builder = '{ Map.newBuilder },
+          elements = row.map((symbol, action) => '{ (${ Expr(symbol) }, ${ actionExpr(action) }) }),
+          empty = '{ Map.empty },
+        )
+
+        avoidTooLargeMethod[Row, Array[Row], mutable.ArrayBuilder[Row]](
+          builder = '{ mutable.ArrayBuilder.ofRef[Row].tap(_.sizeHint(${ Expr(table.length) })) },
+          elements = table.map(rowExpr),
+          empty = '{ Array.empty[Row] },
+        )
+      }
+
+      '{
+        val rules = $rulesExpr
+        ${ rowsExpr('rules) }
+      }.asInstanceOf[Expr[ParseTable[ProductionRule[Ctx]]]]
     }
+  }
 
   // No constructor for a raw ParseTable outside the algorithm above, hence write-only below.
   // The export carries the parser's own symbol names, so a consumer need not hardcode them.
-  // A reduction is written with its production, not with the index it refers to it by.
-  given MCodec[Production] => MCodec[ParseTable] =
+  given MCodec[Production] => MCodec[ParseTable[Production]] =
     import JsonExport.TableFormat
-    given MCodec[TableFormat.Cell[Symbol, ParseAction.Export]] = MCodec.derived
-    given MCodec[TableFormat[Symbol, ParseAction.Export]] = MCodec.derived
-    MCodec[TableFormat[Symbol, ParseAction.Export]].transform(
+    given MCodec[TableFormat.Cell[Symbol, ParseAction[Production]]] = MCodec.derived
+    given MCodec[TableFormat[Symbol, ParseAction[Production]]] = MCodec.derived
+    MCodec[TableFormat[Symbol, ParseAction[Production]]].transform(
       onWrite = table =>
         (
           endOfInput = Symbol.EOF.name.raw,
           start = Symbol.Start.name.raw,
-          states = table.rows.toList.map(
-            _.iterator.map((symbol, action) => (symbol = symbol, action = table.exported(action))).toList,
-          ),
+          states = table.toList.map(_.iterator.map((symbol, action) => (symbol = symbol, action = action)).toList),
         ),
       onRead = _ => throw UnsupportedOperationException("ParseTable's export codec is write-only"),
     )

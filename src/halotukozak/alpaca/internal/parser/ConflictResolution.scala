@@ -50,27 +50,24 @@ private[parser] object ConflictResolutionTable:
      * @param first  the first parse action
      * @param second the second parse action
      * @param symbol the symbol causing the conflict
-     * @param production the production a reduction refers to by its index
      * @return Some(action) if one action has precedence, None otherwise
      */
-    def get(
-      first: ParseAction,
-      second: ParseAction,
-    )(
-      symbol: Symbol,
-      production: Int => Production,
-    ): Option[ParseAction] = {
-      extension (action: ParseAction)
+    def get(first: ParseAction[Production], second: ParseAction[Production])(symbol: Symbol)
+      : Option[ParseAction[Production]] = {
+      extension (action: ParseAction[Production])
         def toConflictKey: ConflictKey = action match
-          case ParseAction.Reduction(index) => ConflictKey.Reduction(production(index))
+          case ParseAction.Reduction(production) => ConflictKey.Reduction(production)
           case _: ParseAction.Shift => ConflictKey.Shift(symbol.name)
 
-      def winsOver(first: ParseAction, second: ParseAction): Option[ParseAction] = {
+      def winsOver(
+        first: ParseAction[Production],
+        second: ParseAction[Production],
+      ): Option[ParseAction[Production]] = {
         val to = second.toConflictKey
         val queue = mutable.ArrayDeque[ConflictKey](first.toConflictKey)
 
         @tailrec
-        def loop(visited: Set[ConflictKey]): Option[ParseAction] = queue.removeHeadOption() match
+        def loop(visited: Set[ConflictKey]): Option[ParseAction[Production]] = queue.removeHeadOption() match
           case None => None
           case Some(`to`) => Some(first)
           case Some(head) if visited contains head => loop(visited)
