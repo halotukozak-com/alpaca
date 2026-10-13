@@ -9,8 +9,6 @@ import halotukozak.mcodec.MCodec
 import halotukozak.mcodec.annotation.flatten
 
 import scala.annotation.publicInBinary
-import scala.quoted.*
-import scala.quoted.QuotedFactoryGivens.given
 
 /**
  * Represents a parse action in the LR parse table.
@@ -38,11 +36,6 @@ private[parser] sealed trait ParseAction extends Any
     case Reduction(production) => show"$production"
 
   // $COVERAGE-OFF$
-  given ToExpr[ParseAction] with
-    def apply(x: ParseAction)(using Quotes): Expr[ParseAction] = x match
-      case Shift(state) => '{ ParseAction.Shift(${ Expr(state) }) }
-      case Reduction(production) => '{ ParseAction.Reduction(${ Expr(production) }) }
-
   // Local tagging enum instead of `derives MCodec` on ParseAction itself, which stays AnyVal.
   @flatten("type")
   private enum ActionExport:

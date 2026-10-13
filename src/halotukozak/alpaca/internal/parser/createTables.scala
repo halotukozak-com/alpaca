@@ -14,16 +14,15 @@ import scala.quoted.QuotedFactoryGivens.given
 import scala.reflect.NameTransformer
 
 /**
- * An opaque type containing the parse and action tables for the parser, and the factory of its initial context.
+ * An opaque type containing the parse table for the parser, and the factory of its initial context.
  *
- * The parse table is used to drive the LR parsing algorithm, while the
- * action table maps productions to their semantic actions. These tables
- * are generated at compile time by analyzing the grammar rules. The initial
+ * The parse table is used to drive the LR parsing algorithm; its reductions carry the semantic actions of their
+ * productions. It is generated at compile time by analyzing the grammar rules. The initial
  * context is built from the default values of the context's fields.
  *
  * @tparam Ctx the parser context type
  */
-opaque type Tables[Ctx <: ParserCtx] = (parseTable: ParseTable, actionTable: ActionTable[Ctx], initialCtx: () => Ctx)
+opaque type Tables[Ctx <: ParserCtx] = (parseTable: RuntimeTable[Ctx], initialCtx: () => Ctx)
 
 object Tables:
   /**
@@ -38,8 +37,7 @@ object Tables:
   inline given [Ctx <: ParserCtx]: Tables[Ctx] = ${ createTablesImpl[Ctx] }
 
   extension [Ctx <: ParserCtx](tables: Tables[Ctx])
-    private[alpaca] def parseTable: ParseTable = tables.parseTable
-    private[alpaca] def actionTable: ActionTable[Ctx] = tables.actionTable
+    private[alpaca] def parseTable: RuntimeTable[Ctx] = tables.parseTable
     private[alpaca] def initialCtx: () => Ctx = tables.initialCtx
 
 /**
@@ -67,7 +65,7 @@ object Tables:
 // $COVERAGE-OFF$
 @publicInBinary private[parser] def createTablesImpl[Ctx <: ParserCtx: Type](
   using quotes: Quotes,
-): Expr[(parseTable: ParseTable, actionTable: ActionTable[Ctx], initialCtx: () => Ctx)] = {
+): Expr[(parseTable: RuntimeTable[Ctx], initialCtx: () => Ctx)] = {
   import quotes.reflect.*
   given Diagnostics = Diagnostics()
   val initialCtx = fromDefaults[Ctx]
@@ -405,17 +403,14 @@ object Tables:
       val start = Production.NonEmpty(parser.Symbol.Start, NEL(root.lhs))
       val allSources = sources.updated(start, sources(root))
 
-      val parseTable = Expr:
+      val parseTable =
         ParseTable(start :: table.map(_.production), allSources, conflictResolutionTable)
           .tap: parseTable =>
             logger.toFile(s"${parserName.raw}/parseTable.dbg.csv", true)(parseTable.toCsv)
           .tap: parseTable =>
             given MCodec[Production] = Production.exportCodec(allSources)
             JsonExport.maybeWrite(exportName, "table", parseTable)
-
-      val actionTable = Expr.ofList:
-        table.map:
-          case (production, _, action) => Expr.ofTuple(Expr(production) -> action)
+          .toRuntime(table.iterator.map(entry => entry.production -> entry.action).toMap)
 
       // referenced only to avoid an unused-implicit warning; kept lazy and never forced,
       // since eagerly forcing it here (during Tables[Ctx] construction, i.e. during the
@@ -428,8 +423,7 @@ object Tables:
       '{
         $referenceGivenResolutions
         (
-          $parseTable.asInstanceOf[ParseTable],
-          ActionTable($actionTable.toMap),
+          $parseTable,
           $initialCtx,
         )
       }

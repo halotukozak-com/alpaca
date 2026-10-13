@@ -9,6 +9,7 @@ import halotukozak.mcodec.MCodec
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.quoted.*
+import scala.quoted.QuotedFactoryGivens.given
 
 /**
  * An opaque type representing the LR parse table.
@@ -22,56 +23,6 @@ opaque private[parser] type ParseTable = Array[Map[Symbol, ParseAction]]
 
 private[parser] object ParseTable:
   extension (table: ParseTable) {
-
-    /**
-     * Gets the parse action for a given state and symbol.
-     *
-     * @param state the current parser state
-     * @param symbol the symbol being processed
-     * @return the parse action to take
-     * @throws AlgorithmError if no action is defined for this state/symbol combination
-     */
-    def apply(state: Int, symbol: Symbol): ParseAction = table(state).get(symbol) match
-      case Some(action) => action
-      case None =>
-        val expected = table(state).keysIterator.toList.sortBy(_.show).mkShow(", ")
-        throw AlgorithmError(show"Unexpected symbol '$symbol' in state $state. Expected one of: $expected")
-
-    /** The parse action for a given state and symbol, or `null` if the grammar accepts no such symbol there. */
-    def get(state: Int, symbol: Symbol): ParseAction | Null = table(state).get(symbol) match
-      case Some(action) => action
-      case None => null
-
-    /**
-     * The terminals the input may continue with on `stateStack` (bottom first), sorted by name, with the end of the
-     * input ahead of a token named `$`.
-     *
-     * LALR(1) merges lookaheads of states with the same core, so a state may reduce on a terminal that cannot follow
-     * there. Each candidate is kept only if replaying the reductions on it reaches a shift or the accept.
-     */
-    def expectedTerminals(stateStack: collection.IndexedSeq[Int]): List[Terminal] =
-      val reversedStack = stateStack.reverseIterator.toList
-      table(reversedStack.head).keysIterator
-        .collect:
-          case terminal: Terminal if table.leadsToShift(reversedStack, terminal) =>
-            terminal
-        .toList
-        .sortBy(terminal => (terminal.displayName, terminal != Symbol.EOF))
-
-    /** Whether `terminal` is shifted or accepted after the reductions it triggers on `reversedStack` (top first). */
-    @tailrec private def leadsToShift(reversedStack: List[Int], terminal: Terminal): Boolean =
-      table.get(reversedStack.head, terminal) match
-        case null => false
-        case Shift(_) => true
-        case Reduction(production) =>
-          val rest = reversedStack.drop(production.size)
-          if production.lhs == Symbol.Start && rest.head == 0 then true
-          else table.leadsToShift(table.goto(rest.head, production.lhs) :: rest, terminal)
-
-    /** The state the parser moves to after reducing to `nonTerminal` with `state` uncovered on top of the stack. */
-    private[parser] def goto(state: Int, nonTerminal: NonTerminal): Int =
-      table(state, nonTerminal).runtimeChecked match
-        case Shift(gotoState) => gotoState
 
     private def allSymbols: List[Symbol] =
       table.iterator.flatMap(_.keysIterator).distinct.toList
@@ -245,24 +196,66 @@ private[parser] object ParseTable:
   }
 
   // $COVERAGE-OFF$
-  given ToExpr[ParseTable]:
-    def apply(entries: ParseTable)(using quotes: Quotes): Expr[ParseTable] = {
-      type Row = Map[Symbol, ParseAction]
-      type RowBuilder = mutable.Builder[(Symbol, ParseAction), Row]
+  extension (table: ParseTable) {
 
-      def rowExpr(row: Row): Expr[Row] = avoidTooLargeMethod[(Symbol, ParseAction), Row, RowBuilder](
-        builder = '{ Map.newBuilder },
-        elements = row.map(Expr(_)),
-        empty = '{ Map.empty },
-      )
+    /**
+     * The code that builds the parser's [[RuntimeTable]] from this table, with one [[ProductionRule]] per production,
+     * shared by every cell that reduces by it.
+     *
+     * @param actions the semantic action of every production but the synthetic start production
+     */
+    def toRuntime[Ctx <: ParserCtx: Type](actions: Map[Production, Expr[Action[Ctx]]])(using Quotes)
+      : Expr[RuntimeTable[Ctx]] = {
+      type Row = Map[Symbol, RuntimeAction[Ctx]]
+      type RowBuilder = mutable.Builder[(Symbol, RuntimeAction[Ctx]), Row]
 
-      val arrayExpr = avoidTooLargeMethod[Row, Array[Row], mutable.ArrayBuilder[Row]](
-        builder = '{ mutable.ArrayBuilder.ofRef[Row].tap(_.sizeHint(${ Expr(entries.length) })) },
-        elements = entries.map(rowExpr),
-        empty = '{ Array.empty[Row] },
-      )
-      '{ $arrayExpr.asInstanceOf[ParseTable] }
+      // where each production's rule is in the generated array of rules
+      val ruleIndex = table.iterator
+        .flatMap(_.valuesIterator)
+        .collect:
+          case Reduction(production) => production
+        .distinct
+        .zipWithIndex
+        .toMap
+
+      val rulesExpr =
+        avoidTooLargeMethod[ProductionRule[Ctx], Array[ProductionRule[Ctx]], mutable.ArrayBuilder[ProductionRule[Ctx]]](
+          builder = '{ mutable.ArrayBuilder.ofRef[ProductionRule[Ctx]].tap(_.sizeHint(${ Expr(ruleIndex.size) })) },
+          elements = ruleIndex.toSeq
+            .sortBy(_._2)
+            .map: (production, _) =>
+              actions.get(production) match
+                case Some(action) => '{ ProductionRule(${ Expr(production) }, $action) }
+                case None => '{ ProductionRule.accept[Ctx](${ Expr(production) }) },
+          empty = '{ Array.empty[ProductionRule[Ctx]] },
+        )
+
+      // takes the Quotes of the splice it is called in, as `rules` is only valid there
+      def rowsExpr(rules: Expr[Array[ProductionRule[Ctx]]])(using Quotes): Expr[Array[Row]] = {
+        def actionExpr(action: ParseAction): Expr[RuntimeAction[Ctx]] = action match
+          case Shift(state) => '{ RuntimeAction.Shift(${ Expr(state) }) }
+          case Reduction(production) => '{ RuntimeAction.Reduce($rules(${ Expr(ruleIndex(production)) })) }
+
+        def rowExpr(row: Map[Symbol, ParseAction]): Expr[Row] =
+          avoidTooLargeMethod[(Symbol, RuntimeAction[Ctx]), Row, RowBuilder](
+            builder = '{ Map.newBuilder },
+            elements = row.map((symbol, action) => '{ (${ Expr(symbol) }, ${ actionExpr(action) }) }),
+            empty = '{ Map.empty },
+          )
+
+        avoidTooLargeMethod[Row, Array[Row], mutable.ArrayBuilder[Row]](
+          builder = '{ mutable.ArrayBuilder.ofRef[Row].tap(_.sizeHint(${ Expr(table.length) })) },
+          elements = table.map(rowExpr),
+          empty = '{ Array.empty[Row] },
+        )
+      }
+
+      '{
+        val rules = $rulesExpr
+        RuntimeTable[Ctx](${ rowsExpr('rules) })
+      }
     }
+  }
 
   // No constructor for a raw ParseTable outside the algorithm above, hence write-only below.
   // The export carries the parser's own symbol names, so a consumer need not hardcode them.

@@ -81,47 +81,46 @@ abstract class Parser[Ctx <: ParserCtx](
       val (current, nextSymbol) = remaining match
         case Nil => (Lexeme.EOF, Symbol.EOF)
         case head :: _ => (head, Terminal(Printable(head.name)))
-      val action = tables.parseTable.get(stateStack.last, nextSymbol)
-      if action == null then {
-        val last = if remaining.isEmpty then lexemes.lastOption else None
-        val expectedTerminals = tables.parseTable.expectedTerminals(stateStack)
-        val expected = expectedTerminals
-          .map[String | ParserError.EndOfInput]:
-            case Symbol.EOF => ParserError.EndOfInput
-            case terminal => terminal.displayName.raw
-        val error = ParserError(remaining.headOption, expected, last)
-        errors += error
-        // the end of the input cannot be skipped
-        errorHandling(ctx, error) match
-          case ErrorHandling.Strategy.SkipOne if remaining.nonEmpty => loop(remaining.tail)
-          case ErrorHandling.Strategy.SkipToNextMatch if remaining.nonEmpty =>
-            loop(remaining.tail.dropWhile(lexeme => !expectedTerminals.contains(Terminal(Printable(lexeme.name)))))
-          case _ => None
-      } else {
-        action match {
-          case ParseAction.Shift(gotoState) =>
+      tables.parseTable.get(stateStack.last, nextSymbol) match {
+        case null =>
+          val last = if remaining.isEmpty then lexemes.lastOption else None
+          val expectedTerminals = tables.parseTable.expectedTerminals(stateStack)
+          val expected = expectedTerminals
+            .map[String | ParserError.EndOfInput]:
+              case Symbol.EOF => ParserError.EndOfInput
+              case terminal => terminal.displayName.raw
+          val error = ParserError(remaining.headOption, expected, last)
+          errors += error
+          // the end of the input cannot be skipped
+          errorHandling(ctx, error) match
+            case ErrorHandling.Strategy.SkipOne if remaining.nonEmpty => loop(remaining.tail)
+            case ErrorHandling.Strategy.SkipToNextMatch if remaining.nonEmpty =>
+              loop(remaining.tail.dropWhile(lexeme => !expectedTerminals.contains(Terminal(Printable(lexeme.name)))))
+            case _ => None
+
+        case RuntimeAction.Shift(gotoState) =>
+          stateStack += gotoState
+          nodeStack += Node.Token(current)
+          loop(if remaining.isEmpty then Nil else remaining.tail)
+
+        case RuntimeAction.Reduce(rule) =>
+          val production = rule.production
+          val size = production.size
+          val uncoveredState = stateStack(stateStack.size - 1 - size)
+
+          if production.lhs == Symbol.Start && uncoveredState == 0 then Some(nodeStack.last)
+          else {
+            val top = nodeStack.size - 1
+            val children = Array.better.tabulate(size)(index => nodeStack(top - index).get)
+            stateStack.dropRightInPlace(size)
+            nodeStack.dropRightInPlace(size)
+
+            val gotoState = tables.parseTable.goto(uncoveredState, production.lhs)
+            val result = rule.action(ctx, RevertedArray(children))
             stateStack += gotoState
-            nodeStack += Node.Token(current)
-            loop(if remaining.isEmpty then Nil else remaining.tail)
-
-          case ParseAction.Reduction(production) =>
-            val size = production.size
-            val uncoveredState = stateStack(stateStack.size - 1 - size)
-
-            if production.lhs == Symbol.Start && uncoveredState == 0 then Some(nodeStack.last)
-            else {
-              val top = nodeStack.size - 1
-              val children = Array.better.tabulate(size)(index => nodeStack(top - index).get)
-              stateStack.dropRightInPlace(size)
-              nodeStack.dropRightInPlace(size)
-
-              val gotoState = tables.parseTable.goto(uncoveredState, production.lhs)
-              val result = tables.actionTable(production)(ctx, RevertedArray(children))
-              stateStack += gotoState
-              nodeStack += Node.Result(result)
-              loop(remaining)
-            }
-        }
+            nodeStack += Node.Result(result)
+            loop(remaining)
+          }
       }
     }
 
