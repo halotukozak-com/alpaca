@@ -52,7 +52,7 @@ private[internal] final class Diagnostics:
 private[internal] def error(using Quotes, Diagnostics)[T: Default](message: Shown, pos: quotes.reflect.Position): T =
   summon[Diagnostics].markError()
   quotes.reflect.report.error(withLocation(message, pos), pos)
-  Default[T]()
+  summon[Default[T]]()
 private[internal] def error(using Quotes, Diagnostics)[T: Default](message: Shown, source: Source): T =
   val (located, pos) = locate(message, source)
   error(located, pos)

@@ -214,7 +214,7 @@ private[alpaca] def declaredName(using quotes: Quotes)(symbol: quotes.reflect.Sy
 // $COVERAGE-ON$
 
 extension [T](t: T)
-  inline private[alpaca] def tap[U](inline f: T => U): T =
+  inline private[alpaca] def tap[U](inline f: T => U): t.type =
     f(t): Unit
     t
 
