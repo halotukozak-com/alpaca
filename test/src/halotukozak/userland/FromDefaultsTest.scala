@@ -126,6 +126,29 @@ final class FromDefaultsTest extends AnyFunSuite with Matchers with LoneElement:
     """).distinct.loneElement.message shouldBe "The context should be a case class."
   }
 
+  test("a lexer context that is not a case class is a compile error") {
+    typeCheckErrors("""
+      import halotukozak.alpaca.*
+
+      final class Ctx extends LexerCtx
+
+      val L = lexer[Ctx]:
+        case n @ "[0-9]+" => Token["NUM"](n.toInt)
+    """).distinct.loneElement.message shouldBe "Ctx should be a case class."
+  }
+
+  test("a lexer context that is a sum type is a compile error") {
+    typeCheckErrors("""
+      import halotukozak.alpaca.*
+
+      sealed trait Ctx extends LexerCtx
+      final case class A() extends Ctx
+
+      val L = lexer[Ctx]:
+        case n @ "[0-9]+" => Token["NUM"](n.toInt)
+    """).distinct.loneElement.message shouldBe "Ctx should be a case class."
+  }
+
   test("a parser context that is not a case class is a compile error") {
     typeCheckErrors("""
       import halotukozak.alpaca.*

@@ -6,7 +6,6 @@ import alpaca.internal.lexer.{IgnoredToken as _, Token as _, *}
 
 import scala.NamedTuple.AnyNamedTuple
 import scala.annotation.{compileTimeOnly, publicInBinary, unused}
-import scala.deriving.Mirror
 import scala.quoted.*
 
 /**
@@ -40,17 +39,9 @@ transparent inline def lexer[Ctx <: LexerCtx](
   using Ctx withDefault LexerCtx.Default,
 )(
   inline rules: LexerScope.Of[Ctx] ?=> LexerDefinition[Ctx],
-)(using
-  m: Mirror.ProductOf[Ctx],
-  errorHandling: ErrorHandling[Ctx, LexerError.Of[Ctx]],
+)(using errorHandling: ErrorHandling[Ctx, LexerError.Of[Ctx]],
 ): Lexer[Ctx] =
-  ${
-    createLexerImpl[Ctx](
-      '{ rules },
-      '{ Tracking.materialize[Ctx] },
-      '{ errorHandling },
-    )
-  }
+  ${ createLexerImpl[Ctx]('{ rules }, '{ errorHandling }) }
 
 /**
  * What `Token["NAME"]` and `Token["NAME"](value)` return inside a `lexer` block: a marker the `lexer` macro reads to
