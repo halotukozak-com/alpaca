@@ -113,24 +113,12 @@ class GrammarFileTest {
     }
 
     @Test
-    fun `reports the Alpaca release that wrote a mismatched file`() {
-        val path = Files.createTempFile("grammar-file-test", ".tokens.json")
-        try {
-            Files.writeString(path, """{"version":99,"alpacaVersion":"2.0.0","context":[]}""")
-
-            assertEquals(VersionedExport.Incompatible(99, "2.0.0"), LexerGrammarFile.read(path))
-        } finally {
-            Files.deleteIfExists(path)
-        }
-    }
-
-    @Test
     fun `reads a file whose envelope has a key this plugin doesn't know`() {
         val path = Files.createTempFile("grammar-file-test", ".tokens.json")
         try {
             Files.writeString(
                 path,
-                """{"version":$CURRENT_EXPORT_FORMAT_VERSION,"alpacaVersion":"1.0.0","writtenAt":"today","context":[]}""",
+                """{"version":$CURRENT_EXPORT_FORMAT_VERSION,"writtenAt":"today","context":[]}""",
             )
 
             assertEquals(VersionedExport.Compatible(emptyList<TokenSpec>()), LexerGrammarFile.read(path))

@@ -117,19 +117,10 @@ class GrammarService(
     }
 }
 
-/** What a notification says about export files this plugin can't read: which Alpaca release wrote each one, and
- *  whether the project or the plugin needs updating. */
+/** What a notification says about export files this plugin can't read, and whether the project or the plugin
+ *  needs updating. */
 internal fun incompatibleExportsMessage(incompatible: List<IncompatibleExport>): String {
-    val files =
-        incompatible.joinToString("\n") { export ->
-            val writer =
-                when {
-                    export.alpacaVersion != null -> "written by Alpaca ${export.alpacaVersion}"
-                    export.foundVersion == 0 -> "written by an Alpaca release before 0.3.1"
-                    else -> "written by Alpaca 1.0.0-RC3 or earlier"
-                }
-            "${export.fileName}: format ${export.foundVersion}, $writer"
-        }
+    val files = incompatible.joinToString("\n") { "${it.fileName}: format ${it.foundVersion}" }
     val older =
         "Rebuild the project to regenerate the older exports. If they stay the same, the project uses an Alpaca " +
             "release older than this plugin reads: update Alpaca."

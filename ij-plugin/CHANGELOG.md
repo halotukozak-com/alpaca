@@ -6,8 +6,7 @@
 
 ### Changed
 
-- Reads export format version 4 (Alpaca 1.0.0-RC4 and later), which names the Alpaca release that wrote each export.
-- The export format mismatch notification names the Alpaca release of each file and says whether to rebuild the project, update Alpaca or update the plugin.
+- The export format mismatch notification says, for each file, whether to rebuild the project or update Alpaca (an older export) or to update the plugin (a newer one).
 - Keys the plugin doesn't know in an export file are ignored instead of making it unreadable.
 
 ## [0.3.0] - 2026-10-13

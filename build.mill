@@ -117,15 +117,6 @@ object `package` extends Module:
 
     def publishVersion = Task(VcsVersion.vcsState().format())
 
-    // the release a grammar export names as its writer (see JsonExport); on the compile classpath too, as the export
-    // is written by the macros in modules built against this one
-    def versionResource = Task {
-      os.write(Task.dest / "halotukozak" / "alpaca" / "version", publishVersion(), createFolders = true)
-      PathRef(Task.dest)
-    }
-    override def resources = Task(super.resources() :+ versionResource())
-    override def compileResources = Task(super.compileResources() :+ versionResource())
-
     def pomSettings = PomSettings(
       description = "Another Lexer Parser And Compiler Alpaca",
       organization = "com.halotukozak",

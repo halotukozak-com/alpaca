@@ -28,7 +28,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Tokenizing allocates less per token (tracked context fields, `LazyReader` input, each lexing step); with tracked fields it is up to about twice as fast.
 - Generated parsers and lexers are smaller and allocate less at start-up: `rule` cases are no longer compiled into classes, each production is built once, and tokens share function values instead of a lambda per token.
 - `MyLexer.NAME` returns the token the lexer was built with, so `MyLexer.PLUS eq MyLexer.PLUS` holds.
-- A grammar export names the Alpaca release that wrote it (`alpacaVersion`). The export format version is now 4; the IntelliJ plugin 0.3.0 reads only version 3.
 
 ### Removed
 
@@ -41,6 +40,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Distinct productions with the same hash code no longer collapse into one while the parse table is built.
 - The same `.List`, `.Option` or `.SeparatedBy` used in several productions is one shared non-terminal. Each use used to get its own copy, which was an unresolvable reduce/reduce conflict.
 - The parser's `SkipToNextMatch` skips to the next lexeme listed in `ParserError.expected`. It could stop at a lexeme that only triggered spurious reductions and a second error.
+- A lexer context that is not a case class is a compile error saying so (`Ctx should be a case class.`), as for a parser context, instead of the compiler's `No given instance of type scala.deriving.Mirror.ProductOf[Ctx]`.
 - `$`, `\Z` and `\z` in a token pattern match only at the end of the input; they matched at the end of every token. A pattern with `^`, `\A` or a lookahead is a compile error at its rule; it was accepted and matched wrongly. (regex 0.4.0)
 
 ## [1.0.0-RC2] - 2026-10-08

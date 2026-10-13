@@ -7,22 +7,14 @@ import java.nio.file.Files
 
 final class JsonExportTest extends AnyFunSuite:
 
-  test("wraps the written value in a version envelope naming the Alpaca release") {
+  test("wraps the written value in a version envelope") {
     val dir = Files.createTempDirectory("alpaca-export-test")
     given GrammarExportSettings = GrammarExportSettings(exportDirectory = Some(dir.toString))
 
     JsonExport.maybeWrite("Foo", "tokens", "hello")
 
     val written = Files.readString(dir.resolve("Foo.tokens.json"))
-    assert(
-      written ==
-        s"""{"version":${JsonExport.ExportFormatVersion},"alpacaVersion":"${JsonExport.AlpacaVersion}","context":"hello"}""",
-    )
-  }
-
-  test("reads the Alpaca release from the resource the build adds") {
-    assert(JsonExport.AlpacaVersion != "unknown")
-    assert(JsonExport.AlpacaVersion.nonEmpty)
+    assert(written == s"""{"version":${JsonExport.ExportFormatVersion},"context":"hello"}""")
   }
 
   test("skips rewriting the file when the content is unchanged") {

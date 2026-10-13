@@ -55,7 +55,7 @@ For every `lexer{...}`/`object MyParser extends Parser`, Alpaca writes:
 | `<name>.productions.json` | The parser's raw productions (left-hand side, right-hand side, optional name) |
 | `<name>.table.json` | The parser's resolved LR table: what the IDE plugin actually drives |
 
-Each file is a JSON envelope `{"version": ..., "alpacaVersion": ..., "context": ...}`: `context` holds the data above, `version` is the export *format* version (bumped only when the file shape changes, not on every Alpaca release), and `alpacaVersion` is the Alpaca release that wrote the file. If the plugin finds a format version it doesn't understand -- typically an export written by an older or newer Alpaca -- it shows an "Alpaca grammar export format mismatch" notification instead of misreading the file. The notification names the Alpaca release of each file and says what to update: for an older export, rebuild the project or update Alpaca; for a newer one, update the plugin.
+Each file is a JSON envelope `{"version": ..., "context": ...}`: `context` holds the data above, and `version` is the export *format* version (bumped only when the file shape changes, not on every Alpaca release). If the plugin finds a version it doesn't understand -- typically an export written by an older or newer Alpaca -- it shows an "Alpaca grammar export format mismatch" notification instead of misreading the file. For an older export it says to rebuild the project or update Alpaca, for a newer one to update the plugin.
 
 Each plugin release reads one format version:
 
@@ -63,8 +63,7 @@ Each plugin release reads one format version:
 |---|---|---|
 | 0.3.1 to 1.0.0-RC1 | 1 | 0.2.0, 0.2.1 |
 | 1.0.0-RC2 | 2 | none released |
-| 1.0.0-RC3 | 3 | 0.3.0 |
-| 1.0.0-RC4 and later | 4 | releases after 0.3.0 |
+| 1.0.0-RC3 and later | 3 | releases after 0.2.1 |
 
 `<name>` identifies *where* the declaration lives, not just its own name: `<source-file>.<declaration-name>@L<line>`, e.g. a `val BrainLexer = lexer[...]` on line 12 of `Brainfuck.scala` exports as `Brainfuck.BrainLexer@L12`. This disambiguates two grammars that happen to share a name (a common `val Lexer = lexer[...]` reused across multiple test files, say) once they land in the same export directory.
 
