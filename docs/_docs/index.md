@@ -79,6 +79,10 @@ In Mill, the `mvn"com.halotukozak::alpaca::1.0.0-RC3"` line above picks the righ
 before the version: `//> using dep "com.halotukozak::alpaca::1.0.0-RC3"`. The `-Yretain-trees` flag is needed on every
 platform.
 
+### Upgrading
+
+The `lexer` and `parser` macros generate code that calls Alpaca's internals, which can change in any minor release. After upgrading Alpaca to a new minor version, recompile every module that defines a lexer or parser, including libraries you depend on that do. Patch releases keep the generated code compatible.
+
 ## Quick Start
 
 ### Creating a Lexer
