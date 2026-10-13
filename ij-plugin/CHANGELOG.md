@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-13
+
 ### Changed
 
 - Reads export format version 3 (Alpaca 1.0.0): EBNF non-terminals are named after their symbols, not their source offset.
@@ -27,6 +29,7 @@
 - Line comment toggling (`Ctrl+/`) for grammars that ignore a `prefix.*`-shaped rule.
 - Settings panel (**Settings | Tools | Alpaca**) for the grammar export directory and per-extension language mappings.
 
-[Unreleased]: https://github.com/halotukozak-com/alpaca/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/halotukozak-com/alpaca/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/halotukozak-com/alpaca/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/halotukozak-com/alpaca/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/halotukozak-com/alpaca/commits/v0.2.0
