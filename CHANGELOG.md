@@ -28,6 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Tokenizing allocates less per token (tracked context fields, `LazyReader` input, each lexing step); with tracked fields it is up to about twice as fast.
 - Generated parsers and lexers are smaller and allocate less at start-up: `rule` cases are no longer compiled into classes, each production is built once, and tokens share function values instead of a lambda per token.
 - `MyLexer.NAME` returns the token the lexer was built with, so `MyLexer.PLUS eq MyLexer.PLUS` holds.
+- A grammar export names the Alpaca release that wrote it (`alpacaVersion`). The export format version is now 4; the IntelliJ plugin 0.3.0 reads only version 3.
 
 ### Removed
 

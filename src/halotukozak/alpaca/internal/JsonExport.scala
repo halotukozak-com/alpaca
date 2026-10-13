@@ -1,10 +1,12 @@
 package halotukozak
 package alpaca.internal
 
+import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.{Files, Path}
 
 import halotukozak.mcodec.{Json, MCodec}
 
+import scala.util.Using
 import scala.util.control.NonFatal
 
 /**
@@ -27,8 +29,16 @@ private[internal] object JsonExport:
    *  itself.
    *
    *  Version 3: an EBNF extractor's non-terminal is named after its symbols instead of its source offset.
+   *
+   *  Version 4: the envelope names the Alpaca release that wrote the file (`alpacaVersion`).
    */
-  private[internal] val ExportFormatVersion: Int = 3
+  private[internal] val ExportFormatVersion: Int = 4
+
+  /** The Alpaca release that writes the exports, from the resource the build adds to the JAR. */
+  private[internal] lazy val AlpacaVersion: String =
+    Option(getClass.getResourceAsStream("/halotukozak/alpaca/version"))
+      .map(stream => Using.resource(stream)(stream => String(stream.readAllBytes(), UTF_8)))
+      .getOrElse("unknown")
 
   /**
    * Shape of a `.table.json` export, mirrored by the IntelliJ plugin's `ParseTableSpec`; changing it means bumping
@@ -42,14 +52,14 @@ private[internal] object JsonExport:
 
 // $COVERAGE-OFF$
   /**
-   * Writes `value`, wrapped in a `{"version": ..., "context": ...}` envelope, to
+   * Writes `value`, wrapped in a `{"version": ..., "alpacaVersion": ..., "context": ...}` envelope, to
    *  `<name>.<suffix>.json` in the configured export directory, if any; a no-op otherwise.
    */
   def maybeWrite[T: MCodec](name: String, suffix: String, value: => T)(using settings: GrammarExportSettings): Unit =
     settings.exportDirectory.foreach: dir =>
       val path = Path.of(dir).resolve(s"$name.$suffix.json")
-      given MCodec[(version: Int, context: T)] = MCodec.derived
-      val content = Json.write((version = ExportFormatVersion, context = value))
+      given MCodec[(version: Int, alpacaVersion: String, context: T)] = MCodec.derived
+      val content = Json.write((version = ExportFormatVersion, alpacaVersion = AlpacaVersion, context = value))
       try
         if !Files.exists(path) || Files.readString(path) != content then
           if path.getParent != null then Files.createDirectories(path.getParent): Unit

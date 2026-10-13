@@ -9,13 +9,13 @@ import kotlin.streams.asSequence
 
 /**
  * The export-format version this plugin build understands. Bumped only when the *shape* of an
- * exported `.tokens.json`/`.productions.json`/`.table.json` file, or the meaning of its contents, changes -- kept independently in
- * sync with the alpaca library's own `JsonExport.ExportFormatVersion` constant, since the two ship
- * on separate release schedules.
+ * exported `.tokens.json`/`.productions.json`/`.table.json` file, or the meaning of its contents, changes. It
+ * matches the alpaca library's own `JsonExport.ExportFormatVersion` constant: `AlpacaLrDriverTest` reads a real
+ * export, written by the library in the same repository, and fails when the two differ.
  */
-val CURRENT_EXPORT_FORMAT_VERSION: Int = 3
+val CURRENT_EXPORT_FORMAT_VERSION: Int = 4
 
-/** The envelope every export file is wrapped in: `{"version": ..., "context": ...}`. `version`
+/** The envelope every export file is wrapped in: `{"version": ..., "alpacaVersion": ..., "context": ...}`. `version`
  *  defaults to 0 so a file with no `version` key at all (written before this envelope existed)
  *  decodes as version 0 rather than failing outright. */
 @Serializable
@@ -24,13 +24,16 @@ private data class ExportEnvelope<T>(
     val context: T,
 )
 
-/** Just the `version` key, decoded leniently (unknown keys, i.e. `context`, ignored) so the found
- *  version number is available even when `context`'s own shape can't be decoded as expected. */
+/** Just the `version` and `alpacaVersion` keys, so both are available even when `context`'s own
+ *  shape can't be decoded as expected. `alpacaVersion` is absent before format version 4. */
 @Serializable
 private data class VersionOnly(
     val version: Int = 0,
+    val alpacaVersion: String? = null,
 )
 
+/** Ignores unknown keys, so a key added to the envelope or a payload in a later format version doesn't make
+ *  the file unreadable before its version is compared. */
 private val LENIENT_JSON = Json { ignoreUnknownKeys = true }
 
 /** The result of reading one versioned export file: either its (compatible-version) payload, or
@@ -42,6 +45,7 @@ sealed interface VersionedExport<out T> {
 
     data class Incompatible(
         val foundVersion: Int,
+        val alpacaVersion: String? = null,
     ) : VersionedExport<Nothing>
 }
 
@@ -49,9 +53,11 @@ sealed interface VersionedExport<out T> {
  *  reports whatever version it actually found -- 0 for a pre-envelope file (a bare JSON array/
  *  object with no `version` key at all), since that shape doesn't decode as an envelope either. */
 private inline fun <reified T> readVersioned(text: String): VersionedExport<T> {
-    val foundVersion = runCatching { LENIENT_JSON.decodeFromString<VersionOnly>(text).version }.getOrDefault(0)
-    if (foundVersion != CURRENT_EXPORT_FORMAT_VERSION) return VersionedExport.Incompatible(foundVersion)
-    return VersionedExport.Compatible(Json.decodeFromString<ExportEnvelope<T>>(text).context)
+    val found = runCatching { LENIENT_JSON.decodeFromString<VersionOnly>(text) }.getOrDefault(VersionOnly())
+    if (found.version != CURRENT_EXPORT_FORMAT_VERSION) {
+        return VersionedExport.Incompatible(found.version, found.alpacaVersion)
+    }
+    return VersionedExport.Compatible(LENIENT_JSON.decodeFromString<ExportEnvelope<T>>(text).context)
 }
 
 /** The location of a lexer/parser rule as written in the grammar's own source, exported nested
@@ -187,6 +193,7 @@ data class ParserGrammar(
 data class IncompatibleExport(
     val fileName: String,
     val foundVersion: Int,
+    val alpacaVersion: String? = null,
 )
 
 /** All grammars found in an `ALPACA_GRAMMAR_EXPORT_DIR` directory, lexers and parsers scanned
@@ -219,7 +226,7 @@ object GrammarDirectory {
                         when (val result = LexerGrammarFile.read(path)) {
                             is VersionedExport.Compatible -> LexerGrammar(id, result.value)
                             is VersionedExport.Incompatible -> {
-                                incompatible += IncompatibleExport(path.fileName.toString(), result.foundVersion)
+                                incompatible += IncompatibleExport(path.fileName.toString(), result.foundVersion, result.alpacaVersion)
                                 null
                             }
                         }
@@ -239,7 +246,7 @@ object GrammarDirectory {
                             when (val result = ParserTableFile.read(path)) {
                                 is VersionedExport.Compatible -> id to result.value
                                 is VersionedExport.Incompatible -> {
-                                    incompatible += IncompatibleExport(path.fileName.toString(), result.foundVersion)
+                                    incompatible += IncompatibleExport(path.fileName.toString(), result.foundVersion, result.alpacaVersion)
                                     null
                                 }
                             }
@@ -257,7 +264,7 @@ object GrammarDirectory {
                             is VersionedExport.Compatible ->
                                 ParserGrammar(id, productions = result.value, table = tablesById[id])
                             is VersionedExport.Incompatible -> {
-                                incompatible += IncompatibleExport(path.fileName.toString(), result.foundVersion)
+                                incompatible += IncompatibleExport(path.fileName.toString(), result.foundVersion, result.alpacaVersion)
                                 null
                             }
                         }
