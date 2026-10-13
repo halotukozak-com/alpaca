@@ -21,13 +21,14 @@ import scala.reflect.NameTransformer
   import quotes.reflect.*
   given diagnostics: Diagnostics = Diagnostics()
   val initialCtx = fromDefaults[Ctx]
-  val onTokenMatch = Expr.summon[Mirror.ProductOf[Ctx]] match
-    case Some(mirror) => '{ Tracking.materialize[Ctx](using $mirror) }
-    case None =>
+  val mirror = Expr
+    .summon[Mirror.ProductOf[Ctx]]
+    .getOrElse(
       errorAndAbort(
         show"${Printable(TypeRepr.of[Ctx].typeSymbol.name)} should be a case class.",
         Position.ofMacroExpansion,
-      )
+      ),
+    )
 
   // a context field is read by name on lexemes and lexer errors, so a public member with its name, declared or
   // inherited from `Any`/`AnyRef` (`getClass`, `eq`, `synchronized`...), would shadow it
@@ -282,7 +283,7 @@ import scala.reflect.NameTransformer
       '{
         {
           // built before the lexer, as a constructor argument can't refer to the lexer being built
-          val tokenMatch = $onTokenMatch
+          val tokenMatch = Tracking.materialize[Ctx](using $mirror)
           new Lexer[Ctx](tokenMatch, $initialCtx)(using $errorHandling):
             @publicInBinary
             override private[alpaca] val tokens: IArray[lexer.Token[?, Ctx, ?]] = $tokensExpr
