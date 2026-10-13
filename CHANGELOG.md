@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.0-RC4] - 2026-10-13
+
 ### Changed
 
 - Parsing is about 20% faster: a reduction runs its production's action directly instead of looking it up by the production.
@@ -314,7 +316,8 @@ First release.
 - Parser contexts (`ParserCtx`) and `parse` returning `(ctx, result | Null)`.
 - `DebugSettings` to dump the generated tables during compilation.
 
-[Unreleased]: https://github.com/halotukozak-com/alpaca/compare/v1.0.0-RC3...HEAD
+[Unreleased]: https://github.com/halotukozak-com/alpaca/compare/v1.0.0-RC4...HEAD
+[1.0.0-RC4]: https://github.com/halotukozak-com/alpaca/compare/v1.0.0-RC3...v1.0.0-RC4
 [1.0.0-RC3]: https://github.com/halotukozak-com/alpaca/compare/v1.0.0-RC2...v1.0.0-RC3
 [1.0.0-RC2]: https://github.com/halotukozak-com/alpaca/compare/v1.0.0-RC1...v1.0.0-RC2
 [1.0.0-RC1]: https://github.com/halotukozak-com/alpaca/compare/v0.3.2...v1.0.0-RC1
