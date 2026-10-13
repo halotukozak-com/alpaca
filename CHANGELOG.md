@@ -40,6 +40,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Distinct productions with the same hash code no longer collapse into one while the parse table is built.
 - The same `.List`, `.Option` or `.SeparatedBy` used in several productions is one shared non-terminal. Each use used to get its own copy, which was an unresolvable reduce/reduce conflict.
 - The parser's `SkipToNextMatch` skips to the next lexeme listed in `ParserError.expected`. It could stop at a lexeme that only triggered spurious reductions and a second error.
+- A lexer context that is not a case class is a compile error saying so (`Ctx should be a case class.`), as for a parser context, instead of the compiler's `No given instance of type scala.deriving.Mirror.ProductOf[Ctx]`.
 
 ## [1.0.0-RC2] - 2026-10-08
 
