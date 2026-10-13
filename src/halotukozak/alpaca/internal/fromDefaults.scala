@@ -13,13 +13,15 @@ import scala.quoted.*
 // $COVERAGE-OFF$
 private[alpaca] def fromDefaults[T: Type](using Quotes, Diagnostics): Expr[() => T] =
   import quotes.reflect.*
-  Expr.summon[Made.Of[T]] match
-    case Some(m) => '{ deriveFromDefaults[T](using $m) }
-    case None =>
+  Expr
+    .summon[Made.Of[T]]
+    .map(made => '{ deriveFromDefaults[T](using $made) })
+    .getOrElse(
       errorAndAbort(
         show"${Printable(TypeRepr.of[T].typeSymbol.name)} should be a case class.",
         Position.ofMacroExpansion,
-      )
+      ),
+    )
 
 @publicInBinary inline private def deriveFromDefaults[T: Made.Of as m]: () => T = inline m match
   case m: Made.ProductOf[T] =>

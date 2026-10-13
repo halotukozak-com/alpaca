@@ -17,6 +17,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - A `lexer` whose rules are not a list of `case`s written directly in its block (`PartialFunction.empty`, a `val` holding the rules, `first.orElse(second)`) is a compile error at the argument instead of a compiler crash.
 - `$`, `\Z` and `\z` in a token pattern match only at the end of the input; they matched at the end of every token. A pattern with `^`, `\A` or a lookahead is a compile error at its rule; it was accepted and matched wrongly. (regex 0.4.0)
+- A lexer context that is not a case class is a compile error saying so (`Ctx should be a case class.`), as for a parser context, instead of the compiler's `No given instance of type scala.deriving.Mirror.ProductOf[Ctx]`.
 
 ## [1.0.0-RC3] - 2026-10-11
 

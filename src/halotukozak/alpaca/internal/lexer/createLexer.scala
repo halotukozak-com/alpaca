@@ -7,6 +7,7 @@ import halotukozak.alpaca.Token as TokenDef
 import halotukozak.regex.{Regex, Subset, TokenMatcher}
 
 import scala.annotation.{publicInBinary, switch}
+import scala.deriving.Mirror
 import scala.quoted.*
 import scala.quoted.QuotedFactoryGivens.given
 import scala.reflect.NameTransformer
@@ -14,13 +15,20 @@ import scala.reflect.NameTransformer
 // $COVERAGE-OFF$
 @publicInBinary private[alpaca] def createLexerImpl[Ctx <: LexerCtx: Type](
   rules: Expr[LexerScope.Of[Ctx] ?=> LexerDefinition[Ctx]],
-  onTokenMatch: Expr[(Token[?, Ctx, ?], String, Ctx) => Ctx],
   errorHandling: Expr[ErrorHandling[Ctx, LexerError.Of[Ctx]]],
 )(using quotes: Quotes,
 ): Expr[Lexer[Ctx]] = {
   import quotes.reflect.*
   given diagnostics: Diagnostics = Diagnostics()
   val initialCtx = fromDefaults[Ctx]
+  val mirror = Expr
+    .summon[Mirror.ProductOf[Ctx]]
+    .getOrElse(
+      errorAndAbort(
+        show"${Printable(TypeRepr.of[Ctx].typeSymbol.name)} should be a case class.",
+        Position.ofMacroExpansion,
+      ),
+    )
 
   // a context field is read by name on lexemes and lexer errors, so a public member with its name, declared or
   // inherited from `Any`/`AnyRef` (`getClass`, `eq`, `synchronized`...), would shadow it
@@ -273,7 +281,9 @@ import scala.reflect.NameTransformer
 
       '{
         {
-          new Lexer[Ctx]($onTokenMatch, $initialCtx)(using $errorHandling):
+          // built before the lexer, as a constructor argument can't refer to the lexer being built
+          val tokenMatch = Tracking.materialize[Ctx](using $mirror)
+          new Lexer[Ctx](tokenMatch, $initialCtx)(using $errorHandling):
             @publicInBinary
             override private[alpaca] val tokens: IArray[lexer.Token[?, Ctx, ?]] = $tokensExpr
 
