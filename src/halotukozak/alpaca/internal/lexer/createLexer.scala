@@ -165,7 +165,7 @@ import scala.reflect.NameTransformer
               raiseShouldNeverBeCalled[CompiledRule](tokenInfo)
       }
 
-      val pairs = extractSimple('{ unchangedCtx[Ctx] })
+      val pairs: List[CompiledRule] = extractSimple('{ unchangedCtx[Ctx] })
         .lift(body.asExprOf[TokenDef[ValidName, Ctx, Any]])
         .orElse:
           body match {
@@ -187,7 +187,6 @@ import scala.reflect.NameTransformer
             show"A lexer rule must end with `Token[\"NAME\"]`, `Token[\"NAME\"](value)` or `Token.Ignored`, written directly as its last expression",
             body.pos,
           )
-          Nil
 
       acc ::: pairs
 
