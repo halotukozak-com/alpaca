@@ -159,7 +159,6 @@ abstract class Parser[Ctx <: ParserCtx](
       case DefinitionRhs(_, rhs) => extractName.applyOrElse(rhs.asExprOf[Rule[?]], _ => Nil)
       case _ =>
         error(show"Define resolutions as the last field of the parser.", Position.ofMacroExpansion)
-        Nil
     .map(name => (name, TypeRepr.of[alpaca.Production]))
     .toList
 

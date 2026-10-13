@@ -30,7 +30,8 @@ private[lexer] object SubsetChecker:
     items.indices.iterator
       .flatMap: i =>
         val (laterName, laterSub) = items(i)
-        val earlier = items.take(i)
+        // a pattern with `$` matches only at the end of the input, so elsewhere it covers nothing
+        val earlier = items.take(i).filterNot((_, earlierSub) => earlierSub.underlying.hasEndAnchor)
         earlier.find((_, earlierSub) => laterSub.subset(earlierSub)) match
           case Some((earlierName, _)) => Some((first = laterName, second = List(earlierName)))
           case None =>
