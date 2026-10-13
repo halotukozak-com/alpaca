@@ -62,14 +62,11 @@ class GrammarService(
     /** One balloon per fresh (non-cached) scan that found a version it doesn't understand -- the
      *  cache means this can't fire more often than an actual on-disk change or Settings edit. */
     private fun notifyIncompatible(incompatible: List<IncompatibleExport>) {
-        val details =
-            incompatible.joinToString("\n") { "${it.fileName}: found version ${it.foundVersion}" }
         val group = NotificationGroupManager.getInstance().getNotificationGroup("Alpaca")
         group
             .createNotification(
                 "Alpaca grammar export format mismatch",
-                "This plugin understands export format version $CURRENT_EXPORT_FORMAT_VERSION:\n$details\n" +
-                    "Rebuild the project to regenerate the export, or update the Alpaca plugin.",
+                incompatibleExportsMessage(incompatible),
                 NotificationType.WARNING,
             ).notify(project)
     }
@@ -118,4 +115,20 @@ class GrammarService(
 
         fun getInstance(project: Project): GrammarService = project.service()
     }
+}
+
+/** What a notification says about export files this plugin can't read, and whether the project or the plugin
+ *  needs updating. */
+internal fun incompatibleExportsMessage(incompatible: List<IncompatibleExport>): String {
+    val files = incompatible.joinToString("\n") { "${it.fileName}: format ${it.foundVersion}" }
+    val older =
+        "Rebuild the project to regenerate the older exports. If they stay the same, the project uses an Alpaca " +
+            "release older than this plugin reads: update Alpaca."
+    val newer = "Update the Alpaca plugin to read the newer exports."
+    val advice =
+        listOfNotNull(
+            older.takeIf { incompatible.any { it.foundVersion < CURRENT_EXPORT_FORMAT_VERSION } },
+            newer.takeIf { incompatible.any { it.foundVersion > CURRENT_EXPORT_FORMAT_VERSION } },
+        )
+    return "This plugin reads export format $CURRENT_EXPORT_FORMAT_VERSION.\n$files\n${advice.joinToString("\n")}"
 }

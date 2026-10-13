@@ -55,7 +55,7 @@ For every `lexer{...}`/`object MyParser extends Parser`, Alpaca writes:
 | `<name>.productions.json` | The parser's raw productions (left-hand side, right-hand side, optional name) |
 | `<name>.table.json` | The parser's resolved LR table: what the IDE plugin actually drives |
 
-Each file is a JSON envelope `{"version": ..., "context": ...}`: `context` holds the data above, and `version` is the export *format* version (bumped only when the file shape changes, not on every Alpaca release). If the plugin finds a version it doesn't understand -- typically an export written by an older or newer Alpaca -- it shows an "Alpaca grammar export format mismatch" notification instead of misreading the file; rebuilding the project or updating the plugin fixes it.
+Each file is a JSON envelope `{"version": ..., "context": ...}`: `context` holds the data above, and `version` is the export *format* version (bumped only when the file shape changes, not on every Alpaca release). If the plugin finds a version it doesn't understand -- typically an export written by an older or newer Alpaca -- it shows an "Alpaca grammar export format mismatch" notification instead of misreading the file. For an older export it says to rebuild the project or update Alpaca, for a newer one to update the plugin.
 
 Each plugin release reads one format version:
 

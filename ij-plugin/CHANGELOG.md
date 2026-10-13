@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- The export format mismatch notification says, for each file, whether to rebuild the project or update Alpaca (an older export) or to update the plugin (a newer one).
+- Keys the plugin doesn't know in an export file are ignored instead of making it unreadable.
+
 ## [0.3.0] - 2026-10-13
 
 ### Changed

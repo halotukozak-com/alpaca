@@ -9,9 +9,9 @@ import kotlin.streams.asSequence
 
 /**
  * The export-format version this plugin build understands. Bumped only when the *shape* of an
- * exported `.tokens.json`/`.productions.json`/`.table.json` file, or the meaning of its contents, changes -- kept independently in
- * sync with the alpaca library's own `JsonExport.ExportFormatVersion` constant, since the two ship
- * on separate release schedules.
+ * exported `.tokens.json`/`.productions.json`/`.table.json` file, or the meaning of its contents, changes. It
+ * matches the alpaca library's own `JsonExport.ExportFormatVersion` constant: `AlpacaLrDriverTest` reads a real
+ * export, written by the library in the same repository, and fails when the two differ.
  */
 val CURRENT_EXPORT_FORMAT_VERSION: Int = 3
 
@@ -24,13 +24,15 @@ private data class ExportEnvelope<T>(
     val context: T,
 )
 
-/** Just the `version` key, decoded leniently (unknown keys, i.e. `context`, ignored) so the found
- *  version number is available even when `context`'s own shape can't be decoded as expected. */
+/** Just the `version` key, so the found version number is available even when `context`'s own
+ *  shape can't be decoded as expected. */
 @Serializable
 private data class VersionOnly(
     val version: Int = 0,
 )
 
+/** Ignores unknown keys, so a key added to the envelope or a payload in a later format version doesn't make
+ *  the file unreadable before its version is compared. */
 private val LENIENT_JSON = Json { ignoreUnknownKeys = true }
 
 /** The result of reading one versioned export file: either its (compatible-version) payload, or
@@ -51,7 +53,7 @@ sealed interface VersionedExport<out T> {
 private inline fun <reified T> readVersioned(text: String): VersionedExport<T> {
     val foundVersion = runCatching { LENIENT_JSON.decodeFromString<VersionOnly>(text).version }.getOrDefault(0)
     if (foundVersion != CURRENT_EXPORT_FORMAT_VERSION) return VersionedExport.Incompatible(foundVersion)
-    return VersionedExport.Compatible(Json.decodeFromString<ExportEnvelope<T>>(text).context)
+    return VersionedExport.Compatible(LENIENT_JSON.decodeFromString<ExportEnvelope<T>>(text).context)
 }
 
 /** The location of a lexer/parser rule as written in the grammar's own source, exported nested
