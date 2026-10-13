@@ -188,7 +188,7 @@ jobs:
           gh label create needs-major --repo "$REPO" --color B60205 --force \
             --description "Binary-incompatible change — needs a major version bump" >/dev/null
           gh label create needs-minor --repo "$REPO" --color FBCA04 --force \
-            --description "New API, or TASTy-incompatible (other libraries' inline code may fail to re-typecheck) — needs a minor bump" >/dev/null
+            --description "New API or a TASTy-only break — needs a minor version bump" >/dev/null
 
           case "$BUMP" in
             major) wanted=needs-major ;;
