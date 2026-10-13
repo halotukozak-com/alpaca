@@ -30,7 +30,8 @@ private[lexer] object SubsetChecker:
     items.indices.iterator
       .flatMap: i =>
         val (laterName, laterSub) = items(i)
-        val earlier = items.take(i)
+        // a pattern with `$` matches only at the end of the input, so elsewhere it covers nothing
+        val earlier = items.take(i).filterNot((_, earlierSub) => hasEndAnchor(earlierSub.underlying))
         earlier.find((_, earlierSub) => laterSub.subset(earlierSub)) match
           case Some((earlierName, _)) => Some((first = laterName, second = List(earlierName)))
           case None =>
@@ -42,3 +43,15 @@ private[lexer] object SubsetChecker:
               overlapping.sizeIs > 1 && laterSub.subset(Subset.of(Regex.alt(overlapping.map(_.subset.underlying)))),
             )((first = laterName, second = overlapping.map(_.name)))
       .toList
+
+  /** Whether `regex` has an end-of-input anchor, the only lookahead a token pattern keeps once checked. */
+  private def hasEndAnchor(regex: Regex): Boolean = regex match
+    case Regex.Look(_, _) => true
+    case Regex.Concat(first, second) => hasEndAnchor(first) || hasEndAnchor(second)
+    case Regex.Alt(parts) => parts.exists(hasEndAnchor)
+    case Regex.Inter(parts) => parts.exists(hasEndAnchor)
+    case Regex.Star(inner) => hasEndAnchor(inner)
+    case Regex.Repeat(inner, _, _) => hasEndAnchor(inner)
+    case Regex.Compl(inner) => hasEndAnchor(inner)
+    case Regex.Group(_, _, inner) => hasEndAnchor(inner)
+    case _ => false

@@ -418,6 +418,36 @@ final class LexerTest extends AnyFunSuite with Matchers with LoneElement:
     error.lineContent.trim shouldBe "case \"x\" | \" *\" => Token.Ignored"
   }
 
+  test("a start-of-input anchor in a pattern is reported at its rule") {
+    val error: scala.compiletime.testing.Error = typeCheckErrors("""
+    val AnchorLexer = lexer:
+      case "b" => Token["B"]
+      case "^a" => Token["A"]
+    """).loneElement
+    error.message shouldBe
+      """Token "A" uses a start-of-input anchor `^`/`\A` ("^a"), which a token pattern can't: each token is matched where the previous one ended"""
+    error.lineContent.trim shouldBe "case \"^a\" => Token[\"A\"]"
+  }
+
+  test("a lookahead in a pattern is reported at its rule") {
+    val error: scala.compiletime.testing.Error = typeCheckErrors("""
+    val LookaheadLexer = lexer:
+      case "b" => Token["B"]
+      case "a(?=b)" => Token["A"]
+    """).loneElement
+    error.message shouldBe
+      """Token "A" uses lookahead `(?=...)` ("a(?=b)"), which a token pattern can't: a token only sees the text it matches"""
+    error.lineContent.trim shouldBe "case \"a(?=b)\" => Token[\"A\"]"
+  }
+
+  test("an end-of-input anchor matches only at the end of the input") {
+    val EndLexer = lexer:
+      case "a$" => Token["LAST_A"]
+      case "a" => Token["A"]
+
+    EndLexer.tokenize("aaa").getOrThrow.map(_.name) shouldBe List("A", "A", "LAST_A")
+  }
+
   test("selectDynamic returns the built token and throws NoSuchElementException for an unknown name") {
     val Lexer = lexer:
       case "a" => Token["A"]

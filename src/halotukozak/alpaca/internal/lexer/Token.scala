@@ -6,7 +6,7 @@ package lexer
 import halotukozak.alpaca.internal.{Printable, RuleOnly, Showable, ValidName}
 import halotukozak.alpaca.{LexerCtx, SepValue}
 import halotukozak.mcodec.MCodec
-import halotukozak.regex.{RegexParseError, RegexParser}
+import halotukozak.regex.{RegexParseError, RegexParser, TokenMatcher}
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.unchecked.uncheckedVariance as uv
@@ -91,7 +91,26 @@ private[lexer] object TokenInfo:
             //format: on
             pos,
           )
-        case Right(regex) => Some(regex)
+        // the lexer matches each token at the start of the rest of the input, so `^` would hold at every token
+        case Right(regex) if regex.hasStartAnchor =>
+          error(
+            show"""Token "${Printable(name)}" uses a start-of-input anchor `^`/`\\A` ("${Printable(
+                pattern,
+              )}"), which a token pattern can't: each token is matched where the previous one ended""",
+            pos,
+          )
+          None
+        case Right(regex) =>
+          TokenMatcher.fromRegexesChecked(regex) match
+            case Left(unsupported) =>
+              error(
+                show"""Token "${Printable(name)}" uses ${unsupported.construct.showRaw} ("${Printable(
+                    pattern,
+                  )}"), which a token pattern can't: a token only sees the text it matches""",
+                pos,
+              )
+              None
+            case Right(_) => Some(regex)
         case Left(err) => reportInvalid(err); None
     (
       tokenType = ConstantType(StringConstant(name)).asType.asInstanceOf[Type[? <: ValidName]],
