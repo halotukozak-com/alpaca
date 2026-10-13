@@ -98,12 +98,12 @@ abstract class Parser[Ctx <: ParserCtx](
               loop(remaining.tail.dropWhile(lexeme => !expectedTerminals.contains(Terminal(Printable(lexeme.name)))))
             case _ => None
 
-        case ParseAction.Shift(gotoState) =>
+        case RuntimeAction.Shift(gotoState) =>
           stateStack += gotoState
           nodeStack += Node.Token(current)
           loop(if remaining.isEmpty then Nil else remaining.tail)
 
-        case ParseAction.Reduction(rule) =>
+        case RuntimeAction.Reduce(rule) =>
           val production = rule.production
           val size = production.size
           val uncoveredState = stateStack(stateStack.size - 1 - size)

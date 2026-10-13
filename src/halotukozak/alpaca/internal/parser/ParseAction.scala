@@ -3,11 +3,14 @@ package alpaca
 package internal
 package parser
 
+import halotukozak.alpaca.internal.Showable
 import halotukozak.made.annotation.name
 import halotukozak.mcodec.MCodec
 import halotukozak.mcodec.annotation.flatten
 
 import scala.annotation.publicInBinary
+import scala.quoted.*
+import scala.quoted.QuotedFactoryGivens.given
 
 /**
  * Represents a parse action in the LR parse table.
@@ -15,24 +18,22 @@ import scala.annotation.publicInBinary
  * Parse actions determine what the parser should do in each state
  * when encountering a symbol. It can either shift to a new state
  * or reduce by a production.
- *
- * @tparam Reduce what a reduction reduces by: its [[Production]] while the table is built, its [[ProductionRule]] at runtime
  */
-private[parser] sealed trait ParseAction[+Reduce] extends Any
+private[parser] sealed trait ParseAction extends Any
 
 @publicInBinary private[parser] object ParseAction:
 
   /**
    * Shift action: read the input symbol and move to a new state.
    */
-  sealed case class Shift(state: Int) extends AnyVal, ParseAction[Nothing]
+  sealed case class Shift(state: Int) extends AnyVal, ParseAction
 
   /**
    * Reduce action: apply a production rule to reduce symbols.
    */
-  sealed case class Reduction[+Reduce](rule: Reduce) extends AnyVal, ParseAction[Reduce]
+  sealed case class Reduction(production: Production) extends AnyVal, ParseAction
 
-  given Showable[ParseAction[Production]] =
+  given Showable[ParseAction] =
     case Shift(state) => show"S$state"
     case Reduction(production) => show"$production"
 
@@ -43,7 +44,7 @@ private[parser] sealed trait ParseAction[+Reduce] extends Any
     @name("shift") case Shift(state: Int)
     @name("reduce") case Reduce(production: Production)
 
-  given MCodec[Production] => MCodec[ParseAction[Production]] = MCodec
+  given MCodec[Production] => MCodec[ParseAction] = MCodec
     .derived[ActionExport]
     .transform(
       onWrite = {

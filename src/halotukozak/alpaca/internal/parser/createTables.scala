@@ -22,7 +22,7 @@ import scala.reflect.NameTransformer
  *
  * @tparam Ctx the parser context type
  */
-opaque type Tables[Ctx <: ParserCtx] = (parseTable: ParseTable[ProductionRule[Ctx]], initialCtx: () => Ctx)
+opaque type Tables[Ctx <: ParserCtx] = (parseTable: RuntimeTable[Ctx], initialCtx: () => Ctx)
 
 object Tables:
   /**
@@ -37,7 +37,7 @@ object Tables:
   inline given [Ctx <: ParserCtx]: Tables[Ctx] = ${ createTablesImpl[Ctx] }
 
   extension [Ctx <: ParserCtx](tables: Tables[Ctx])
-    private[alpaca] def parseTable: ParseTable[ProductionRule[Ctx]] = tables.parseTable
+    private[alpaca] def parseTable: RuntimeTable[Ctx] = tables.parseTable
     private[alpaca] def initialCtx: () => Ctx = tables.initialCtx
 
 /**
@@ -65,7 +65,7 @@ object Tables:
 // $COVERAGE-OFF$
 @publicInBinary private[parser] def createTablesImpl[Ctx <: ParserCtx: Type](
   using quotes: Quotes,
-): Expr[(parseTable: ParseTable[ProductionRule[Ctx]], initialCtx: () => Ctx)] = {
+): Expr[(parseTable: RuntimeTable[Ctx], initialCtx: () => Ctx)] = {
   import quotes.reflect.*
   given Diagnostics = Diagnostics()
   val initialCtx = fromDefaults[Ctx]
@@ -410,7 +410,7 @@ object Tables:
           .tap: parseTable =>
             given MCodec[Production] = Production.exportCodec(allSources)
             JsonExport.maybeWrite(exportName, "table", parseTable)
-          .toExpr(table.iterator.map(entry => entry.production -> entry.action).toMap)
+          .toRuntime(table.iterator.map(entry => entry.production -> entry.action).toMap)
 
       // referenced only to avoid an unused-implicit warning; kept lazy and never forced,
       // since eagerly forcing it here (during Tables[Ctx] construction, i.e. during the
@@ -423,7 +423,7 @@ object Tables:
       '{
         $referenceGivenResolutions
         (
-          $parseTable.asInstanceOf[ParseTable[ProductionRule[Ctx]]],
+          $parseTable,
           $initialCtx,
         )
       }
