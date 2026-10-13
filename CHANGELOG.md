@@ -6,6 +6,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Parsing is about 20% faster: a reduction runs its production's action directly instead of looking it up by the production.
+- Tokenizing allocates less per token (tracked context fields, `LazyReader` input, each lexing step); with tracked fields it is up to about twice as fast.
+- Generated parsers and lexers are smaller and allocate less at start-up: `rule` cases are no longer compiled into classes, each production is built once, and tokens share function values instead of a lambda per token.
+- `MyLexer.NAME` returns the token the lexer was built with, so `MyLexer.PLUS eq MyLexer.PLUS` holds.
+
+### Fixed
+
+- A `lexer` whose rules are not a list of `case`s written directly in its block (`PartialFunction.empty`, a `val` holding the rules, `first.orElse(second)`) is a compile error at the argument instead of a compiler crash.
+- `$`, `\Z` and `\z` in a token pattern match only at the end of the input; they matched at the end of every token. A pattern with `^`, `\A` or a lookahead is a compile error at its rule; it was accepted and matched wrongly. (regex 0.4.0)
+
+## [1.0.0-RC3] - 2026-10-11
+
 ### Added
 
 - A token pattern that can match the empty string is a compile error at its rule.
@@ -24,10 +38,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Parser macro errors, which the compiler shows at `extends Parser`, end with the line and source of the production they are about: `(at line 11: case ...)`.
 - `.List`, `.Option` and `.SeparatedBy` non-terminals are named after their symbols instead of their source offset. The grammar export format version is now 3 (read by the IntelliJ plugin).
 - The parameter of `before`/`after` is named `others` (was `second`), and public type parameters have descriptive names (`Result[+Ctx, +Value, +Err]`, `Rule[Value]`, `ErrorHandling[-Ctx, -Err]`, ...). Only named arguments are affected.
-- Parsing is about 20% faster: a reduction runs its production's action directly instead of looking it up by the production.
-- Tokenizing allocates less per token (tracked context fields, `LazyReader` input, each lexing step); with tracked fields it is up to about twice as fast.
-- Generated parsers and lexers are smaller and allocate less at start-up: `rule` cases are no longer compiled into classes, each production is built once, and tokens share function values instead of a lambda per token.
-- `MyLexer.NAME` returns the token the lexer was built with, so `MyLexer.PLUS eq MyLexer.PLUS` holds.
 
 ### Removed
 
@@ -35,12 +45,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- A `lexer` whose rules are not a list of `case`s written directly in its block (`PartialFunction.empty`, a `val` holding the rules, `first.orElse(second)`) is a compile error at the argument instead of a compiler crash.
 - Lookaheads are computed past nullable symbols. Grammars where an empty-deriving symbol follows another could reject valid input.
 - Distinct productions with the same hash code no longer collapse into one while the parse table is built.
 - The same `.List`, `.Option` or `.SeparatedBy` used in several productions is one shared non-terminal. Each use used to get its own copy, which was an unresolvable reduce/reduce conflict.
 - The parser's `SkipToNextMatch` skips to the next lexeme listed in `ParserError.expected`. It could stop at a lexeme that only triggered spurious reductions and a second error.
-- `$`, `\Z` and `\z` in a token pattern match only at the end of the input; they matched at the end of every token. A pattern with `^`, `\A` or a lookahead is a compile error at its rule; it was accepted and matched wrongly. (regex 0.4.0)
 
 ## [1.0.0-RC2] - 2026-10-08
 
@@ -305,7 +313,8 @@ First release.
 - Parser contexts (`ParserCtx`) and `parse` returning `(ctx, result | Null)`.
 - `DebugSettings` to dump the generated tables during compilation.
 
-[Unreleased]: https://github.com/halotukozak-com/alpaca/compare/v1.0.0-RC2...HEAD
+[Unreleased]: https://github.com/halotukozak-com/alpaca/compare/v1.0.0-RC3...HEAD
+[1.0.0-RC3]: https://github.com/halotukozak-com/alpaca/compare/v1.0.0-RC2...v1.0.0-RC3
 [1.0.0-RC2]: https://github.com/halotukozak-com/alpaca/compare/v1.0.0-RC1...v1.0.0-RC2
 [1.0.0-RC1]: https://github.com/halotukozak-com/alpaca/compare/v0.3.2...v1.0.0-RC1
 [0.3.2]: https://github.com/halotukozak-com/alpaca/compare/v0.3.1...v0.3.2
