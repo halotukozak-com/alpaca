@@ -197,6 +197,7 @@ private[parser] object ParseTable:
 
   // $COVERAGE-OFF$
   extension (table: ParseTable) {
+
     /**
      * The code that builds the parser's [[RuntimeTable]] from this table, with one [[ProductionRule]] per production,
      * shared by every cell that reduces by it.
