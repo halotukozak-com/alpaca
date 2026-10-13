@@ -35,7 +35,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Distinct productions with the same hash code no longer collapse into one while the parse table is built.
 - The same `.List`, `.Option` or `.SeparatedBy` used in several productions is one shared non-terminal. Each use used to get its own copy, which was an unresolvable reduce/reduce conflict.
 - The parser's `SkipToNextMatch` skips to the next lexeme listed in `ParserError.expected`. It could stop at a lexeme that only triggered spurious reductions and a second error.
-- `$`, `\Z` and `\z` in a token pattern match only at the end of the input; they matched at the end of every token. A pattern with `^`, `\A` or a lookahead is a compile error at its rule; it was accepted and matched wrongly. (regex 0.3.0)
+- `$`, `\Z` and `\z` in a token pattern match only at the end of the input; they matched at the end of every token. A pattern with `^`, `\A` or a lookahead is a compile error at its rule; it was accepted and matched wrongly. (regex 0.4.0)
 
 ## [1.0.0-RC2] - 2026-10-08
 

@@ -6,7 +6,7 @@ package lexer
 import halotukozak.alpaca.internal.{Printable, RuleOnly, Showable, ValidName}
 import halotukozak.alpaca.{LexerCtx, SepValue}
 import halotukozak.mcodec.MCodec
-import halotukozak.regex.{RegexParseError, RegexParser, TokenMatcher}
+import halotukozak.regex.{Regex, RegexParseError, RegexParser, TokenMatcher}
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.unchecked.uncheckedVariance as uv
@@ -71,52 +71,60 @@ private[lexer] object TokenInfo:
     alternatives: List[String],
     ignored: Boolean,
     pos: quotes.reflect.Position,
-  ): CompiledPattern =
+  ): CompiledPattern = {
     import quotes.reflect.*
     val pattern = alternatives.mkString("|")
-    def reportInvalid(err: RegexParseError): Unit =
+    def reportInvalid[T: Default](err: RegexParseError): T =
       error(show"""Invalid regex pattern for token "${Printable(name)}": $err""", pos)
-    // An alternative can be invalid on its own and still parse once joined, e.g. "(" | ")".
-    val invalidAlternatives = alternatives match
-      case _ :: Nil => Nil
-      case _ => alternatives.map(RegexParser.parse).collect { case Left(err) => err }
-    invalidAlternatives.foreach(reportInvalid)
-    val regex = Option
-      .when(invalidAlternatives.isEmpty)(RegexParser.parse(pattern))
-      .flatMap:
-        case Right(regex) if regex.nullable =>
-          error(
-            //format: off
-            show"""Token "${Printable(name)}" can match the empty string ("${Printable(pattern)}"); a token must consume at least one character""",
-            //format: on
-            pos,
-          )
-        // the lexer matches each token at the start of the rest of the input, so `^` would hold at every token
-        case Right(regex) if regex.hasStartAnchor =>
-          error(
-            show"""Token "${Printable(name)}" uses a start-of-input anchor `^`/`\\A` ("${Printable(
-                pattern,
-              )}"), which a token pattern can't: each token is matched where the previous one ended""",
-            pos,
-          )
-          None
-        case Right(regex) =>
-          TokenMatcher.fromRegexesChecked(regex) match
-            case Left(unsupported) =>
-              error(
-                show"""Token "${Printable(name)}" uses ${unsupported.construct.showRaw} ("${Printable(
-                    pattern,
-                  )}"), which a token pattern can't: a token only sees the text it matches""",
-                pos,
-              )
-              None
-            case Right(_) => Some(regex)
-        case Left(err) => reportInvalid(err); None
+
+    extension [L, R](either: Either[L, R]) def onLeft(op: L => Unit): either.type = either.tap(_.left.foreach(op))
+
+    val hasValidAlternatives = alternatives match
+      case _ :: Nil => true
+      case alternatives =>
+        // a strict List, so that every invalid alternative is reported before `forall` stops at the first
+        val parsed = for alternative <- alternatives yield RegexParser.parse(alternative).onLeft(reportInvalid)
+        parsed.forall(_.isRight)
+
+    val regex: Option[Regex] = if hasValidAlternatives then
+      RegexParser
+        .parse(pattern)
+        .onLeft(reportInvalid)
+        .toOption
+        .filter: regex =>
+          if regex.nullable then
+            error(
+              //format: off
+              show"""Token "${Printable(name)}" can match the empty string ("${Printable(pattern)}"); a token must consume at least one character""",
+              //format: on
+              pos,
+            )
+          // the lexer matches each token at the start of the rest of the input, so `^` would hold at every token
+          else if regex.hasStartAnchor then
+            error(
+              //format: off
+              show"""Token "${Printable(name)}" uses a start-of-input anchor `^`/`\\A` ("${Printable(pattern)}"), which a token pattern can't: each token is matched where the previous one ended""",
+              //format: on
+              pos,
+            )
+          else
+            TokenMatcher.unsupportedConstructs(regex) match
+              case unsupported :: _ =>
+                error(
+                  //format: off
+                  show"""Token "${Printable(name)}" uses ${unsupported.construct.showRaw} ("${Printable(pattern)}"), which a token pattern can't: a token only sees the text it matches""",
+                  //format: on
+                  pos,
+                )
+              case Nil => true
+    else None
+
     (
       tokenType = ConstantType(StringConstant(name)).asType.asInstanceOf[Type[? <: ValidName]],
       info = TokenInfo(Printable(name), nextRegexGroupName(), Printable(pattern), ignored),
       regex = regex,
     )
+  }
 
   /**
    * Generates a unique name for a regex capture group.
