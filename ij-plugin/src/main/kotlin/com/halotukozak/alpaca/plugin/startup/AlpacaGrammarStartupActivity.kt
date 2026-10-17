@@ -3,7 +3,7 @@ package com.halotukozak.alpaca.plugin.startup
 import com.halotukozak.alpaca.plugin.grammar.GrammarService
 import com.halotukozak.alpaca.plugin.lexer.AlpacaFileTypeRegistrar
 import com.halotukozak.alpaca.plugin.settings.AlpacaSettingsState
-import com.intellij.openapi.application.writeAction
+import com.intellij.openapi.application.edtWriteAction
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
@@ -18,7 +18,7 @@ class AlpacaGrammarStartupActivity : ProjectActivity {
         val settings = AlpacaSettingsState.getInstance(project)
         if (settings.resolvedExportDirectory() == null) return
 
-        writeAction {
+        edtWriteAction {
             settings.associations.forEach { AlpacaFileTypeRegistrar.ensureRegistered(it.extension, it.lexerGrammarId) }
         }
 
