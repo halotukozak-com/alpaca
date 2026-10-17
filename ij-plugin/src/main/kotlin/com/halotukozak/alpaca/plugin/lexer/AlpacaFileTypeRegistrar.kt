@@ -9,7 +9,9 @@ import com.intellij.openapi.fileTypes.FileTypeManager
  * they can't be declared in plugin.xml the way a normal language plugin's
  * single file type would be.
  *
- * Callers must invoke [ensureRegistered] from inside a write action.
+ * Callers must invoke [ensureRegistered] from inside a write action on the EDT
+ * (`edtWriteAction`, not `writeAction`): the `fileTypesChanged` listeners it
+ * fires touch EDT-only UI.
  */
 object AlpacaFileTypeRegistrar {
     fun ensureRegistered(
