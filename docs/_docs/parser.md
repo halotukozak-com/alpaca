@@ -285,6 +285,29 @@ The end of the input cannot be skipped, so an error there stops the parser whate
 
 The strategy receives the parser context and the `ParserError`, so it can decide per error -- for example skip stray separators but stop on anything else. Define the `given` where the parser is defined, or in the context's companion object.
 
+Build it with `ErrorHandling.parser` to use `ctx` in the handler as in the parser's actions. It is the same parser context, changed in place:
+
+```scala sc-compile-with:brain-tokenize
+case class BudgetCtx(var skipsLeft: Int = 1) extends ParserCtx
+
+given ErrorHandling[BudgetCtx, ParserError] = ErrorHandling.parser[BudgetCtx]: _ =>
+  if ctx.skipsLeft == 0 then ErrorHandling.Strategy.Stop
+  else
+    ctx.skipsLeft -= 1
+    ErrorHandling.Strategy.SkipOne
+
+object BudgetParser extends Parser[BudgetCtx]:
+  val root: Rule[Int] = rule:
+    case BrainLexer.inc.List(incs) => incs.size
+
+BudgetParser.parse(BrainLexer.tokenize("+>+<+").getOrThrow) match
+  case Result.Failure(ctx, recovered, errors) =>
+    println(ctx.skipsLeft)                             // 0
+    println(recovered)                                 // None: the second skip was refused
+    println(errors.flatMap(_.unexpected).map(_.text))  // List(>, <)
+  case Result.Success(_, _) => ()
+```
+
 ## Conflict Resolution
 
 Ambiguous grammars produce compile-time errors. The BrainFuck grammar has no conflicts (all tokens are unambiguous), but arithmetic grammars do. See [Conflict Resolution](conflict-resolution.md) for the full `before`/`after` DSL.

@@ -18,12 +18,64 @@ package alpaca
  *
  * A lexer handler declared for `LexerError.Of[MyLexerCtx]` reads the context's fields with their types.
  *
+ * To change the context from a handler, build it with [[ErrorHandling.lexer]] or [[ErrorHandling.parser]], where
+ * `ctx` works as in a lexer rule or a parser action:
+ * {{{
+ * given ErrorHandling[MyLexerCtx, LexerError.Of[MyLexerCtx]] = ErrorHandling.lexer[MyLexerCtx]: error =>
+ *   ctx.skipped += 1
+ *   ErrorHandling.Strategy.SkipOne
+ * }}}
+ *
  * @tparam Ctx the lexer or parser context this applies to
  * @tparam Err the error it is given: [[LexerError]] for the lexer, [[ParserError]] for the parser
  */
-trait ErrorHandling[-Ctx, -Err] extends ((Ctx, Err) => ErrorHandling.Strategy)
+trait ErrorHandling[-Ctx, -Err] extends ((Ctx, Err) => ErrorHandling.Strategy):
+  /** The strategy for `error`, and the context to go on with: `ctx` itself unless built by [[ErrorHandling.lexer]]. */
+  private[alpaca] def handle[C <: Ctx](ctx: C, error: Err): (strategy: ErrorHandling.Strategy, ctx: C) =
+    (strategy = apply(ctx, error), ctx = ctx)
 
 object ErrorHandling:
+
+  /**
+   * A lexer error handler that can change the context. In `handler`, `ctx` is the lexer context as in a rule body:
+   * assigning its fields (`ctx.count += 1`) changes the context the lexer goes on with, so they can stay `val`s.
+   * {{{
+   * case class MyCtx(line: Line = Line.Start, skipped: Int = 0) extends LexerCtx
+   *
+   * given ErrorHandling[MyCtx, LexerError.Of[MyCtx]] = ErrorHandling.lexer[MyCtx]: error =>
+   *   ctx.skipped += 1
+   *   ErrorHandling.Strategy.SkipOne
+   * }}}
+   * The error reported for the input keeps the context from before the handler ran.
+   *
+   * @tparam Ctx the lexer context
+   * @param handler the strategy for an error, written directly as a lambda
+   */
+  // `transparent` so it expands while `handler` is typed, before the `applyDynamic` of an assignment is inlined into
+  // its compile error, as `lexer` does
+  transparent inline def lexer[Ctx <: LexerCtx](
+    inline handler: LexerScope.Of[Ctx] ?=> LexerError.Of[Ctx] => Strategy,
+  ): ErrorHandling[Ctx, LexerError.Of[Ctx]] =
+    ${ internal.lexer.errorHandlingImpl[Ctx]('{ handler }) }
+
+  /**
+   * A parser error handler with `ctx` in scope, as in the parser's actions: the parser context, changed in place.
+   * {{{
+   * case class MyCtx(var skipsLeft: Int = 3) extends ParserCtx
+   *
+   * given ErrorHandling[MyCtx, ParserError] = ErrorHandling.parser[MyCtx]: error =>
+   *   if ctx.skipsLeft == 0 then ErrorHandling.Strategy.Stop
+   *   else
+   *     ctx.skipsLeft -= 1
+   *     ErrorHandling.Strategy.SkipOne
+   * }}}
+   *
+   * @tparam Ctx the parser context
+   * @param handler the strategy for an error
+   */
+  def parser[Ctx <: ParserCtx](handler: CtxScope.Of[Ctx] ?=> ParserError => Strategy): ErrorHandling[Ctx, ParserError] =
+    (ctx, error) => handler(using CtxScope.refl(ctx))(error)
+
   /** What to do with input that is not accepted: one character for the lexer, one lexeme for the parser. */
   enum Strategy:
     /** Skips the one character or lexeme that is not accepted and goes on. */

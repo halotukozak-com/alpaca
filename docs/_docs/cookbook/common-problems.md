@@ -93,7 +93,7 @@ See [Guards Not Supported](../lexer-error-recovery.md#guards-not-supported).
 
 ### "can only be used inside a lexer rule"
 
-**Why:** `ctx`, `Token[...]` and `Token.Ignored` exist only in the body of a `case` in a `lexer` block. To keep a token around, keep its lexer and refer to it as `MyLexer.NAME`.
+**Why:** `Token[...]` and `Token.Ignored` exist only in the body of a `case` in a `lexer` block, and `ctx` only there or in a handler built with `ErrorHandling.lexer` or `ErrorHandling.parser` (see [Changing the Context from a Handler](../lexer-error-recovery.md#changing-the-context-from-a-handler)). To keep a token around, keep its lexer and refer to it as `MyLexer.NAME`.
 
 **Fix:** use them inside a rule.
 

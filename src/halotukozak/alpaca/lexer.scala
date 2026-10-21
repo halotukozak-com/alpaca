@@ -127,28 +127,35 @@ object Token:
 // empirically stumbles on downstream, even though the two only differ in
 // which stable path they're attached to.
 /**
- * The lexer context inside a `lexer` rule body. Read its fields, or assign them (`ctx.count += 1`) to change the
- * context for the tokens that follow: the assignment is rewritten into a `copy`, so the fields can stay `val`s.
+ * The context inside a `lexer` rule body or an [[ErrorHandling.lexer]] handler: read its fields, or assign them
+ * (`ctx.count += 1`) to change the context for the tokens that follow. The assignment is rewritten into a `copy`, so
+ * the fields can stay `val`s.
+ *
+ * In an [[ErrorHandling.parser]] handler it is the parser context, changed in place as in the parser's actions.
  */
-transparent inline def ctx[Ctx <: LexerCtx: LexerScope.Of as scope]: Ctx = ${ ctxImpl[Ctx]('scope) }
+transparent inline def ctx[Ctx: CtxScope.Of as scope]: Ctx = ${ ctxImpl[Ctx]('scope) }
 
 // $COVERAGE-OFF$
-@publicInBinary private[alpaca] def ctxImpl[C <: LexerCtx: Type](scope: Expr[LexerScope.Of[C]])(using Quotes): Expr[C] = {
+@publicInBinary private[alpaca] def ctxImpl[C: Type](scope: Expr[CtxScope.Of[C]])(using Quotes): Expr[C] = {
   import quotes.reflect.*
 
   val ctxTpe = TypeRepr.of[C].widen
 
-  val fields = ctxTpe.typeSymbol.caseFields.iterator
-    .filterNot(_.flags.is(Flags.Mutable))
-    .map(f => (f.name, ctxTpe.memberType(f)))
+  // a parser context is changed in place, so it gets no setters to rewrite
+  if !(ctxTpe <:< TypeRepr.of[LexerCtx]) then '{ CtxScope.ctx($scope).asInstanceOf[C] }
+  else {
+    val fields = ctxTpe.typeSymbol.caseFields.iterator
+      .filterNot(_.flags.is(Flags.Mutable))
+      .map(f => (f.name, ctxTpe.memberType(f)))
 
-  val refined = fields.foldLeft(TypeRepr.of[C]):
-    case (acc, (name, tpe)) =>
-      val withGetter = Refinement(acc, name, tpe)
-      Refinement(withGetter, s"${name}_=", MethodType(List("v"))(_ => List(tpe), _ => TypeRepr.of[Unit]))
+    val refined = fields.foldLeft(TypeRepr.of[C]):
+      case (acc, (name, tpe)) =>
+        val withGetter = Refinement(acc, name, tpe)
+        Refinement(withGetter, s"${name}_=", MethodType(List("v"))(_ => List(tpe), _ => TypeRepr.of[Unit]))
 
-  refined.asType match
-    case '[type r <: C; r] => '{ LexerScope.ctx($scope).asInstanceOf[r] }
+    refined.asType match
+      case '[type r <: C; r] => '{ CtxScope.ctx($scope).asInstanceOf[r] }
+  }
 }
 
 // $COVERAGE-ON$
