@@ -69,7 +69,7 @@ object ErrorHandling:
    * @param handler the strategy for an error, written directly as a lambda
    */
   inline def forParser[Ctx <: ParserCtx](
-    inline handler: RuleScope.Of[Ctx] ?=> ParserError => Strategy,
+    inline handler: ProductionScope.Of[Ctx] ?=> ParserError => Strategy,
   ): ErrorHandling[Ctx] =
     ${ internal.parserErrorHandlingImpl[Ctx]('{ handler }) }
 
