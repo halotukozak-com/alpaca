@@ -106,7 +106,7 @@ val BrainLexer = lexer:
 val inc = BrainLexer.inc
 ```
 
-The parser's equivalent, "can only be used inside a parser definition", means `rule` or an extractor was used outside an `object ... extends Parser`.
+The parser's equivalents: "can only be used inside a parser definition" means `rule` or a named production was used outside an `object ... extends Parser`, and "can only be used in a production of a `rule`" means a token or rule extractor, such as `MyLexer.NUM(n)`, was used outside the `case` of a production.
 
 ### A pattern declared first doesn't win
 

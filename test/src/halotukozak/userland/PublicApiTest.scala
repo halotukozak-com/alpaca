@@ -200,8 +200,8 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     )
   }
 
-  private val outsideParser =
-    "`rule`, named productions, and token and rule extractors can only be used inside a parser definition"
+  private val outsideParser = "`rule` and named productions can only be used inside a parser definition"
+  private val outsideProduction = "Token and rule extractors can only be used in a production of a `rule`"
   private val outsideResolutions =
     "`production`, `Production(...)`, `before` and `after` can only be used inside resolutions(...)"
 
@@ -210,7 +210,15 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
 
   test("the parser DSL outside a parser is reported") {
     errors("""val r: Rule[Int] = rule { case WordLexer.WORD(_) => 1 }""") should contain(outsideParser)
-    errors("""(null: Any) match { case WordLexer.WORD(_) => () }""") should contain(outsideParser)
+    errors("""(null: Any) match { case WordLexer.WORD(_) => () }""") should contain(outsideProduction)
+  }
+
+  test("token and rule extractors outside a production are reported") {
+    errors("""
+    object ExtractingParser extends Parser:
+      val words = (null: Any) match { case WordLexer.WORD(_) => 1 }
+      val root: Rule[Int] = rule { case WordLexer.WORD(_) => 1 }
+    """) should contain(outsideProduction)
   }
 
   test("the resolutions DSL outside resolutions is reported") {
