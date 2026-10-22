@@ -90,7 +90,7 @@ final class ErrorHandlingCtxTest extends AnyFunSuite with Matchers with LoneElem
         words += 1
         Token["WORD"]
       case " " => Token.Ignored
-    CountingLexer.tokenize("ab ? cd !").runtimeChecked: Unit
+    val _ = CountingLexer.tokenize("ab ? cd !")
     (words, skipped) shouldBe (2, 2)
   }
 

@@ -152,7 +152,7 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
 
   test("peek should reject a negative length") {
     given ErrorHandling[LexerCtx.Default] = ErrorHandling.forLexer: _ =>
-      ctx.peek(-1): Unit
+      val _ = ctx.peek(-1)
       ErrorHandling.Strategy.Stop
 
     val L = lexer:

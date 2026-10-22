@@ -2,7 +2,7 @@ package halotukozak
 package alpaca
 package internal
 
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.tailrec
 import scala.quoted.*
 import scala.reflect.NameTransformer
 
@@ -47,10 +47,10 @@ private[internal] def replaceScope[Ctx <: AlpacaCtx: Type](
 }
 
 /**
- * `body`, typed against `scope`, run against a local `var` starting at `initial`, through which its context assignments
- * are threaded (see [[replaceScope]] and [[rewriteCtxMutations]]). `result` builds what the block returns from the
- * body and the updated context, `None` when the body assigns nothing. `result` must evaluate the body before the
- * context, as `(body, ctx)` does.
+ * `body`, typed against `scope`, run against `initial` with its context assignments threaded through a local `var`
+ * (see [[replaceScope]] and [[rewriteCtxMutations]]). `result` builds what the block returns from the body and the
+ * updated context, `None` when the body assigns nothing: then there is no `var`, and the body runs against `initial`
+ * directly. `result` must evaluate the body before the context, as `(body, ctx)` does.
  *
  * @param owner   the owner of the block, e.g. the lambda it is the body of
  * @param initial the context to start from
@@ -75,21 +75,39 @@ private[internal] def threadCtx[Ctx <: AlpacaCtx: Type, Result: Type](
   import quotes.reflect.*
 
   def threaded(current: Expr[Ctx]): Expr[Result] =
-    val ctxVar = current.asTerm.symbol
-    // the quote's own owner, which declares `current`
-    val quoteOwner = ctxVar.owner
-    val replaced =
-      replaceScope[Ctx](scope, current.asTerm)(others).transformTerm(body.changeOwner(quoteOwner))(quoteOwner)
-    val rewritten = rewriteCtxMutations(ctxVar)(replaced)(quoteOwner)
+    val ctxSymbol = current.asTerm.symbol
+    // what declares `current`: the quote below, or `owner` for the initial context
+    val ctxOwner = ctxSymbol.owner
+    val replaced = replaceScope[Ctx](scope, current.asTerm)(others).transformTerm(body.changeOwner(ctxOwner))(ctxOwner)
+    val rewritten = rewriteCtxMutations(ctxSymbol)(replaced)(ctxOwner)
     // in terms: `current` belongs to the splice, so a quote of the caller's must not splice it
-    result(rewritten, Option.when(assigns(rewritten, ctxVar))(current.asTerm)).asExprOf[Result]
+    result(rewritten, Option.when(assigns(rewritten, ctxSymbol))(current.asTerm)).asExprOf[Result]
 
+  // a `var` only for a body that assigns: one never assigned is reported as unset where the code expands
+  if !assignsCtx(body) then threaded(initial).asTerm
   // a quote re-homes what it splices to the macro's own owner, so `changeOwner` puts it under `owner`
-  '{
-    // assigned only by the rewritten body, spliced in below
-    @nowarn("msg=unset local variable") var current = $initial
-    ${ threaded('current) }
-  }.asTerm.changeOwner(owner)
+  else
+    '{
+      var current = $initial
+      ${ threaded('current) }
+    }.asTerm.changeOwner(owner)
+}
+
+/**
+ * Whether `body` assigns a context field: calls a setter through `applyDynamic`, as `ctx.count += 1` does. Read before
+ * the body is rewritten, to tell whether it needs a `var`.
+ */
+private[internal] def assignsCtx(using quotes: Quotes)(body: quotes.reflect.Term): Boolean = {
+  import quotes.reflect.*
+
+  new TreeAccumulator[Boolean]:
+    def foldTree(found: Boolean, tree: Tree)(owner: Symbol): Boolean = found ||
+      (tree match
+        case Apply(Apply(Select(_, "applyDynamic"), List(Literal(StringConstant(name)))), _)
+            if NameTransformer.decode(name).endsWith("_=") =>
+          true
+        case _ => foldOverTree(found, tree)(owner))
+  .foldTree(false, body)(Symbol.spliceOwner)
 }
 
 /** Whether `body` assigns `ctxVar`, i.e. whether [[rewriteCtxMutations]] rewrote any context assignment in it. */

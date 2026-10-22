@@ -4,7 +4,7 @@ package internal
 
 import halotukozak.alpaca.ErrorHandling.Strategy
 
-import scala.annotation.{nowarn, publicInBinary}
+import scala.annotation.publicInBinary
 import scala.quoted.*
 
 // $COVERAGE-OFF$
@@ -55,23 +55,26 @@ private def updatingErrorHandling[Ctx <: AlpacaCtx: Type, Err: Type](
       )
 
   def run(current: Expr[Ctx], error: Expr[Err]): Expr[Strategy] =
-    val ctxVar = current.asTerm.symbol
-    // the handler's method, which declares `current`
-    val owner = ctxVar.owner
+    val ctxSymbol = current.asTerm.symbol
+    // the handler's lambda, which declares `current` or takes the initial context
+    val owner = ctxSymbol.owner
     // in terms, not a quote: `error` belongs to the splice, so a quote of this macro must not splice it
     val body = Select.unique(onError, "apply").appliedTo(error.asTerm).changeOwner(owner)
     val withNewCtx = replaceScope[Ctx](oldScope.symbol, current.asTerm)(PartialFunction.empty).transformTerm(body)(owner)
-    val rewritten = rewriteCtxMutations(ctxVar)(withNewCtx)(owner)
+    val rewritten = rewriteCtxMutations(ctxSymbol)(withNewCtx)(owner)
     abortOnErrors()
     rewritten.asExprOf[Strategy]
 
-  '{
-    new ErrorHandling[Ctx]((initial, error) =>
-      // assigned only by the rewritten handler, spliced in below
-      @nowarn("msg=unset local variable") var current = initial
-      // the strategy first, so `ctx` is the context the handler left; the lexer or parser of `Ctx` gives it its own errors
-      (strategy = ${ run('current, '{ error.asInstanceOf[Err] }) }, ctx = current),
-    )
-  }
+  // the lexer or parser of `Ctx` gives the handler its own errors; the strategy comes first, so `ctx` is the context
+  // the handler left
+  if assignsCtx(onError) then
+    '{
+      new ErrorHandling[Ctx]((initial, error) =>
+        var current = initial
+        (strategy = ${ run('current, '{ error.asInstanceOf[Err] }) }, ctx = current),
+      )
+    }
+  // without a `var`, which one never assigned would be reported as unset where the handler is defined
+  else '{ new ErrorHandling[Ctx]((ctx, error) => (strategy = ${ run('ctx, '{ error.asInstanceOf[Err] }) }, ctx = ctx)) }
 }
 // $COVERAGE-ON$
