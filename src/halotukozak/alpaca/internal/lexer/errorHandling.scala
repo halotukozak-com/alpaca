@@ -8,21 +8,6 @@ import halotukozak.alpaca.ErrorHandling.Strategy
 import scala.annotation.publicInBinary
 import scala.quoted.*
 
-/**
- * What [[ErrorHandling.forLexer]] builds: `update` returns the strategy together with the updated context.
- *
- * Not `private`: [[ErrorHandling.forLexer]] is inline, so it is constructed wherever that is called.
- */
-final class CtxUpdatingErrorHandling[Ctx, Err] @publicInBinary private[alpaca] (
-  update: (Ctx, Err) => (strategy: Strategy, ctx: Ctx),
-) extends ErrorHandling[Ctx, Err]:
-  def apply(ctx: Ctx, error: Err): Strategy = update(ctx, error).strategy
-
-  override private[alpaca] def handle[C <: Ctx](ctx: C, error: Err): (strategy: Strategy, ctx: C) =
-    val updated = update(ctx, error)
-    // `C` is the lexer's own context, a case class, which no other context extends
-    (strategy = updated.strategy, ctx = updated.ctx.asInstanceOf[C])
-
 // $COVERAGE-OFF$
 /**
  * Builds an [[ErrorHandling.forLexer]] handler: its body runs against a local `var` holding the context, with every
@@ -52,15 +37,22 @@ final class CtxUpdatingErrorHandling[Ctx, Err] @publicInBinary private[alpaca] (
     val withNewCtx = replaceScope[Ctx](oldScope.symbol, current.asTerm):
       case symbol if symbol == oldError.symbol => error.asTerm
     .transformTerm(body.changeOwner(owner))(owner)
-    rewriteCtxMutations(ctxVar)(withNewCtx)(owner).asExprOf[Strategy]
+    val rewritten = rewriteCtxMutations(ctxVar)(withNewCtx)(owner)
+    abortOnErrors()
+    rewritten.asExprOf[Strategy]
 
-  abortOnErrors()
   '{
-    new CtxUpdatingErrorHandling[Ctx, LexerError.Of[Ctx]]((initial, error) =>
-      var current = initial
-      // the strategy first, so `ctx` is the context the handler left
-      (strategy = ${ run('current, 'error) }, ctx = current),
-    )
+    new ErrorHandling[Ctx, LexerError.Of[Ctx]]:
+      private def update(initial: Ctx, error: LexerError.Of[Ctx]): (strategy: Strategy, ctx: Ctx) =
+        var current = initial
+        // the strategy first, so `ctx` is the context the handler left
+        (strategy = ${ run('current, 'error) }, ctx = current)
+
+      def apply(ctx: Ctx, error: LexerError.Of[Ctx]): Strategy = update(ctx, error).strategy
+
+      // `C` is the lexer's own context, a case class, which no other context extends
+      override private[alpaca] def handle[C <: Ctx](ctx: C, error: LexerError.Of[Ctx]): (strategy: Strategy, ctx: C) =
+        update(ctx, error).asInstanceOf[(strategy: Strategy, ctx: C)]
   }
 }
 // $COVERAGE-ON$
