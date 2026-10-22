@@ -15,39 +15,35 @@ import scala.reflect.NameTransformer
  * Strips a `TypedOrTest` wrapper (a `: SomeType` type-test in a pattern) down to
  * the pattern underneath, used during macro expansion of parser rule definitions.
  */
-private[parser] object skipTypedOrTest:
-  def unapply(using quotes: Quotes)(tree: quotes.reflect.Tree): Some[quotes.reflect.Tree] =
-    import quotes.reflect.*
-    tree match
-      case TypedOrTest(inner, _) => Some(inner)
-      case other => Some(other)
+private[parser] val skipTypedOrTest: (quotes: Quotes) ?=> PartialFunction[quotes.reflect.Tree, quotes.reflect.Tree] =
+  import quotes.reflect.*
+  {
+    case TypedOrTest(inner, _) => inner
+    case other => other
+  }
 
 /**
  * Matches a `val` or `def` definition with its right-hand side, which is only there when the definition's tree was
  * retained (`-Yretain-trees`).
  */
-private[parser] object DefinitionRhs:
-  def unapply(using quotes: Quotes)(tree: quotes.reflect.Tree): Option[(String, quotes.reflect.Term)] =
-    import quotes.reflect.*
-    tree match
-      case definition: ValOrDefDef => definition.rhs.map((definition.name, _))
-      case _ => None
+private[parser] val DefinitionRhs
+  : (quotes: Quotes) ?=> PartialFunction[quotes.reflect.Tree, (String, quotes.reflect.Term)] =
+  import quotes.reflect.*
+  { case definition: ValOrDefDef if definition.rhs.isDefined => (definition.name, definition.rhs.get) }
 
 /**
  * Matches a `rule(...)` call with its productions. Matched in reflect rather than with a quote pattern, which fails on
  * the productions' type: it depends on the parser's scope.
  */
-private[internal] object RuleCall:
-  def unapply(using quotes: Quotes)(term: quotes.reflect.Term): Option[List[quotes.reflect.Term]] =
-    import quotes.reflect.*
-    term match
-      case Apply(TypeApply(Apply(rule, _ :: Nil), _), Typed(Repeated(productions, _), _) :: Nil)
-          if rule.symbol == ruleSymbol =>
-        Some(productions)
-      case _ => None
+private[internal] val RuleCall: (quotes: Quotes) ?=> PartialFunction[quotes.reflect.Term, List[quotes.reflect.Term]] = {
+  import quotes.reflect.*
+  val rule = Symbol.requiredModule("halotukozak.alpaca.parser$package").methodMember("rule").head
 
-  private def ruleSymbol(using quotes: Quotes): quotes.reflect.Symbol =
-    quotes.reflect.Symbol.requiredModule("halotukozak.alpaca.parser$package").methodMember("rule").head
+  {
+    case Apply(TypeApply(Apply(fn, _ :: Nil), _), Typed(Repeated(productions, _), _) :: Nil) if fn.symbol == rule =>
+      productions
+  }
+}
 
 /** A production with where it is defined and the action it runs on reduction. */
 private[parser] type ProductionWithAction[Ctx <: ParserCtx] = (

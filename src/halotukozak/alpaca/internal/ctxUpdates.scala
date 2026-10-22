@@ -2,7 +2,7 @@ package halotukozak
 package alpaca
 package internal
 
-import scala.annotation.{nowarn, tailrec}
+import scala.annotation.nowarn
 import scala.quoted.*
 import scala.reflect.NameTransformer
 
@@ -202,15 +202,12 @@ private[internal] def rewriteCtxMutations(using
     case Apply(Apply(Select(recv, "applyDynamic"), List(Literal(StringConstant(name)))), List(args)) =>
       (recv, name, args)
 
-  object unwrap:
-    def apply(t: Term): Term = unapply(t).value
-
-    @tailrec def unapply(t: Term): Some[Term] = t match
-      case Inlined(_, Nil, e) => unapply(e)
-      case Typed(e, _) => unapply(e)
-      case Block(Nil, e) => unapply(e)
-      case Cast(e) => unapply(e)
-      case _ => Some(t)
+  lazy val unwrap: PartialFunction[Term, Term] =
+    case Inlined(_, Nil, e) => unwrap(e)
+    case Typed(e, _) => unwrap(e)
+    case Block(Nil, e) => unwrap(e)
+    case Cast(e) => unwrap(e)
+    case t => t
 
   def copyWith(recv: Term, field: String, value: Term): Term =
     val cls = recv.tpe.typeSymbol
