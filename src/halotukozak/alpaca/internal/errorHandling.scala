@@ -4,7 +4,7 @@ package internal
 
 import halotukozak.alpaca.ErrorHandling.Strategy
 
-import scala.annotation.publicInBinary
+import scala.annotation.{nowarn, publicInBinary}
 import scala.quoted.*
 
 // $COVERAGE-OFF$
@@ -70,7 +70,8 @@ private def updatingErrorHandling[Ctx <: AlpacaCtx: Type, Err: Type](
   if assignsCtx(onError) then
     '{
       new ErrorHandling[Ctx]((initial, error) =>
-        var current = initial
+        // assigned only by the rewritten handler, spliced in below
+        @nowarn("msg=unset local variable") var current = initial
         (strategy = ${ run('current, '{ error.asInstanceOf[Err] }) }, ctx = current),
       )
     }

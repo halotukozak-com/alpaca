@@ -2,7 +2,7 @@ package halotukozak
 package alpaca
 package internal
 
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 import scala.quoted.*
 import scala.reflect.NameTransformer
 
@@ -88,7 +88,8 @@ private[internal] def threadCtx[Ctx <: AlpacaCtx: Type, Result: Type](
   // a quote re-homes what it splices to the macro's own owner, so `changeOwner` puts it under `owner`
   else
     '{
-      var current = $initial
+      // assigned only by the rewritten body, spliced in below
+      @nowarn("msg=unset local variable") var current = $initial
       ${ threaded('current) }
     }.asTerm.changeOwner(owner)
 }
