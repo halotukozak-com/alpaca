@@ -109,8 +109,8 @@ abstract class Parser[Ctx <: ParserCtx](
 
             val gotoState = tables.parseTable.goto(uncoveredState, production.lhs)
             val result = rule.action(ctx, RevertedArray(children)) match
-              case updated: CtxUpdated =>
-                ctx = updated.ctx.asInstanceOf[Ctx]
+              case updated: CtxUpdated[Ctx @unchecked] =>
+                ctx = updated.ctx
                 updated.value
               case value => value
             stateStack += gotoState
