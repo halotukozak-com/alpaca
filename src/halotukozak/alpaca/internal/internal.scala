@@ -66,25 +66,17 @@ private[internal] def createLambda[F: Type](
   ).asExprOf[F]
 }
 
-/** A term without the empty `Inlined`s wrapping it, as an inline argument is. */
+/**
+ * A term without the empty `Inlined`s wrapping it, as an inline argument and a context function's body are. Not
+ * `underlying`, which would also replace the user's local definitions with their right-hand sides: `count += 1` on a
+ * local `var` would assign its initial value.
+ */
 private[internal] val withoutInlined: (quotes: Quotes) ?=> PartialFunction[quotes.reflect.Term, quotes.reflect.Term] =
   import quotes.reflect.*
   {
     case Inlined(_, Nil, expansion) => withoutInlined(expansion)
     case term => term
   }
-
-/**
- * A context function written in place, `scope ?=> inner`: a lexer's rules, a parser's production or an error handler.
- * Seen through [[withoutInlined]], but not with `underlying`, which would also replace the user's local definitions with
- * their right-hand sides: `count += 1` on a local `var` would assign its initial value.
- */
-private[internal] val ScopedLambda: (quotes: Quotes) ?=> PartialFunction[
-  quotes.reflect.Term,
-  (scope: quotes.reflect.ValDef, inner: quotes.reflect.Term),
-] =
-  import quotes.reflect.*
-  { case withoutInlined(Lambda(scope :: Nil, inner)) => (scope = scope, inner = withoutInlined(inner)) }
 
 /**
  * ToExpr instance for NamedTuple.
