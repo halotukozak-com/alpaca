@@ -42,12 +42,9 @@ private[internal] object RuleCall:
     import quotes.reflect.*
     term match
       case Apply(TypeApply(Apply(rule, _ :: Nil), _), Typed(Repeated(productions, _), _) :: Nil)
-          if rule.symbol == ruleSymbol =>
+          if rule.symbol == Symbol.requiredMethod("halotukozak.alpaca.rule") =>
         Some(productions)
       case _ => None
-
-  private def ruleSymbol(using quotes: Quotes): quotes.reflect.Symbol =
-    quotes.reflect.Symbol.requiredModule("halotukozak.alpaca.parser$package").methodMember("rule").head
 
 /** A production with where it is defined and the action it runs on reduction. */
 private[parser] type ProductionWithAction[Ctx <: ParserCtx] = (
