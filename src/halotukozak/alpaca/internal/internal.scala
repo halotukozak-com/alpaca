@@ -67,7 +67,7 @@ private[internal] def createLambda[F: Type](
 }
 
 /**
- * A context function written in place, `scope ?=> inner`: a lexer's rules or an error handler.
+ * A context function written in place, `scope ?=> inner`: a lexer's rules, a parser's production or an error handler.
  * Seen through the empty `Inlined`s wrapping an inline argument and its body, but not with `underlying`, which would also replace
  * the user's local definitions with their right-hand sides: `count += 1` on a local `var` would assign its initial
  * value.

@@ -1,11 +1,11 @@
 # Parser Context
 
-Parser context lets you carry mutable state through parsing reductions. Stateless parsers use `ParserCtx.Empty` by default; custom contexts carry domain-specific state like symbol tables, function registries, or error accumulators.
+Parser context lets you carry state through parsing reductions. Stateless parsers use `ParserCtx.Empty` by default; custom contexts carry domain-specific state like symbol tables, function registries, or error accumulators.
 
 <details>
 <summary>Under the hood: context threading</summary>
 
-When you define `Parser[Ctx]`, `Ctx` must extend `ParserCtx`, and the macro that builds the parse tables also builds a factory of the initial context from its constructor defaults -- which only works for a case class whose fields all have default values. At runtime, `parse()` calls that factory once to create the initial context, and the same object is passed to every rule reduction in that call.
+When you define `Parser[Ctx]`, `Ctx` must extend `ParserCtx`, and the macro that builds the parse tables also builds a factory of the initial context from its constructor defaults -- which only works for a case class whose fields all have default values. At runtime, `parse()` calls that factory once to create the initial context and passes it to the first reduction. An assignment to a context field in a rule body is rewritten into a `copy`, which the parser passes to the reductions that follow, as a lexer does with its context.
 
 </details>
 
@@ -52,18 +52,18 @@ The BrainFuck> extension adds function definitions and calls. To track which fun
 
 ```scala
 import halotukozak.alpaca.*
-import scala.collection.mutable
 
 case class BrainParserCtx(
-  functions: mutable.Set[String] = mutable.Set.empty,
+  functions: Set[String] = Set.empty,
 ) extends ParserCtx
 ```
 
-Three rules apply:
+Two rules apply:
 
 1. **Must be a `case class`** -- the initial context is built from the case class constructor (otherwise: `... should be a case class.`).
 2. **All fields must have default values** -- the initial context is constructed from constructor defaults.
-3. **Mutable collections are `val`; other mutable fields are `var`** -- mutate the collection contents, not the reference.
+
+The fields can be `val`s holding immutable values: assigning one in a rule body (`ctx.functions += name`) changes the context for the reductions that follow. A `var` field, or a mutable collection, is changed in place instead.
 
 ## Accessing Context in Rule Bodies
 
@@ -71,10 +71,9 @@ The `ctx` identifier is available inside every production's body, typed as your 
 
 ```scala sc-name:brain-parser-ctx-example sc-compile-with:brain-defs
 import halotukozak.alpaca.*
-import scala.collection.mutable
 
 case class BrainParserCtx(
-  functions: mutable.Set[String] = mutable.Set.empty,
+  functions: Set[String] = Set.empty,
 ) extends ParserCtx
 
 object BrainParser extends Parser[BrainParserCtx]:
@@ -84,7 +83,8 @@ object BrainParser extends Parser[BrainParserCtx]:
   val FunctionDef: Rule[BrainAST] = rule:
     case (BrainLexer.functionName(name), BrainLexer.functionOpen(_),
           Operation.List(ops), BrainLexer.functionClose(_)) =>
-      require(ctx.functions.add(name.value), s"Function ${name.value} is already defined")
+      require(!ctx.functions(name.value), s"Function ${name.value} is already defined")
+      ctx.functions += name.value
       BrainAST.FunctionDef(name.value, ops)
 
   val FunctionCall: Rule[BrainAST] = rule:
@@ -101,22 +101,22 @@ object BrainParser extends Parser[BrainParserCtx]:
   )
 ```
 
-`FunctionDef` adds the function name to `ctx.functions`. `FunctionCall` checks that the name exists. Both see the same context object.
+`FunctionDef` adds the function name to `ctx.functions`. `FunctionCall` checks that the name exists, so it sees the assignment of an earlier `FunctionDef`.
 
 ## Shared State Across Reductions
 
-`ctx` is one object shared across all rule executions during a single `parse()` call. Mutations made in one rule body are visible to all subsequent reductions:
+An assignment made in one rule body is visible to all subsequent reductions of the same `parse()` call, and the final context is the `ctx` of its `Result`:
 
 ```scala sc-compile-with:brain-parser-ctx-example
 // Parsing "foo(+++)foo!":
 val lexemes = BrainLexer.tokenize("foo(+++)foo!").getOrThrow
 val finalCtx = BrainParser.parse(lexemes).ctx
-// 1. FunctionDef reduced "foo(+++)": ctx.functions.add("foo")
-// 2. FunctionCall reduced "foo!", observing the mutation from step 1:
+// 1. FunctionDef reduced "foo(+++)": ctx.functions += "foo"
+// 2. FunctionCall reduced "foo!", seeing the assignment from step 1:
 finalCtx.functions.contains("foo")  // true
 ```
 
-The initial context is created once per `parse()` call. There is no per-rule copy -- mutations accumulate.
+The initial context is created once per `parse()` call, so a second call starts again from the defaults.
 
 ## Positional Info from Lexemes, Not ctx
 

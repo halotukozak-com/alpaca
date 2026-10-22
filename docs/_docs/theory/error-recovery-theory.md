@@ -96,7 +96,6 @@ Semantic error handling is up to your code. The BrainFuck interpreter uses `requ
 
 ```scala sc-hidden sc-name:ert-semantic-setup
 import halotukozak.alpaca.*
-import scala.collection.mutable
 
 val BrainLexer = lexer:
   case name @ "[A-Za-z]+" => Token["functionName"](name)
@@ -107,7 +106,7 @@ enum BrainAST:
   case FunctionCall(name: String)
 
 case class BrainParserCtx(
-  functions: mutable.Set[String] = mutable.Set.empty,
+  functions: Set[String] = Set.empty,
 ) extends ParserCtx
 ```
 

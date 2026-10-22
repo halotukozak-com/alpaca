@@ -9,15 +9,15 @@ import scala.reflect.NameTransformer
 // $COVERAGE-OFF$
 
 /**
- * Points a lexer rule body or an `ErrorHandling.forLexer` handler, typed against the scope its lambda binds, at `newCtx`:
- * the scope itself becomes `newCtx` again, and every `ctx` unwrapping it becomes `newCtx` directly, so that
- * [[rewriteCtxMutations]] recognises it.
+ * Points a body typed against a [[CtxScope]] -- a lexer rule, a parser action or an `ErrorHandling.forLexer`
+ * handler -- at `newCtx`: the scope itself becomes `newCtx` again, and every `ctx` unwrapping it becomes `newCtx`
+ * directly, so that [[rewriteCtxMutations]] recognises it.
  *
- * @param scope  the scope parameter of the user's lambda
+ * @param scope  the scope the body was typed against: the parameter of the user's lambda
  * @param newCtx the context the body runs against
  * @param others replacements for other symbols of the user's lambda, such as its bound match
  */
-private[internal] def replaceScope[Ctx <: LexerCtx: Type](
+private[internal] def replaceScope[Ctx <: AlpacaCtx: Type](
   using
   quotes: Quotes,
 )(
@@ -28,15 +28,20 @@ private[internal] def replaceScope[Ctx <: LexerCtx: Type](
 ): quotes.reflect.TreeMap = {
   import quotes.reflect.*
 
+  // a lexer's `Token` needs its own scope type back
+  def rescoped: Term = Type.of[Ctx] match
+    case '[type lexerCtx <: LexerCtx; lexerCtx] => '{ LexerScope.refl[lexerCtx](${ newCtx.asExprOf[lexerCtx] }) }.asTerm
+    case _ => '{ CtxScope.refl[Ctx](${ newCtx.asExprOf[Ctx] }) }.asTerm
+
   new TreeMap:
     override def transformTerm(t: Term)(owner: Symbol): Term = t match
-      case _ if t.symbol == scope => '{ LexerScope.refl[Ctx](${ newCtx.asExprOf[Ctx] }) }.asTerm
+      case _ if t.symbol == scope => rescoped
       case _ if others.isDefinedAt(t.symbol) => others(t.symbol)
       case block: Block => super.transformTerm(block.changeOwner(owner))(owner)
       case t if t.isExpr =>
         t.asExpr match
           // `ctx` unwraps the scope, which is the context itself
-          case '{ ($unwrapped: LexerScope).ctx } if unwrapped.asTerm.symbol == scope => newCtx
+          case '{ ($unwrapped: CtxScope).ctx } if unwrapped.asTerm.symbol == scope => newCtx
           case _ => super.transformTerm(t)(owner)
       case _ => super.transformTerm(t)(owner)
 }
@@ -54,7 +59,7 @@ private[internal] def replaceScope[Ctx <: LexerCtx: Type](
  * @param others  replacements for other symbols of the user's code, as in [[replaceScope]]
  * @param result  what the block returns, from the rewritten body and the updated context
  */
-private[internal] def threadCtx[Ctx <: LexerCtx: Type, Result: Type](
+private[internal] def threadCtx[Ctx <: AlpacaCtx: Type, Result: Type](
   using
   quotes: Quotes,
   diagnostics: Diagnostics,
@@ -117,9 +122,10 @@ private[internal] def assigns(using quotes: Quotes)(body: quotes.reflect.Term, c
   .foldTree(false, body)(Symbol.spliceOwner)
 
 /**
- * Rewrites structural field-mutation syntax on a lexer context back into
- * functional updates, so that a `case class` context with immutable (`val`)
- * fields can still be "mutated" with ordinary syntax inside a lexer rule:
+ * Rewrites structural field-mutation syntax on a lexer or parser context back
+ * into functional updates, so that a `case class` context with immutable
+ * (`val`) fields can still be "mutated" with ordinary syntax inside a lexer
+ * rule, a parser action or an error handler:
  *
  * {{{
  * case class Ctx(count: Int = 0) extends LexerCtx
@@ -142,7 +148,7 @@ private[internal] def assigns(using quotes: Quotes)(body: quotes.reflect.Term, c
  * in the first place: the real setter is used directly, the assignment
  * mutates in place, and this class leaves it untouched.
  *
- * Engine-internal bookkeeping (`input`, `lastRawMatched`, `lastLexeme`) is
+ * A lexer context's engine-internal bookkeeping (`input`, `lastRawMatched`, `lastLexeme`) is
  * ''not'' preserved by a `case class`'s generated `copy()` — it only knows
  * about its own constructor fields. Each rewritten update therefore carries
  * it over explicitly (see `LexerCtx.carryEngineStateFrom`), so that e.g. a
@@ -213,8 +219,11 @@ private[internal] def rewriteCtxMutations(using
       case targs => TypeApply(recv.select(copySym), targs.map(Inferred(_)))
     applied.appliedToArgs(args)
 
+  // only a lexer context has engine state; a parser context is just its fields
   def carry(newCtx: Term, oldCtx: Term): Term =
-    '{ ${ newCtx.asExprOf[LexerCtx] }.carryEngineStateFrom(${ oldCtx.asExprOf[LexerCtx] }) }.asTerm
+    if newCtx.tpe <:< TypeRepr.of[LexerCtx] then
+      '{ ${ newCtx.asExprOf[LexerCtx] }.carryEngineStateFrom(${ oldCtx.asExprOf[LexerCtx] }) }.asTerm
+    else newCtx
 
   val ctxRef = Ref(ctxVar)
   val aliases = scala.collection.mutable.Set(ctxVar)

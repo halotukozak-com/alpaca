@@ -9,6 +9,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - `ErrorHandling.forLexer: error => ...` builds a lexer error handler in which `ctx` works as in a rule body: assigning a field (`ctx.skipped += 1`) changes the context the lexer goes on with, so the fields can stay `val`s.
+- A parser context's fields can be `val`s: `ctx.count += 1` in an action is rewritten into a `copy` that the following reductions see, as in a lexer. `var` fields and mutable collections still change in place.
+- `AlpacaCtx`, the common base of `LexerCtx` and `ParserCtx`.
+
+### Changed
+
+- **Breaking:** in a parser action, `ctx` is the top-level `halotukozak.alpaca.ctx`, as in a lexer rule, instead of a `Parser` member: each production of `rule` binds a context scope (`CtxScope.Of[Ctx] ?=> ...`), and `ParserScope` carries the parser's context type.
+- `ctx` outside a lexer rule, a parser action or an `ErrorHandling.forLexer` handler is reported as "`ctx` can only be used inside a lexer rule, a parser action or `ErrorHandling.forLexer`".
 
 ### Fixed
 

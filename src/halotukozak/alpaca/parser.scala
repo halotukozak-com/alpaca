@@ -44,12 +44,16 @@ object ResolutionScope:
 
 /**
  * Evidence that code runs inside a parser definition, where `rule`, named productions, and token and rule extractors
- * are available. Every [[Parser]] provides one.
+ * are available. Every [[Parser]] provides one; its `Ctx` member is the parser context type, which `ctx` has in the
+ * productions of a `rule`.
  */
 @implicitNotFound("`rule`, named productions, and token and rule extractors can only be used inside a parser definition")
-opaque type ParserScope = Unit
+opaque type ParserScope <: { type Ctx <: ParserCtx } = AnyRef & { type Ctx <: ParserCtx }
 object ParserScope:
-  private[alpaca] def refl: ParserScope = ()
+  /** The scope of a parser whose context type is `Ctx0`. */
+  type Of[Ctx0 <: ParserCtx] = ParserScope { type Ctx = Ctx0 }
+
+  private[alpaca] def refl[Ctx <: ParserCtx]: Of[Ctx] = null.asInstanceOf[Of[Ctx]]
 
 /**
  * Collects the conflict resolutions for the parser `ParserType`, each written with `before` or `after` (see [[Resolutions]]).
@@ -109,7 +113,11 @@ type ProductionDefinition[Value] = PartialFunction[Tuple | Lexeme[?, ?], Value]
  * @return a Rule instance
  */
 @compileTimeOnly(ParserOnly)
-inline def rule[Value](@unused inline productions: ProductionDefinition[Value]*)(using ParserScope): Rule[Value] =
+inline def rule(
+  using scope: ParserScope,
+)[Value](
+  @unused inline productions: (CtxScope.Of[scope.Ctx] ?=> ProductionDefinition[Value])*,
+): Rule[Value] =
   null.asInstanceOf[Rule[Value]]
 
 extension (name: String)
@@ -292,16 +300,23 @@ final class ParserException private[alpaca] (val errors: ::[ParserError])
   extends RuntimeException(errors.map(_.message).mkString("\n"))
 
 /**
- * The base of every parser context: state carried through a parse, such as a symbol table, read and changed as
+ * The base of every parser context: state carried through a parse, such as a symbol table, read and assigned as
  * `ctx` in the actions and returned in the [[Result]].
  *
  * A context must be a case class whose fields all have default values, since the parser builds the initial context
  * from those defaults:
  * {{{
- * case class BrainParserCtx(functions: mutable.Set[String] = mutable.Set.empty) extends ParserCtx
+ * case class BrainParserCtx(functions: Set[String] = Set.empty) extends ParserCtx
  * }}}
+ * Assigning a field in an action (`ctx.functions += name`) is rewritten into a `copy`, so the fields can stay `val`s,
+ * as in a lexer context.
  */
-trait ParserCtx
+trait ParserCtx extends AlpacaCtx:
+  // `@compileTimeOnly`, not an inline `compiletime.error` as a lexer context's: a parser's `rule` drops its productions
+  // only after inlining what they call, so the error would fire in every action
+  /** Not meant to be called: assigning a context field outside a parser action is a compile error. */
+  @compileTimeOnly("Parser context fields can only be assigned inside a parser action")
+  def applyDynamic(@unused name: String)(@unused args: Any*): Any = throw UnsupportedOperationException(name)
 
 /**
  * Type representing conflict resolution rules for the parser.

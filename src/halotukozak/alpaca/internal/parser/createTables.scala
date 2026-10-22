@@ -74,7 +74,6 @@ object Tables:
 
   parserTpe.asType match {
     case '[type p <: Parser[Ctx]; p] =>
-      val ctxSymbol = parserSymbol.methodMember("ctx").head
       val parserName = Printable(declaredName(parserSymbol))
       val exportName = exportId(parserName.raw)
 
@@ -89,9 +88,9 @@ object Tables:
             ): Null,
         )
 
-      def extractEBNF(ruleName: String): PartialFunction[Expr[Rule[?]], Seq[ProductionWithAction[Ctx]]] = {
-        case '{ rule(${ Varargs(cases) }*)(using $_) } =>
-          def createAction(bindings: Seq[Binding[Bind]], rhs: Term) = createLambda[Action[Ctx]]:
+      def extractEBNF(ruleName: String): PartialFunction[Term, Seq[ProductionWithAction[Ctx]]] = {
+        case RuleCall(cases) =>
+          def createAction(scope: Symbol, bindings: Seq[Binding[Bind]], rhs: Term) = createLambda[Action[Ctx]]:
             case (methSym, (ctx: Term) :: (param: Term) :: Nil) =>
               val paramExpr = param.asExprOf[RevertedArray[Any]]
               // each bound value is adapted once, before the action body
@@ -104,22 +103,35 @@ object Tables:
                 .toList
               ValDef.let(methSym, bound.map(_.value)): refs =>
                 val locals = bound.map(_.bind).zip(refs).map((bind, ref) => (find = bind, replace = ref))
-                replaceRefs((find = ctxSymbol, replace = ctx) :: locals*).transformTerm(rhs)(methSym)
+                // an action that assigns context fields hands the updated context back with its value
+                threadCtx[Ctx, Any](
+                  methSym,
+                  ctx.asExprOf[Ctx],
+                  scope,
+                  replaceRefs(locals*).transformTerm(rhs)(methSym),
+                ):
+                  case (body, None) => body
+                  case (body, Some(updated)) =>
+                    '{ CtxUpdated(${ body.asExprOf[Any] }, ${ updated.asExprOf[Ctx] }) }.asTerm
 
-          val extractProductionName: Function[Expr[ProductionDefinition[?]], (Tree, ValidName | Null)] =
+          // the production with its name, if it is named
+          def extractProductionName(production: Term): (Tree, ValidName | Null) = production.asExpr match
             case '{ ($name: String).apply($production: ProductionDefinition[?])(using $_) } =>
               production.asTerm -> name.value.fold[ValidName | Null] {
                 error(show"A production name must be a string literal, as in `\"plus\" { case ... }`", name.asTerm.pos)
                 null
               }(_.asInstanceOf[ValidName])
-            case other =>
-              other.asTerm -> null
+            case _ => production -> null
 
           cases.iterator
-            .map(extractProductionName)
             .flatMap:
-              case (Lambda(_, Match(_, List(caseDef))), name) => Some((caseDef, name))
-              case (l @ Lambda(_, Match(_, _)), _) =>
+              // the scope the production binds, which its `ctx` reads
+              case ScopedLambda(scope, production) => Some((scope.symbol, extractProductionName(production)))
+              case other =>
+                error(show"Unexpected production definition: $other", other.pos)
+            .flatMap:
+              case (scope, (Lambda(_, Match(_, List(caseDef))), name)) => Some((scope, caseDef, name))
+              case (_, (l @ Lambda(_, Match(_, _)), _)) =>
                 error(
                   show"""Each production must have exactly one case. Split multiple cases into separate productions:
                     |  rule(
@@ -128,23 +140,26 @@ object Tables:
                     |  )""".trimMargin,
                   l.pos,
                 )
-              case (other, _) =>
+              case (_, (other, _)) =>
                 error(show"Unexpected production definition: $other", other.pos)
             .flatMap:
-              case (c @ CaseDef(_, Some(_), _), _) =>
+              case (_, c @ CaseDef(_, Some(_), _), _) =>
                 error(show"Guards are not supported yet", c.pos)
               // Tuple1
-              case (c @ CaseDef(skipTypedOrTest(pattern @ Unapply(_, _, List(_))), None, rhs), name) =>
+              case (scope, c @ CaseDef(skipTypedOrTest(pattern @ Unapply(_, _, List(_))), None, rhs), name) =>
                 symbolOf(pattern) match
                   case null => Nil
                   case (symbol, binding, others) =>
                     val production =
                       Production.NonEmpty(NonTerminal(Printable(ruleName)), NEL(symbol), Printable.nullable(name))
-                    (production = production, source = Source(c.pos), action = createAction(List(binding), rhs)) ::
-                      others
+                    (
+                      production = production,
+                      source = Source(c.pos),
+                      action = createAction(scope, List(binding), rhs),
+                    ) :: others
 
               // TupleN, N > 1
-              case (c @ CaseDef(skipTypedOrTest(Unapply(_, _, patterns)), None, rhs), name) =>
+              case (scope, c @ CaseDef(skipTypedOrTest(Unapply(_, _, patterns)), None, rhs), name) =>
                 val elements = patterns.map(symbolOf)
                 if elements.contains(null) then Nil
                 else
@@ -155,9 +170,9 @@ object Tables:
                       NEL(symbols.head, symbols.tail*),
                       Printable.nullable(name),
                     )
-                  (production = production, source = Source(c.pos), action = createAction(bindings, rhs)) ::
+                  (production = production, source = Source(c.pos), action = createAction(scope, bindings, rhs)) ::
                     others.flatten
-              case (c, _) =>
+              case (_, c, _) =>
                 error(
                   show"A production must match a token or rule extractor, or a tuple of them, as in `case (Expr(a), MyLexer.PLUS(_), Expr(b))`",
                   c.pattern.pos,
@@ -179,7 +194,7 @@ object Tables:
             )
           case DefinitionRhs(ruleName, rhs) =>
             extractEBNF(ruleName).applyOrElse(
-              rhs.asExprOf[Rule[?]],
+              rhs,
               _ =>
                 error(
                   show"Cannot read the productions of rule ${Printable(ruleName)}: define it with a `rule(...)` call.",
