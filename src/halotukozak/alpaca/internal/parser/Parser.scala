@@ -146,7 +146,7 @@ abstract class Parser[Ctx <: ParserCtx](
   val extractName: PartialFunction[Term, Seq[String]] =
     case RuleCall(productions) =>
       productions.flatMap:
-        case ScopedLambda(_, named) =>
+        case dropInlined(Lambda(_ :: Nil, dropInlined(named))) =>
           named.asExpr match
             case '{ ($name: ValidName).apply($_ : ProductionDefinition[?])(using $_) } => name.value
             case _ => None
