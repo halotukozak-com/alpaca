@@ -74,7 +74,7 @@ object Tables:
 
   parserTpe.asType match {
     case '[type p <: Parser[Ctx]; p] =>
-      val ctxSymbol = parserSymbol.methodMember("ctx").head
+      val ctxScope = parserSymbol.methodMember("parserCtxScope").head
       val parserName = Printable(declaredName(parserSymbol))
       val exportName = exportId(parserName.raw)
 
@@ -104,7 +104,11 @@ object Tables:
                 .toList
               ValDef.let(methSym, bound.map(_.value)): refs =>
                 val locals = bound.map(_.bind).zip(refs).map((bind, ref) => (find = bind, replace = ref))
-                replaceRefs((find = ctxSymbol, replace = ctx) :: locals*).transformTerm(rhs)(methSym)
+                // an action that assigns context fields hands the updated context back with its value
+                threadCtx[Ctx](methSym, ctx, ctxScope, replaceRefs(locals*).transformTerm(rhs)(methSym)):
+                  case (body, None) => body
+                  case (body, Some(updated)) =>
+                    '{ new CtxUpdated(${ body.asExprOf[Any] }, ${ updated.asExprOf[Ctx] }) }.asTerm
 
           val extractProductionName: Function[Expr[ProductionDefinition[?]], (Tree, ValidName | Null)] =
             case '{ ($name: String).apply($production: ProductionDefinition[?])(using $_) } =>

@@ -18,7 +18,8 @@ import scala.annotation.publicInBinary
  *
  * Note: The return type is Any for flexibility during compilation, but
  * the actual return value should match the expected result type for the
- * production rule being reduced.
+ * production rule being reduced. An action that assigns context fields
+ * returns its value wrapped in a [[CtxUpdated]] with the updated context.
  *
  * @tparam Ctx the parser context type
  */
@@ -30,6 +31,14 @@ private[parser] type Action[-Ctx <: ParserCtx] = (Ctx, RevertedArray[Any]) => An
  *
  * @tparam Ctx the parser context type
  */
+/**
+ * What an action that assigns context fields returns: its `value`, and the context the parse goes on with. Only
+ * such actions allocate one; the rest return their value directly.
+ *
+ * Not `private`: the actions are built wherever a parser is defined.
+ */
+final class CtxUpdated @publicInBinary private[alpaca] (val value: Any, val ctx: ParserCtx)
+
 final class ProductionRule[-Ctx <: ParserCtx] @publicInBinary private[parser] (
   val production: Production,
   val action: Action[Ctx],

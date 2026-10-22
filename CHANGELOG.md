@@ -9,6 +9,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - `ErrorHandling.forLexer: error => ...` builds a lexer error handler in which `ctx` works as in a rule body: assigning a field (`ctx.skipped += 1`) changes the context the lexer goes on with, so the fields can stay `val`s.
+- `ErrorHandling.forParser: error => ...` builds a parser error handler with `ctx` in scope, as in the parser's actions.
+- A parser context's fields can be `val`s: `ctx.count += 1` in an action or an `ErrorHandling.forParser` handler is rewritten into a `copy` that the following reductions see, as in a lexer. `var` fields and mutable collections still change in place.
+- `AlpacaCtx`, the common base of `LexerCtx` and `ParserCtx`.
+
+### Changed
+
+- `ctx` outside a lexer rule or one of these handlers is reported as "`ctx` can only be used inside a lexer rule, `ErrorHandling.forLexer` or `ErrorHandling.forParser`".
+- Calling a context's `applyDynamic` outside a lexer rule is reported as "Context fields can only be assigned inside a lexer rule, a parser action or an error handler", after typing instead of during it.
 
 ## [1.0.0-RC4] - 2026-10-13
 

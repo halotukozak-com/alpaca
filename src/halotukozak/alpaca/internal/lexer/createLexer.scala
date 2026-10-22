@@ -68,9 +68,12 @@ import scala.reflect.NameTransformer
 
   val tokens = cases.foldLeft(List.empty[CompiledRule]):
     case (acc, CaseDef(tree, None, body)) =>
-      def replaceWithNewCtx(newCtx: Term) = replaceScope[Ctx](oldScope.symbol, newCtx):
+      // the bound match is the text the rule matched
+      def boundMatch(newCtx: Term): PartialFunction[Symbol, Term] =
         case bound if !tree.symbol.isNoSymbol && bound == tree.symbol =>
           '{ ${ newCtx.asExprOf[Ctx] }.lastRawMatched }.asTerm
+
+      def replaceWithNewCtx(newCtx: Term) = replaceScope[Ctx](oldScope.symbol, newCtx)(boundMatch(newCtx))
 
       // whether `term` refers to the context or to the bound match, i.e. whether its remapping needs the new context
       def readsCtx(term: Term): Boolean =
@@ -170,12 +173,14 @@ import scala.reflect.NameTransformer
             case Block(statements, expr) =>
               val ctxManipulation = createLambda[CtxManipulation[Ctx]]:
                 case (methSym, (newCtx: Term) :: Nil) =>
-                  val ctxVar = Symbol.newVal(methSym, "$ctx", TypeRepr.of[Ctx], Flags.Mutable, Symbol.noSymbol)
-                  val withNewCtx = replaceWithNewCtx(Ref(ctxVar)).transformTerm(
-                    Block(statements.map(_.changeOwner(methSym)), Literal(UnitConstant())),
-                  )(methSym)
-                  val rewritten = rewriteCtxMutations(ctxVar)(withNewCtx)(methSym)
-                  Block(List(ValDef(ctxVar, Some(newCtx))), Block(List(rewritten), Ref(ctxVar)))
+                  threadCtx[Ctx](
+                    methSym,
+                    newCtx,
+                    oldScope.symbol,
+                    Block(statements, Literal(UnitConstant())),
+                    boundMatch(newCtx),
+                  ): (body, ctx) =>
+                    Block(List(body), ctx.getOrElse(Ref(newCtx.symbol)))
 
               extractSimple(ctxManipulation).lift(expr.asExprOf[TokenDef[ValidName, Ctx, Any]])
             case _ => None

@@ -132,10 +132,9 @@ The parser turns a flat list of lexemes into a nested `BrainAST`:
 
 ```scala sc-name:gs-parser sc-compile-with:gs-lexer,gs-ast
 import halotukozak.alpaca.*
-import scala.collection.mutable
 
 case class BrainParserCtx(
-  functions: mutable.Set[String] = mutable.Set.empty,
+  functions: Set[String] = Set.empty,
 ) extends ParserCtx
 
 object BrainParser extends Parser[BrainParserCtx]:
@@ -163,7 +162,8 @@ object BrainParser extends Parser[BrainParserCtx]:
   val FunctionDef: Rule[BrainAST] = rule:
     case (BrainLexer.functionName(name), BrainLexer.functionOpen(_),
           Operation.List(ops), BrainLexer.functionClose(_)) =>
-      require(ctx.functions.add(name.value), s"Function ${name.value} is already defined")
+      require(!ctx.functions(name.value), s"Function ${name.value} is already defined")
+      ctx.functions += name.value
       BrainAST.FunctionDef(name.value, ops)
 
   val FunctionCall: Rule[BrainAST] = rule:
@@ -180,7 +180,7 @@ Things to note:
 - **`name.value`** accesses the value from a `Lexeme`. After `BrainLexer.functionName(name)`, `name` is a `Lexeme` and `name.value` is the matched `String`.
 - **`n.value`** on `repeat` is an `Int`, not a `String` — the lexer already converted it with `count.toInt`. The type of `.value` depends on what the lexer put into the token.
 - **`(BrainLexer.repeat(n), Operation(op))`** is a two-symbol production matching a terminal followed by a non-terminal. Nesting works naturally: `3 2 +` means repeat 3 times the operation "repeat 2 times increment".
-- **`Parser[BrainParserCtx]`** carries state through reductions. `ctx.functions` tracks which functions have been defined, so `FunctionCall` can reject undefined names.
+- **`Parser[BrainParserCtx]`** carries state through reductions. `ctx.functions` tracks which functions have been defined, so `FunctionCall` can reject undefined names. `ctx.functions += name.value` does not change the `Set` in place: the macro rewrites it into a `copy` of the context, which the reductions that follow see (see [Parser Context](parser-context.md)).
 
 ## Step 4: The Evaluator
 
@@ -298,7 +298,7 @@ This interpreter uses the simplest form of every Alpaca feature. The rest of the
 - [Lexer](lexer.md) — regex patterns, value extraction, token naming rules
 - [Lexer Context](lexer-context.md) — tracking state during tokenization
 - [Parser](parser.md) — rules, named productions, parsing results
-- [Parser Context](parser-context.md) — shared state during parsing
+- [Parser Context](parser-context.md) — state carried through parsing
 - [Extractors](extractors.md) — pattern matching on terminals and non-terminals
 - [Conflict Resolution](conflict-resolution.md) — resolving shift/reduce and reduce/reduce conflicts
 - [Theory](theory/index.md) — formal foundations behind everything above

@@ -116,18 +116,18 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     assert(!typeChecks("""LexerCtx.Default().lastRawMatched = "x""""))
   }
 
+  private val CtxOutsideScope =
+    "`ctx` can only be used inside a lexer rule, `ErrorHandling.forLexer` or `ErrorHandling.forParser`"
+
   test("ctx and its field assignments are compile errors outside a lexer rule") {
     case class CountingCtx(count: Int = 0) extends LexerCtx
     typeCheckErrors("""
       given CountingCtx = CountingCtx()
       ctx.count
-    """).map(_.message) shouldBe List("`ctx` and `Token` can only be used inside a lexer rule")
+    """).map(_.message) shouldBe List(CtxOutsideScope)
     typeCheckErrors("""
       def bump(using CountingCtx) = ctx.count += 1
-    """).map(_.message) shouldBe List("`ctx` and `Token` can only be used inside a lexer rule")
-    typeCheckErrors("""
-      CountingCtx().applyDynamic("count_=")(1)
-    """).map(_.message) shouldBe List("Lexer context fields can only be assigned inside a lexer rule")
+    """).map(_.message) shouldBe List(CtxOutsideScope)
   }
 
   test("Token is a compile error outside a lexer rule") {
@@ -135,6 +135,7 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
       List("`ctx` and `Token` can only be used inside a lexer rule")
     assert(!typeChecks("""val scope: LexerScope.Of[LexerCtx.Default] = LexerCtx.Default()"""))
     assert(!typeChecks("""LexerScope.refl(LexerCtx.Default())"""))
+    assert(!typeChecks("""CtxScope.refl(LexerCtx.Default())"""))
   }
 
   test("Token carries the lexer's context type, and only a lexer rule provides it") {

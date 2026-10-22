@@ -38,12 +38,16 @@ abstract class Parser[Ctx <: ParserCtx](
   protected final given ParserScope = ParserScope.refl
 
   /**
-   * Provides access to the parser context within rule definitions.
+   * The parser context inside an action: read its fields, or assign them (`ctx.count += 1`) to change the context
+   * for the actions that follow. The assignment is rewritten into a `copy`, so the fields can stay `val`s.
    *
    * This is compile-time only and can only be used inside parser rule definitions.
    */
+  transparent inline protected final def ctx: Ctx = ${ ctxImpl[Ctx]('{ parserCtxScope }) }
+
+  // What `ctx` reads: the parser's tables replace it with the context each action runs against.
   @compileTimeOnly(RuleOnly)
-  inline protected final def ctx: Ctx = null.asInstanceOf[Ctx]
+  inline protected final def parserCtxScope: CtxScope.Of[Ctx] = null.asInstanceOf[CtxScope.Of[Ctx]]
 
   /**
    * Parses a list of lexemes using the defined grammar.
@@ -68,7 +72,7 @@ abstract class Parser[Ctx <: ParserCtx](
         case Node.Result(value) => value
         case Node.Token(lexeme) => lexeme
 
-    val ctx = tables.initialCtx()
+    var ctx = tables.initialCtx()
 
     val stateStack = mutable.ArrayDeque.empty[Int]
     val nodeStack = mutable.ArrayDeque.empty[Node]
@@ -92,7 +96,9 @@ abstract class Parser[Ctx <: ParserCtx](
           val error = ParserError(remaining.headOption, expected, last)
           errors += error
           // the end of the input cannot be skipped
-          errorHandling(ctx, error) match
+          val handled = errorHandling.handle(ctx, error)
+          ctx = handled.ctx
+          handled.strategy match
             case ErrorHandling.Strategy.SkipOne if remaining.nonEmpty => loop(remaining.tail)
             case ErrorHandling.Strategy.SkipToNextMatch if remaining.nonEmpty =>
               loop(remaining.tail.dropWhile(lexeme => !expectedTerminals.contains(Terminal(Printable(lexeme.name)))))
@@ -116,7 +122,11 @@ abstract class Parser[Ctx <: ParserCtx](
             nodeStack.dropRightInPlace(size)
 
             val gotoState = tables.parseTable.goto(uncoveredState, production.lhs)
-            val result = rule.action(ctx, RevertedArray(children))
+            val result = rule.action(ctx, RevertedArray(children)) match
+              case updated: CtxUpdated =>
+                ctx = updated.ctx.asInstanceOf[Ctx]
+                updated.value
+              case value => value
             stateStack += gotoState
             nodeStack += Node.Result(result)
             loop(remaining)

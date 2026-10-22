@@ -29,6 +29,27 @@ given ErrorHandling[SkipCountCtx, LexerError.Of[SkipCountCtx]] = ErrorHandling.f
 val SkipCountLexer = lexer[SkipCountCtx]:
   case "[a-z]+" => Token["WORD"]
 
+final case class SkipBudgetCtx(skipsLeft: Int = 1, seen: List[String] = Nil) extends ParserCtx
+
+given ErrorHandling[SkipBudgetCtx, ParserError] = ErrorHandling.forParser: error =>
+  ctx.seen :+= error.unexpected.fold("end")(_.text)
+  if ctx.skipsLeft == 0 then ErrorHandling.Strategy.Stop
+  else
+    ctx.skipsLeft -= 1
+    ErrorHandling.Strategy.SkipOne
+
+val SumLexer = lexer:
+  case "\\+" => Token["+"]
+  case value @ "[0-9]+" => Token["Num"](value.toInt)
+
+object SkipBudgetParser extends Parser[SkipBudgetCtx]:
+  val Sum: Rule[Int] = rule(
+    { case (Sum(sum), SumLexer.`+`(_), SumLexer.Num(lexeme)) => sum + lexeme.value },
+    { case SumLexer.Num(lexeme) => lexeme.value },
+  )
+  val root: Rule[Int] = rule:
+    case Sum(result) => result
+
 final class ErrorHandlingCtxTest extends AnyFunSuite with Matchers with LoneElement:
 
   test("ErrorHandling.forLexer assigns immutable context fields the lexer goes on with") {
@@ -51,6 +72,11 @@ final class ErrorHandlingCtxTest extends AnyFunSuite with Matchers with LoneElem
     val Result.Failure(ctx, _, errors) = SkipCountLexer.tokenize("a??b!c").runtimeChecked
     ctx.skips shouldBe 2
     errors.map(error => (error.unexpected, error.skips)) shouldBe List(("??", 0), ("!", 1))
+  }
+
+  test("ErrorHandling.forParser assigns immutable context fields the parser goes on with") {
+    val result = SkipBudgetParser.parse(SumLexer.tokenize("1++2++3").getOrThrow)
+    result.ctx shouldBe SkipBudgetCtx(skipsLeft = 0, seen = List("+", "+"))
   }
 
   test("an ErrorHandling.forLexer handler must be a lambda") {

@@ -292,16 +292,18 @@ final class ParserException private[alpaca] (val errors: ::[ParserError])
   extends RuntimeException(errors.map(_.message).mkString("\n"))
 
 /**
- * The base of every parser context: state carried through a parse, such as a symbol table, read and changed as
+ * The base of every parser context: state carried through a parse, such as a symbol table, read and assigned as
  * `ctx` in the actions and returned in the [[Result]].
  *
  * A context must be a case class whose fields all have default values, since the parser builds the initial context
  * from those defaults:
  * {{{
- * case class BrainParserCtx(functions: mutable.Set[String] = mutable.Set.empty) extends ParserCtx
+ * case class BrainParserCtx(functions: Set[String] = Set.empty) extends ParserCtx
  * }}}
+ * Assigning a field in an action (`ctx.functions += name`) is rewritten into a `copy`, so the fields can stay `val`s,
+ * as in a lexer context.
  */
-trait ParserCtx
+trait ParserCtx extends AlpacaCtx
 
 /**
  * Type representing conflict resolution rules for the parser.

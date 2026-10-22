@@ -5,7 +5,7 @@ import alpaca.internal.*
 import alpaca.internal.lexer.{IgnoredToken as _, Token as _, *}
 
 import scala.NamedTuple.AnyNamedTuple
-import scala.annotation.{compileTimeOnly, publicInBinary, unused}
+import scala.annotation.{compileTimeOnly, publicInBinary}
 import scala.quoted.*
 
 /**
@@ -127,14 +127,17 @@ object Token:
 // empirically stumbles on downstream, even though the two only differ in
 // which stable path they're attached to.
 /**
- * The lexer context inside a `lexer` rule body or an [[ErrorHandling.forLexer]] handler. Read its fields, or assign
- * them (`ctx.count += 1`) to change the context for the tokens that follow: the assignment is rewritten into a `copy`,
- * so the fields can stay `val`s.
+ * The context inside a `lexer` rule body or an [[ErrorHandling.forLexer]] handler: read its fields, or assign them
+ * (`ctx.count += 1`) to change the context for the tokens that follow. The assignment is rewritten into a `copy`, so
+ * the fields can stay `val`s.
+ *
+ * In a parser action or an [[ErrorHandling.forParser]] handler it is the parser context, the same way.
  */
-transparent inline def ctx[Ctx <: LexerCtx: LexerScope.Of as scope]: Ctx = ${ ctxImpl[Ctx]('scope) }
+transparent inline def ctx[Ctx <: AlpacaCtx: CtxScope.Of as scope]: Ctx = ${ ctxImpl[Ctx]('scope) }
 
 // $COVERAGE-OFF$
-@publicInBinary private[alpaca] def ctxImpl[C <: LexerCtx: Type](scope: Expr[LexerScope.Of[C]])(using Quotes): Expr[C] = {
+@publicInBinary private[alpaca] def ctxImpl[C <: AlpacaCtx: Type](scope: Expr[CtxScope.Of[C]])(using Quotes)
+  : Expr[C] = {
   import quotes.reflect.*
 
   val ctxTpe = TypeRepr.of[C].widen
@@ -149,7 +152,7 @@ transparent inline def ctx[Ctx <: LexerCtx: LexerScope.Of as scope]: Ctx = ${ ct
       Refinement(withGetter, s"${name}_=", MethodType(List("v"))(_ => List(tpe), _ => TypeRepr.of[Unit]))
 
   refined.asType match
-    case '[type r <: C; r] => '{ LexerScope.ctx($scope).asInstanceOf[r] }
+    case '[type r <: C; r] => '{ CtxScope.ctx($scope).asInstanceOf[r] }
 }
 
 // $COVERAGE-ON$
@@ -165,7 +168,7 @@ transparent inline def ctx[Ctx <: LexerCtx: LexerScope.Of as scope]: Ctx = ${ ct
  * }}}
  * A field whose type has a `given` [[Tracking]], like [[Line]] or [[Column]], is updated after every match.
  */
-trait LexerCtx extends Product, Selectable:
+trait LexerCtx extends AlpacaCtx:
   // Engine state. `private`, not `private[alpaca]`: private members aren't inherited, so a user context may have
   // fields with the same names. The library reads and writes them through the `engine*` extensions in the companion.
   private var lastLexeme: Lexeme[?, ?] | Null = compiletime.uninitialized
@@ -201,10 +204,6 @@ trait LexerCtx extends Product, Selectable:
     lastRawMatched = prev.lastRawMatched
     lastLexeme = prev.lastLexeme
     this
-
-  /** Not meant to be called: assigning a context field outside a lexer rule is a compile error. */
-  inline def applyDynamic(@unused inline name: String)(@unused inline args: Any*): Any =
-    compiletime.error("Lexer context fields can only be assigned inside a lexer rule")
 
 object LexerCtx:
 

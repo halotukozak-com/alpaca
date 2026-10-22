@@ -53,11 +53,10 @@ L-attributed grammars can be evaluated in a single left-to-right pass. They are 
 
 ## Alpaca's ParserCtx as Inherited Attributes
 
-Alpaca does not have formal inherited attributes. Instead, `ParserCtx` provides a shared mutable state that flows through all reductions:
+Alpaca does not have formal inherited attributes. Instead, a `ParserCtx` value is threaded through all reductions, in the order the parser performs them:
 
 ```scala sc-name:attr-brain-defs sc-hidden
 import halotukozak.alpaca.*
-import scala.collection.mutable
 
 enum BrainAST:
   case Inc, Dec
@@ -76,7 +75,7 @@ val BrainLexer = lexer:
 
 ```scala sc-compile-with:attr-brain-defs
 case class BrainParserCtx(
-  functions: mutable.Set[String] = mutable.Set.empty,
+  functions: Set[String] = Set.empty,
 ) extends ParserCtx
 
 object BrainParser extends Parser[BrainParserCtx]:
@@ -93,7 +92,7 @@ object BrainParser extends Parser[BrainParserCtx]:
   val FunctionDef: Rule[BrainAST] = rule:
     case (BrainLexer.functionName(name), BrainLexer.functionOpen(_),
           Operation.List(ops), BrainLexer.functionClose(_)) =>
-      ctx.functions.add(name.value)   // "inherited" state: writes to shared context
+      ctx.functions += name.value   // "inherited" state: a new context for later reductions
       BrainAST.FunctionDef(name.value, ops)
 
   val FunctionCall: Rule[BrainAST] = rule:
@@ -104,18 +103,18 @@ object BrainParser extends Parser[BrainParserCtx]:
 
 `ctx.functions` acts like an inherited attribute: information from an earlier reduction (`FunctionDef`) is visible to a later one (`FunctionCall`). But unlike formal inherited attributes:
 
-- The state is **mutable and shared** — all reductions see the same object
+- There is **one context per parse**, not one per node: the macro rewrites each assignment such as `ctx.functions += name.value` into a `copy` of the context, and the parser passes that copy to every reduction after it (see [Parser Context](../parser-context.md))
 - The flow is **order-dependent** — it depends on the sequence of reductions, not the tree structure
-- There is **no per-node copying** — changes are global
+- Changes are **not scoped to a subtree** — a copy made in one reduction reaches every later reduction, wherever it sits in the tree
 
-This is a pragmatic trade-off. For most use cases (symbol tables, function registries, error accumulators), mutable shared state is simpler and faster than formal inherited attributes.
+This is a pragmatic trade-off. For most use cases (symbol tables, function registries, error accumulators), one context threaded through the reductions is simpler than formal inherited attributes.
 
 ## What Alpaca Supports
 
 | Attribute type | Support | Mechanism |
 |---------------|---------|-----------|
 | Synthesized | Native | Return values from `rule` bodies |
-| Inherited (via ParserCtx) | Practical | Shared mutable state across reductions |
+| Inherited (via ParserCtx) | Practical | One context value threaded through the reductions |
 | Inherited (formal, per-node) | Not supported | Would require top-down evaluation |
 
 For purely synthesized computations (calculators, AST construction), Alpaca's `Rule[R]` return values are the right tool. For inherited state (symbol tables, scope tracking), `ParserCtx` provides a workable approximation.
