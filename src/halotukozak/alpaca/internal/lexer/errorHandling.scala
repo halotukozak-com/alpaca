@@ -22,7 +22,7 @@ import scala.quoted.*
   given Diagnostics = Diagnostics()
 
   val (oldScope, oldError, body) = handler.asTerm match
-    case ScopedLambda(oldScope, Lambda(oldError :: Nil, body)) => (oldScope, oldError, body)
+    case dropInlined(Lambda(oldScope :: Nil, dropInlined(Lambda(oldError :: Nil, body)))) => (oldScope, oldError, body)
     case _ =>
       // at the call: a handler defined elsewhere has its position there
       errorAndAbort(
