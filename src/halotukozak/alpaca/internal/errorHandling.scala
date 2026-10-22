@@ -4,7 +4,7 @@ package internal
 
 import halotukozak.alpaca.ErrorHandling.Strategy
 
-import scala.annotation.{nowarn, publicInBinary}
+import scala.annotation.publicInBinary
 import scala.quoted.*
 
 // $COVERAGE-OFF$
@@ -21,9 +21,9 @@ import scala.quoted.*
   updatingErrorHandling[Ctx, ParserError](handler, "ErrorHandling.forParser")
 
 /**
- * Builds an [[ErrorHandling.forLexer]] or [[ErrorHandling.forParser]] handler: its body runs against a local `var` holding
- * the context, with every context assignment rewritten into a `copy` of it as in a lexer rule or a parser action (see
- * [[rewriteCtxMutations]]), and returns the strategy together with that `var`.
+ * Builds an [[ErrorHandling.forLexer]] or [[ErrorHandling.forParser]] handler: its body has its context assignments
+ * threaded through as in a lexer rule or a parser action (see [[threadCtx]]), and it returns the strategy together with
+ * the context it leaves.
  *
  * @param handler the user's `scope ?=> error => strategy` lambda
  * @param name    how the user calls the builder, for the error message
@@ -54,28 +54,23 @@ private def updatingErrorHandling[Ctx <: AlpacaCtx: Type, Err: Type](
         Position.ofMacroExpansion,
       )
 
-  def run(current: Expr[Ctx], error: Expr[Err]): Expr[Strategy] =
-    val ctxSymbol = current.asTerm.symbol
-    // the handler's lambda, which declares `current` or takes the initial context
-    val owner = ctxSymbol.owner
-    // in terms, not a quote: `error` belongs to the splice, so a quote of this macro must not splice it
-    val body = Select.unique(onError, "apply").appliedTo(error.asTerm).changeOwner(owner)
-    val withNewCtx = replaceScope[Ctx](oldScope.symbol, current.asTerm)(PartialFunction.empty).transformTerm(body)(owner)
-    val rewritten = rewriteCtxMutations(ctxSymbol)(withNewCtx)(owner)
+  // outside the splice below, which brings its own `Quotes` that the handler's trees do not belong to
+  def handle(initial: Expr[Ctx], error: Expr[Err]): Expr[(strategy: Strategy, ctx: Ctx)] =
+    // in terms: `initial` and `error` belong to the splice, so a quote of this macro must not splice them
+    val initialCtx = initial.asTerm
+    val handled = threadCtx[Ctx, (strategy: Strategy, ctx: Ctx)](
+      // the handler's lambda, which takes the initial context
+      initialCtx.symbol.owner,
+      initial,
+      oldScope.symbol,
+      Select.unique(onError, "apply").appliedTo(error.asTerm),
+    ): (strategy, ctx) =>
+      '{ (strategy = ${ strategy.asExprOf[Strategy] }, ctx = ${ ctx.getOrElse(initialCtx).asExprOf[Ctx] }) }.asTerm
     abortOnErrors()
-    rewritten.asExprOf[Strategy]
+    handled.asExprOf[(strategy: Strategy, ctx: Ctx)]
 
   // the lexer or parser of `Ctx` gives the handler its own errors; the strategy comes first, so `ctx` is the context
   // the handler left
-  if assignsCtx(onError) then
-    '{
-      new ErrorHandling[Ctx]((initial, error) =>
-        // assigned only by the rewritten handler, spliced in below
-        @nowarn("msg=unset local variable") var current = initial
-        (strategy = ${ run('current, '{ error.asInstanceOf[Err] }) }, ctx = current),
-      )
-    }
-  // without a `var`, which one never assigned would be reported as unset where the handler is defined
-  else '{ new ErrorHandling[Ctx]((ctx, error) => (strategy = ${ run('ctx, '{ error.asInstanceOf[Err] }) }, ctx = ctx)) }
+  '{ new ErrorHandling[Ctx]((initial, error) => ${ handle('initial, '{ error.asInstanceOf[Err] }) }) }
 }
 // $COVERAGE-ON$
