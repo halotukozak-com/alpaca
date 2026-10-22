@@ -46,7 +46,7 @@ private def updatingErrorHandling[Ctx <: AlpacaCtx: Type, Err: Type](
 
   // the error lambda is kept whole, with its own parameter: the types in its body may depend on it (`error.Fields`)
   val (oldScope, onError) = handler.asTerm match
-    case ScopedLambda(oldScope, onError @ Lambda(_ :: Nil, _)) => (oldScope, onError)
+    case dropInlined(Lambda(oldScope :: Nil, dropInlined(onError @ Lambda(_ :: Nil, _)))) => (oldScope, onError)
     case _ =>
       // at the call: a handler defined elsewhere has its position there
       errorAndAbort(
