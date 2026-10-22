@@ -6,10 +6,12 @@ import scala.annotation.{implicitNotFound, publicInBinary}
 // In its own file because an opaque type is transparent to the whole file that declares it: next to `Token` and `ctx`,
 // `LexerScope` would be just the context.
 /**
- * Evidence that code runs where `ctx` is available: a `lexer` rule, an [[ErrorHandling.forLexer]] handler or an
- * [[ErrorHandling.forParser]] handler. Its `Ctx` member is the context type.
+ * Evidence that code runs where `ctx` is available: a `lexer` rule, a parser action, or an [[ErrorHandling.forLexer]]
+ * or [[ErrorHandling.forParser]] handler. Its `Ctx` member is the context type.
  */
-@implicitNotFound("`ctx` can only be used inside a lexer rule, `ErrorHandling.forLexer` or `ErrorHandling.forParser`")
+@implicitNotFound(
+  "`ctx` can only be used inside a lexer rule, a parser action, `ErrorHandling.forLexer` or `ErrorHandling.forParser`",
+)
 opaque type CtxScope <: { type Ctx <: AlpacaCtx } = AlpacaCtx & { type Ctx <: AlpacaCtx }
 
 object CtxScope:

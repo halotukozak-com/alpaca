@@ -117,7 +117,7 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
   }
 
   private val CtxOutsideScope =
-    "`ctx` can only be used inside a lexer rule, `ErrorHandling.forLexer` or `ErrorHandling.forParser`"
+    "`ctx` can only be used inside a lexer rule, a parser action, `ErrorHandling.forLexer` or `ErrorHandling.forParser`"
 
   test("ctx and its field assignments are compile errors outside a lexer rule") {
     case class CountingCtx(count: Int = 0) extends LexerCtx

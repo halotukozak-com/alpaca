@@ -15,8 +15,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- `ctx` outside a lexer rule or one of these handlers is reported as "`ctx` can only be used inside a lexer rule, `ErrorHandling.forLexer` or `ErrorHandling.forParser`".
+- **Breaking:** `ErrorHandling` takes the context type alone, `ErrorHandling[Ctx]`, and is built with `ErrorHandling.forLexer` or `ErrorHandling.forParser`; a `(ctx, error) => ...` lambda no longer is one. `given ErrorHandling[MyCtx, LexerError] = (ctx, error) => ...` becomes `given ErrorHandling[MyCtx] = ErrorHandling.forLexer: error => ...`, with `ctx` used as before.
+- **Breaking:** in a parser action, `ctx` is the top-level `halotukozak.alpaca.ctx`, as in a lexer rule, instead of a `Parser` member: each production of `rule` binds a context scope (`CtxScope.Of[Ctx] ?=> ...`), and `ParserScope` carries the parser's context type.
+- `ctx` outside a lexer rule, a parser action or one of these handlers is reported as "`ctx` can only be used inside a lexer rule, a parser action, `ErrorHandling.forLexer` or `ErrorHandling.forParser`".
 - Calling a context's `applyDynamic` outside a lexer rule is reported as "Context fields can only be assigned inside a lexer rule, a parser action or an error handler", after typing instead of during it.
+
+### Fixed
+
+- A lexer rule or error handler can assign a local `var` it captures; it failed to compile with "Reassignment to val".
 
 ## [1.0.0-RC4] - 2026-10-13
 

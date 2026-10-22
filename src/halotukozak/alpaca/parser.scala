@@ -44,7 +44,8 @@ object ResolutionScope:
 
 /**
  * Evidence that code runs inside a parser definition, where `rule`, named productions, and token and rule extractors
- * are available. Every [[Parser]] provides one.
+ * are available. Every [[Parser]] provides one; its `Ctx` member is the parser context type, which `ctx` has in the
+ * productions of a `rule`.
  */
 @implicitNotFound("`rule`, named productions, and token and rule extractors can only be used inside a parser definition")
 opaque type ParserScope <: { type Ctx <: ParserCtx } = AnyRef & { type Ctx <: ParserCtx }

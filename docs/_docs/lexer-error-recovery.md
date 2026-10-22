@@ -168,7 +168,7 @@ With `SkipOne` or `SkipToNextMatch` the lexer reaches the end of the input, so t
 import halotukozak.alpaca.*
 
 // Skip unrecognized characters, but keep a record of them
-given ErrorHandling[LexerCtx.Default, LexerError] = (_, _) => ErrorHandling.Strategy.SkipOne
+given ErrorHandling[LexerCtx.Default] = ErrorHandling.forLexer(_ => ErrorHandling.Strategy.SkipOne)
 
 val MyLexer = lexer:
   case "[a-z]+" => Token["WORD"]
@@ -181,13 +181,13 @@ MyLexer.tokenize("abc @def") match
   case Result.Success(_, _) => ()
 ```
 
-The strategy receives the context and the `LexerError` for the unmatched character, so it can choose per character. It is the same `ErrorHandling` type the parser uses, with `LexerError` as its error type. Declare it for `LexerError.Of[MyCtx]` instead to read the context's fields from the error with their types:
+The handler is given the `LexerError` for the unmatched character, which carries the context's fields with their types, so it can choose per character. A parser's handler is built the same way, with `ErrorHandling.forParser`:
 
 ```scala
 import halotukozak.alpaca.*
 
 // Skip unrecognized characters on the first line, stop on any later one
-given ErrorHandling[LexerCtx.Default, LexerError.Of[LexerCtx.Default]] = (_, error) =>
+given ErrorHandling[LexerCtx.Default] = ErrorHandling.forLexer: error =>
   if error.line > 1 then ErrorHandling.Strategy.Stop else ErrorHandling.Strategy.SkipOne
 ```
 
@@ -196,7 +196,7 @@ To look past the unmatched character, call `ctx.peek(n)`: it returns at most the
 ```scala
 import halotukozak.alpaca.*
 
-given ErrorHandling[LexerCtx.Default, LexerError] = (ctx, _) =>
+given ErrorHandling[LexerCtx.Default] = ErrorHandling.forLexer: _ =>
   if ctx.peek(2) == "/*" then ErrorHandling.Strategy.Stop else ErrorHandling.Strategy.SkipOne
 
 val MyLexer = lexer:
@@ -213,14 +213,14 @@ MyLexer.tokenize("a @ b /* c") match
 
 ### Changing the Context from a Handler
 
-A handler written as a plain lambda gets the context as a value: it can read the fields, but not assign them. Build it with `ErrorHandling.forLexer` instead, and `ctx` works as in a rule body. Assigning a field changes the context the lexer goes on with, so the fields can stay `val`s:
+In a handler, `ctx` works as in a rule body: assigning a field changes the context the lexer goes on with, so the fields can stay `val`s:
 
 ```scala
 import halotukozak.alpaca.*
 
 case class CountingCtx(line: Line = Line.Start, skipped: Int = 0) extends LexerCtx
 
-given ErrorHandling[CountingCtx, LexerError.Of[CountingCtx]] = ErrorHandling.forLexer: error =>
+given ErrorHandling[CountingCtx] = ErrorHandling.forLexer: error =>
   ctx.skipped += 1
   if ctx.peek(2) == "/*" then ErrorHandling.Strategy.Stop else ErrorHandling.Strategy.SkipOne
 
