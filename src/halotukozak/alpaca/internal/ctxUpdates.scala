@@ -28,12 +28,9 @@ private[internal] def replaceScope[Ctx <: AlpacaCtx: Type](
 ): quotes.reflect.TreeMap = {
   import quotes.reflect.*
 
-  // a lexer's `Token` and a parser's extractors need their own scope type back
-  def rescoped: Term = Type.of[Ctx] match
-    case '[type lexerCtx <: LexerCtx; lexerCtx] => '{ LexerScope.refl[lexerCtx](${ newCtx.asExprOf[lexerCtx] }) }.asTerm
-    case '[type parserCtx <: ParserCtx; parserCtx] =>
-      '{ ProductionScope.refl[parserCtx](${ newCtx.asExprOf[parserCtx] }) }.asTerm
-    case _ => '{ CtxScope.refl[Ctx](${ newCtx.asExprOf[Ctx] }) }.asTerm
+  // the scope is the context itself, cast to the scope's type: a lexer's `Token` and a parser's extractors need it
+  def rescoped: Term = scope.termRef.widen.asType match
+    case '[scopeType] => '{ ${ newCtx.asExpr }.asInstanceOf[scopeType] }.asTerm
 
   new TreeMap:
     override def transformTerm(t: Term)(owner: Symbol): Term = t match
@@ -251,7 +248,8 @@ private[internal] def rewriteCtxMutations(using
         // to the ambient macro-body owner instead of `owner` -- confirmed under -Xcheck-macros
         // ("Block contains definition with different owners"). changeOwner puts it back.
         Assign(ctxRef, carry(copyWith(ctxRef, field, transformTerm(rhs)(owner)), ctxRef).changeOwner(owner))
-      case Cast(unwrap(inner)) if isCtxRef(inner) =>
+      // a cast to the `ctx` facade; one to a scope, which `Token` and the extractors read, stays
+      case cast @ Cast(unwrap(inner)) if isCtxRef(inner) && cast.tpe <:< TypeRepr.of[AlpacaCtx] =>
         inner
       case Ident(_) if aliases(tree.symbol) =>
         ctxRef
