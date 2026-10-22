@@ -13,7 +13,7 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
 
   test("Strategy.Stop stops tokenization, reports the error and recovers nothing") {
     var strategyCalls = 0
-    given ErrorHandling[LexerCtx.Default, LexerError] = (_, _) =>
+    given ErrorHandling[LexerCtx.Default] = ErrorHandling.forLexer: _ =>
       strategyCalls += 1
       ErrorHandling.Strategy.Stop
 
@@ -29,7 +29,7 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
 
   test("Strategy.SkipOne skips one character, reports it and recovers the lexemes") {
     var ignoredChars = 0
-    given ErrorHandling[LexerCtx.Default, LexerError] = (_, _) =>
+    given ErrorHandling[LexerCtx.Default] = ErrorHandling.forLexer: _ =>
       ignoredChars += 1
       ErrorHandling.Strategy.SkipOne
 
@@ -44,7 +44,7 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
 
   test("Strategy.SkipToNextMatch skips until the next match and reports each skipped run") {
     var ignoredTokens = 0
-    given ErrorHandling[LexerCtx.Default, LexerError] = (_, _) =>
+    given ErrorHandling[LexerCtx.Default] = ErrorHandling.forLexer: _ =>
       ignoredTokens += 1
       ErrorHandling.Strategy.SkipToNextMatch
 
@@ -61,7 +61,7 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
 
   test("Strategy.SkipToNextMatch skips only the character if no token matches after it") {
     var ignoredTokens = 0
-    given ErrorHandling[LexerCtx.Default, LexerError] = (_, _) =>
+    given ErrorHandling[LexerCtx.Default] = ErrorHandling.forLexer: _ =>
       ignoredTokens += 1
       ErrorHandling.Strategy.SkipToNextMatch
 
@@ -75,8 +75,10 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
   }
 
   test("a stop after a skip recovers nothing but reports both errors") {
-    given ErrorHandling[LexerCtx.Default, LexerError] =
-      (ctx, _) => if ctx.peek(1) == "!" then ErrorHandling.Strategy.SkipOne else ErrorHandling.Strategy.Stop
+    given ErrorHandling[LexerCtx.Default] =
+      ErrorHandling.forLexer(_ =>
+        if ctx.peek(1) == "!" then ErrorHandling.Strategy.SkipOne else ErrorHandling.Strategy.Stop,
+      )
 
     val L = lexer:
       case "a" => Token["A"]
@@ -107,7 +109,7 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
 
   test("the strategy is given the error for the unmatched character") {
     var seen = List.empty[(String, Int, Int)]
-    given ErrorHandling[LexerCtx.Default, LexerError.Of[LexerCtx.Default]] = (_, error) =>
+    given ErrorHandling[LexerCtx.Default] = ErrorHandling.forLexer: error =>
       seen = seen :+ (error.unexpected, error.line, error.column)
       ErrorHandling.Strategy.SkipToNextMatch
 
@@ -121,8 +123,10 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
 
   test("the strategy reads a custom context's fields from the error") {
     final case class MyCtx(line: Line = Line.Start) extends LexerCtx
-    given ErrorHandling[MyCtx, LexerError.Of[MyCtx]] =
-      (_, error) => if error.line > 1 then ErrorHandling.Strategy.Stop else ErrorHandling.Strategy.SkipOne
+    given ErrorHandling[MyCtx] =
+      ErrorHandling.forLexer(error =>
+        if error.line > 1 then ErrorHandling.Strategy.Stop else ErrorHandling.Strategy.SkipOne,
+      )
 
     val L = lexer[MyCtx]:
       case "a" => Token["A"]
@@ -135,7 +139,7 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
 
   test("peek should expose at most n characters of the unmatched input to a custom ErrorHandling instance") {
     var seen = List.empty[String]
-    given ErrorHandling[LexerCtx.Default, LexerError] = (ctx, _) =>
+    given ErrorHandling[LexerCtx.Default] = ErrorHandling.forLexer: _ =>
       seen = seen :+ ctx.peek(2)
       ErrorHandling.Strategy.SkipOne
 
@@ -147,7 +151,7 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
   }
 
   test("peek should reject a negative length") {
-    given ErrorHandling[LexerCtx.Default, LexerError] = (ctx, _) =>
+    given ErrorHandling[LexerCtx.Default] = ErrorHandling.forLexer: _ =>
       ctx.peek(-1): Unit
       ErrorHandling.Strategy.Stop
 
@@ -158,7 +162,7 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
   }
 
   test("Strategy.SkipOne should update column correctly") {
-    given ErrorHandling[LexerCtx.Default, LexerError] = (_, _) => ErrorHandling.Strategy.SkipOne
+    given ErrorHandling[LexerCtx.Default] = ErrorHandling.forLexer(_ => ErrorHandling.Strategy.SkipOne)
 
     val L = lexer:
       case "a" => Token["A"]
@@ -170,7 +174,7 @@ final class ErrorHandlingStrategyTest extends AnyFunSuite with Matchers:
   }
 
   test("getOrThrow throws every error, one message per line") {
-    given ErrorHandling[LexerCtx.Default, LexerError] = (_, _) => ErrorHandling.Strategy.SkipOne
+    given ErrorHandling[LexerCtx.Default] = ErrorHandling.forLexer(_ => ErrorHandling.Strategy.SkipOne)
 
     val Lexer = lexer:
       case "a" => Token["A"]

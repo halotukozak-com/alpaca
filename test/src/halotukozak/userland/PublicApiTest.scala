@@ -241,7 +241,7 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
   test("the text peeked in ErrorHandling keeps its content after the callback") {
     var seen: String | Null = null
     case class RecordingCtx(n: Int = 0) extends LexerCtx
-    given ErrorHandling[RecordingCtx, LexerError] = (ctx, _) =>
+    given ErrorHandling[RecordingCtx] = ErrorHandling.forLexer: _ =>
       if seen == null then seen = ctx.peek(10)
       ErrorHandling.Strategy.SkipOne
     val Lexer = lexer[RecordingCtx]:

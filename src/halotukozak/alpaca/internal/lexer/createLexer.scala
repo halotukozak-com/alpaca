@@ -15,7 +15,7 @@ import scala.reflect.NameTransformer
 // $COVERAGE-OFF$
 @publicInBinary private[alpaca] def createLexerImpl[Ctx <: LexerCtx: Type](
   rules: Expr[LexerScope.Of[Ctx] ?=> LexerDefinition[Ctx]],
-  errorHandling: Expr[ErrorHandling[Ctx, LexerError.Of[Ctx]]],
+  errorHandling: Expr[ErrorHandling[Ctx]],
 )(using quotes: Quotes,
 ): Expr[Lexer[Ctx]] = {
   import quotes.reflect.*
@@ -52,11 +52,11 @@ import scala.reflect.NameTransformer
       field.pos.getOrElse(Position.ofMacroExpansion),
     )
 
-  val (oldScope, cases) = rules.asTerm.underlying match
+  val (oldScope, cases) = rules.asTerm match
     case ScopedLambda(oldScope, Lambda(_, Match(_, cases))) => (oldScope, cases)
     case other =>
       val definition = other match
-        case Lambda(_, body) => body
+        case ScopedLambda(_, body) => body
         case _ => other
       errorAndAbort(
         show"Lexer rules must be a list of `case`s written directly in the `lexer` block, as in `case \"[0-9]+\" => Token[\"NUM\"]`",

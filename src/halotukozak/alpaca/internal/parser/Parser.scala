@@ -25,7 +25,7 @@ abstract class Parser[Ctx <: ParserCtx](
   using Ctx withDefault ParserCtx.Empty,
 )(using
   tables: Tables[Ctx],
-  errorHandling: ErrorHandling[Ctx, ParserError],
+  errorHandling: ErrorHandling[Ctx],
 ):
 
   /**

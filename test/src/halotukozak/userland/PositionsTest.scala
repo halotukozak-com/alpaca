@@ -14,7 +14,7 @@ val PositionLexer = lexer:
 final case class SkippingCtx(line: Line = Line.Start, column: Column = Column.Start) extends LexerCtx
 
 object SkippingCtx:
-  given ErrorHandling[SkippingCtx, LexerError] = (_, _) => ErrorHandling.Strategy.SkipOne
+  given ErrorHandling[SkippingCtx] = ErrorHandling.forLexer(_ => ErrorHandling.Strategy.SkipOne)
 
 val SkippingLexer = lexer[SkippingCtx]:
   case w @ "[a-z]+" => Token["WORD"](w)

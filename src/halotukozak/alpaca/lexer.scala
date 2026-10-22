@@ -39,7 +39,7 @@ transparent inline def lexer[Ctx <: LexerCtx](
   using Ctx withDefault LexerCtx.Default,
 )(
   inline rules: LexerScope.Of[Ctx] ?=> LexerDefinition[Ctx],
-)(using errorHandling: ErrorHandling[Ctx, LexerError.Of[Ctx]],
+)(using errorHandling: ErrorHandling[Ctx],
 ): Lexer[Ctx] =
   ${ createLexerImpl[Ctx]('{ rules }, '{ errorHandling }) }
 
@@ -223,7 +223,7 @@ object LexerCtx:
   }
 
   /** Default error handler for any [[LexerCtx]]: stop at the first unrecognised character and report it. */
-  given ErrorHandling[LexerCtx, LexerError] = (_, _) => ErrorHandling.Strategy.Stop
+  given [Ctx <: LexerCtx] => ErrorHandling[Ctx] = ErrorHandling.stopping
 
   /**
    * A lexer context with no fields, so lexemes and errors carry no position. Use it when you need neither line nor

@@ -359,7 +359,7 @@ extension (@unused inline first: Production | Token[?, ?, ?]) {
 object ParserCtx:
 
   /** Default error handler for any [[ParserCtx]]: stop at the first input that does not match the grammar. */
-  given ErrorHandling[ParserCtx, ParserError] = (_, _) => ErrorHandling.Strategy.Stop
+  given [Ctx <: ParserCtx] => ErrorHandling[Ctx] = ErrorHandling.stopping
 
   /** A parser context with no state: the context of `extends Parser` without a type argument. */
   final case class Empty(

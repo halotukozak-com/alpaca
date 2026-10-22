@@ -26,12 +26,12 @@ final class ParserErrorHandlingTest extends AnyFunSuite with Matchers:
   case class FirstSkipContext() extends ParserCtx
   case class SkipAheadContext() extends ParserCtx
 
-  given ErrorHandling[SkippingContext, ParserError] = (_, _) => ErrorHandling.Strategy.SkipOne
+  given ErrorHandling[SkippingContext] = ErrorHandling.forParser(_ => ErrorHandling.Strategy.SkipOne)
 
-  given ErrorHandling[SkipAheadContext, ParserError] = (_, _) => ErrorHandling.Strategy.SkipToNextMatch
+  given ErrorHandling[SkipAheadContext] = ErrorHandling.forParser(_ => ErrorHandling.Strategy.SkipToNextMatch)
 
   private var seen = List.empty[ParserError]
-  given ErrorHandling[FirstSkipContext, ParserError] = (_, error) =>
+  given ErrorHandling[FirstSkipContext] = ErrorHandling.forParser: error =>
     seen = seen :+ error
     if seen.sizeIs == 1 then ErrorHandling.Strategy.SkipOne else ErrorHandling.Strategy.Stop
 
@@ -152,7 +152,7 @@ final class ParserErrorHandlingTest extends AnyFunSuite with Matchers:
 
   case class BudgetContext(var skipsLeft: Int = 1) extends ParserCtx
 
-  given ErrorHandling[BudgetContext, ParserError] = (ctx, _) =>
+  given ErrorHandling[BudgetContext] = ErrorHandling.forParser: _ =>
     if ctx.skipsLeft > 0 then
       ctx.skipsLeft -= 1
       ErrorHandling.Strategy.SkipOne

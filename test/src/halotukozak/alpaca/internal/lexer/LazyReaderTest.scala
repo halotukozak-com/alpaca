@@ -2,7 +2,7 @@ package halotukozak
 package alpaca.internal.lexer
 
 import halotukozak.alpaca.internal.lexer.LazyReader
-import halotukozak.alpaca.{lexer, withLazyReader, ErrorHandling, LexerCtx, LexerError, Result, Token}
+import halotukozak.alpaca.{ctx, lexer, withLazyReader, ErrorHandling, LexerCtx, LexerError, Result, Token}
 import org.scalatest.funsuite.AnyFunSuite
 
 import java.io.StringReader
@@ -138,7 +138,7 @@ final class LazyReaderTest extends AnyFunSuite:
 
   test("lexer errors and peek past the compaction threshold are the same as for the String") {
     var peeked = List.empty[String]
-    given ErrorHandling[LexerCtx.Default, LexerError] = (ctx, _) =>
+    given ErrorHandling[LexerCtx.Default] = ErrorHandling.forLexer: _ =>
       peeked = peeked :+ ctx.peek(5)
       ErrorHandling.Strategy.SkipOne
 

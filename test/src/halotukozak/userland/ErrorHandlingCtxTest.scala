@@ -12,7 +12,7 @@ final case class NotesCtx(
   notes: List[String] = Nil,
 ) extends LexerCtx
 
-given ErrorHandling[NotesCtx, LexerError.Of[NotesCtx]] = ErrorHandling.forLexer: error =>
+given ErrorHandling[NotesCtx] = ErrorHandling.forLexer: error =>
   ctx.notes :+= s"${error.unexpected} on line ${error.line}"
   if ctx.peek(1) == "#" then ErrorHandling.Strategy.SkipToNextMatch else ErrorHandling.Strategy.SkipOne
 
@@ -22,7 +22,7 @@ val NotesLexer = lexer[NotesCtx]:
 
 final case class SkipCountCtx(var skips: Int = 0) extends LexerCtx
 
-given ErrorHandling[SkipCountCtx, LexerError.Of[SkipCountCtx]] = ErrorHandling.forLexer: _ =>
+given ErrorHandling[SkipCountCtx] = ErrorHandling.forLexer: _ =>
   ctx.skips += 1
   ErrorHandling.Strategy.SkipToNextMatch
 
@@ -31,7 +31,7 @@ val SkipCountLexer = lexer[SkipCountCtx]:
 
 final case class SkipBudgetCtx(skipsLeft: Int = 1, seen: List[String] = Nil) extends ParserCtx
 
-given ErrorHandling[SkipBudgetCtx, ParserError] = ErrorHandling.forParser: error =>
+given ErrorHandling[SkipBudgetCtx] = ErrorHandling.forParser: error =>
   ctx.seen :+= error.unexpected.fold("end")(_.text)
   if ctx.skipsLeft == 0 then ErrorHandling.Strategy.Stop
   else
@@ -77,6 +77,21 @@ final class ErrorHandlingCtxTest extends AnyFunSuite with Matchers with LoneElem
   test("ErrorHandling.forParser assigns immutable context fields the parser goes on with") {
     val result = SkipBudgetParser.parse(SumLexer.tokenize("1++2++3").getOrThrow)
     result.ctx shouldBe SkipBudgetCtx(skipsLeft = 0, seen = List("+", "+"))
+  }
+
+  test("a lexer rule and a handler assign the local vars they capture") {
+    var words = 0
+    var skipped = 0
+    given ErrorHandling[LexerCtx.Default] = ErrorHandling.forLexer: _ =>
+      skipped += 1
+      ErrorHandling.Strategy.SkipOne
+    val CountingLexer = lexer:
+      case "[a-z]+" =>
+        words += 1
+        Token["WORD"]
+      case " " => Token.Ignored
+    CountingLexer.tokenize("ab ? cd !").runtimeChecked: Unit
+    (words, skipped) shouldBe (2, 2)
   }
 
   test("an ErrorHandling.forLexer handler must be a lambda") {
