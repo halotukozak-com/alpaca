@@ -37,6 +37,13 @@ private def updatingErrorHandling[Ctx <: AlpacaCtx: Type, Err: Type](
   import quotes.reflect.*
   given Diagnostics = Diagnostics()
 
+  // the handler is found by the context type alone, so a context of both kinds would give it the other kind's errors
+  if TypeRepr.of[Ctx] <:< TypeRepr.of[LexerCtx & ParserCtx] then
+    errorAndAbort(
+      show"`${Printable(TypeRepr.of[Ctx].typeSymbol.name)}` is both a `LexerCtx` and a `ParserCtx`; give the lexer and the parser a context each",
+      Position.ofMacroExpansion,
+    )
+
   // the error lambda is kept whole, with its own parameter: the types in its body may depend on it (`error.Fields`)
   val (oldScope, onError) = handler.asTerm match
     case ScopedLambda(oldScope, onError @ Lambda(_ :: Nil, _)) => (oldScope, onError)

@@ -94,6 +94,16 @@ final class ErrorHandlingCtxTest extends AnyFunSuite with Matchers with LoneElem
     (words, skipped) shouldBe (2, 2)
   }
 
+  test("a handler for a context that is both a lexer and a parser context is reported") {
+    val error = typeCheckErrors("""
+      case class BothCtx() extends LexerCtx, ParserCtx
+      ErrorHandling.forLexer[BothCtx](_ => ErrorHandling.Strategy.Stop)
+    """).loneElement
+    error.message shouldBe
+      "`BothCtx` is both a `LexerCtx` and a `ParserCtx`; give the lexer and the parser a context each"
+    error.lineContent.trim shouldBe "ErrorHandling.forLexer[BothCtx](_ => ErrorHandling.Strategy.Stop)"
+  }
+
   test("an ErrorHandling.forLexer handler must be a lambda") {
     val error = typeCheckErrors("""
       val strategy: LexerScope.Of[NotesCtx] ?=> LexerError.Of[NotesCtx] => ErrorHandling.Strategy =
