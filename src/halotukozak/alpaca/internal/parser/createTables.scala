@@ -104,10 +104,14 @@ object Tables:
               ValDef.let(methSym, bound.map(_.value)): refs =>
                 val locals = bound.map(_.bind).zip(refs).map((bind, ref) => (find = bind, replace = ref))
                 // an action that assigns context fields hands the updated context back with its value
-                threadCtx[Ctx](methSym, ctx, scope, replaceRefs(locals*).transformTerm(rhs)(methSym)):
-                  case (body, None) => body
-                  case (body, Some(updated)) =>
-                    '{ new CtxUpdated(${ body.asExprOf[Any] }, ${ updated.asExprOf[Ctx] }) }.asTerm
+                threadCtx[Ctx, Any](
+                  methSym,
+                  ctx.asExprOf[Ctx],
+                  scope,
+                  replaceRefs(locals*).transformTerm(rhs)(methSym),
+                ):
+                  case (body, None) => body.asExprOf[Any]
+                  case (body, Some(updated)) => '{ new CtxUpdated(${ body.asExprOf[Any] }, $updated) }
 
           // the production with its name, if it is named
           def extractProductionName(production: Term): (Tree, ValidName | Null) = production.asExpr match
