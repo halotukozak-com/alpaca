@@ -285,12 +285,12 @@ The end of the input cannot be skipped, so an error there stops the parser whate
 
 The strategy receives the parser context and the `ParserError`, so it can decide per error -- for example skip stray separators but stop on anything else. Define the `given` where the parser is defined, or in the context's companion object.
 
-Build it with `ErrorHandling.parser` to use `ctx` in the handler as in the parser's actions. It is the same parser context, changed in place:
+Build it with `ErrorHandling.forParser` to use `ctx` in the handler as in the parser's actions. It is the same parser context, changed in place:
 
 ```scala sc-compile-with:brain-tokenize
 case class BudgetCtx(var skipsLeft: Int = 1) extends ParserCtx
 
-given ErrorHandling[BudgetCtx, ParserError] = ErrorHandling.parser[BudgetCtx]: _ =>
+given ErrorHandling[BudgetCtx, ParserError] = ErrorHandling.forParser: _ =>
   if ctx.skipsLeft == 0 then ErrorHandling.Strategy.Stop
   else
     ctx.skipsLeft -= 1

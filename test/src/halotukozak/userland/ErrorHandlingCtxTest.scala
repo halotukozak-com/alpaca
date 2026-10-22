@@ -12,7 +12,7 @@ final case class NotesCtx(
   notes: List[String] = Nil,
 ) extends LexerCtx
 
-given ErrorHandling[NotesCtx, LexerError.Of[NotesCtx]] = ErrorHandling.lexer[NotesCtx]: error =>
+given ErrorHandling[NotesCtx, LexerError.Of[NotesCtx]] = ErrorHandling.forLexer: error =>
   ctx.notes :+= s"${error.unexpected} on line ${error.line}"
   if ctx.peek(1) == "#" then ErrorHandling.Strategy.SkipToNextMatch else ErrorHandling.Strategy.SkipOne
 
@@ -22,7 +22,7 @@ val NotesLexer = lexer[NotesCtx]:
 
 final case class SkipCountCtx(var skips: Int = 0) extends LexerCtx
 
-given ErrorHandling[SkipCountCtx, LexerError.Of[SkipCountCtx]] = ErrorHandling.lexer: _ =>
+given ErrorHandling[SkipCountCtx, LexerError.Of[SkipCountCtx]] = ErrorHandling.forLexer: _ =>
   ctx.skips += 1
   ErrorHandling.Strategy.SkipToNextMatch
 
@@ -31,7 +31,7 @@ val SkipCountLexer = lexer[SkipCountCtx]:
 
 final case class SkipBudgetCtx(var skipsLeft: Int = 1, var seen: List[String] = Nil) extends ParserCtx
 
-given ErrorHandling[SkipBudgetCtx, ParserError] = ErrorHandling.parser: error =>
+given ErrorHandling[SkipBudgetCtx, ParserError] = ErrorHandling.forParser: error =>
   ctx.seen :+= error.unexpected.fold("end")(_.text)
   if ctx.skipsLeft == 0 then ErrorHandling.Strategy.Stop
   else
@@ -52,7 +52,7 @@ object SkipBudgetParser extends Parser[SkipBudgetCtx]:
 
 final class ErrorHandlingCtxTest extends AnyFunSuite with Matchers with LoneElement:
 
-  test("ErrorHandling.lexer assigns immutable context fields the lexer goes on with") {
+  test("ErrorHandling.forLexer assigns immutable context fields the lexer goes on with") {
     val Result.Failure(ctx, recovered, errors) = NotesLexer.tokenize("ab?c\nd!e").runtimeChecked
     ctx.notes shouldBe List("? on line 1", "! on line 2")
     recovered.map(_.map(lexeme => (lexeme.text, lexeme.notes))) shouldBe Some(
@@ -62,7 +62,7 @@ final class ErrorHandlingCtxTest extends AnyFunSuite with Matchers with LoneElem
     errors.map(error => (error.unexpected, error.notes)) shouldBe List(("?", Nil), ("!", List("? on line 1")))
   }
 
-  test("ErrorHandling.lexer reads the input still to be tokenized") {
+  test("ErrorHandling.forLexer reads the input still to be tokenized") {
     val Result.Failure(ctx, _, errors) = NotesLexer.tokenize("a##b").runtimeChecked
     ctx.notes shouldBe List("# on line 1")
     errors.map(error => (error.unexpected, error.notes)) shouldBe List(("##", Nil))
@@ -74,18 +74,18 @@ final class ErrorHandlingCtxTest extends AnyFunSuite with Matchers with LoneElem
     errors.map(error => (error.unexpected, error.skips)) shouldBe List(("??", 0), ("!", 1))
   }
 
-  test("ErrorHandling.parser changes the parser context in place, as the actions do") {
+  test("ErrorHandling.forParser changes the parser context in place, as the actions do") {
     val result = SkipBudgetParser.parse(SumLexer.tokenize("1++2++3").getOrThrow)
     result.ctx shouldBe SkipBudgetCtx(skipsLeft = 0, seen = List("+", "+"))
   }
 
-  test("an ErrorHandling.lexer handler must be a lambda") {
+  test("an ErrorHandling.forLexer handler must be a lambda") {
     val error = typeCheckErrors("""
       val strategy: LexerScope.Of[NotesCtx] ?=> LexerError.Of[NotesCtx] => ErrorHandling.Strategy =
         _ => ErrorHandling.Strategy.Stop
-      ErrorHandling.lexer[NotesCtx](strategy)
+      ErrorHandling.forLexer[NotesCtx](strategy)
     """).loneElement
     error.message shouldBe
-      "An `ErrorHandling.lexer` handler must be a lambda written directly in its block, as in `error => ErrorHandling.Strategy.SkipOne`"
-    error.lineContent.trim shouldBe "ErrorHandling.lexer[NotesCtx](strategy)"
+      "An `ErrorHandling.forLexer` handler must be a lambda written directly in its block, as in `error => ErrorHandling.Strategy.SkipOne`"
+    error.lineContent.trim shouldBe "ErrorHandling.forLexer[NotesCtx](strategy)"
   }

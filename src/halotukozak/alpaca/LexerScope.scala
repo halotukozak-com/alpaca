@@ -6,10 +6,10 @@ import scala.annotation.{implicitNotFound, publicInBinary}
 // In its own file because an opaque type is transparent to the whole file that declares it: next to `Token` and `ctx`,
 // `LexerScope` would be just the context.
 /**
- * Evidence that code runs where `ctx` is available: a `lexer` rule, an [[ErrorHandling.lexer]] handler or an
- * [[ErrorHandling.parser]] handler. Its `Ctx` member is the context type.
+ * Evidence that code runs where `ctx` is available: a `lexer` rule, an [[ErrorHandling.forLexer]] handler or an
+ * [[ErrorHandling.forParser]] handler. Its `Ctx` member is the context type.
  */
-@implicitNotFound("`ctx` can only be used inside a lexer rule, `ErrorHandling.lexer` or `ErrorHandling.parser`")
+@implicitNotFound("`ctx` can only be used inside a lexer rule, `ErrorHandling.forLexer` or `ErrorHandling.forParser`")
 opaque type CtxScope <: { type Ctx } = AnyRef { type Ctx }
 
 object CtxScope:
@@ -22,8 +22,8 @@ object CtxScope:
   extension (scope: CtxScope) @publicInBinary private[alpaca] def ctx: scope.Ctx = scope.asInstanceOf[scope.Ctx]
 
 /**
- * Evidence that code runs inside a `lexer` rule or an [[ErrorHandling.lexer]] handler, where `ctx` and `Token[...]`
- * are available. Only the `lexer` macro and `ErrorHandling.lexer` create one; its `Ctx` member is the lexer context
+ * Evidence that code runs inside a `lexer` rule or an [[ErrorHandling.forLexer]] handler, where `ctx` and `Token[...]`
+ * are available. Only the `lexer` macro and `ErrorHandling.forLexer` create one; its `Ctx` member is the lexer context
  * type.
  */
 @implicitNotFound("`ctx` and `Token` can only be used inside a lexer rule")

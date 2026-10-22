@@ -10,7 +10,7 @@ import scala.reflect.NameTransformer
 // $COVERAGE-OFF$
 
 /**
- * Points a lexer rule body or an `ErrorHandling.lexer` handler, typed against the scope its lambda binds, at `newCtx`:
+ * Points a lexer rule body or an `ErrorHandling.forLexer` handler, typed against the scope its lambda binds, at `newCtx`:
  * the scope itself becomes `newCtx` again, and every `ctx` unwrapping it becomes `newCtx` directly, so that
  * [[rewriteCtxMutations]] recognises it.
  *

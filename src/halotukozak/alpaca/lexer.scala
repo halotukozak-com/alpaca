@@ -127,11 +127,11 @@ object Token:
 // empirically stumbles on downstream, even though the two only differ in
 // which stable path they're attached to.
 /**
- * The context inside a `lexer` rule body or an [[ErrorHandling.lexer]] handler: read its fields, or assign them
+ * The context inside a `lexer` rule body or an [[ErrorHandling.forLexer]] handler: read its fields, or assign them
  * (`ctx.count += 1`) to change the context for the tokens that follow. The assignment is rewritten into a `copy`, so
  * the fields can stay `val`s.
  *
- * In an [[ErrorHandling.parser]] handler it is the parser context, changed in place as in the parser's actions.
+ * In an [[ErrorHandling.forParser]] handler it is the parser context, changed in place as in the parser's actions.
  */
 transparent inline def ctx[Ctx: CtxScope.Of as scope]: Ctx = ${ ctxImpl[Ctx]('scope) }
 

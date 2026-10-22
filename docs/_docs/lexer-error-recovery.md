@@ -213,14 +213,14 @@ MyLexer.tokenize("a @ b /* c") match
 
 ### Changing the Context from a Handler
 
-A handler written as a plain lambda gets the context as a value: it can read the fields, but not assign them. Build it with `ErrorHandling.lexer` instead, and `ctx` works as in a rule body. Assigning a field changes the context the lexer goes on with, so the fields can stay `val`s:
+A handler written as a plain lambda gets the context as a value: it can read the fields, but not assign them. Build it with `ErrorHandling.forLexer` instead, and `ctx` works as in a rule body. Assigning a field changes the context the lexer goes on with, so the fields can stay `val`s:
 
 ```scala
 import halotukozak.alpaca.*
 
 case class CountingCtx(line: Line = Line.Start, skipped: Int = 0) extends LexerCtx
 
-given ErrorHandling[CountingCtx, LexerError.Of[CountingCtx]] = ErrorHandling.lexer[CountingCtx]: error =>
+given ErrorHandling[CountingCtx, LexerError.Of[CountingCtx]] = ErrorHandling.forLexer: error =>
   ctx.skipped += 1
   if ctx.peek(2) == "/*" then ErrorHandling.Strategy.Stop else ErrorHandling.Strategy.SkipOne
 

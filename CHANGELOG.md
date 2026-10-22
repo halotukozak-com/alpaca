@@ -8,12 +8,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- `ErrorHandling.lexer[Ctx]: error => ...` builds a lexer error handler in which `ctx` works as in a rule body: assigning a field (`ctx.skipped += 1`) changes the context the lexer goes on with, so the fields can stay `val`s.
-- `ErrorHandling.parser[Ctx]: error => ...` builds a parser error handler with `ctx` in scope, as in the parser's actions.
+- `ErrorHandling.forLexer: error => ...` builds a lexer error handler in which `ctx` works as in a rule body: assigning a field (`ctx.skipped += 1`) changes the context the lexer goes on with, so the fields can stay `val`s.
+- `ErrorHandling.forParser: error => ...` builds a parser error handler with `ctx` in scope, as in the parser's actions.
 
 ### Changed
 
-- `ctx` outside a lexer rule or one of these handlers is reported as "`ctx` can only be used inside a lexer rule, `ErrorHandling.lexer` or `ErrorHandling.parser`".
+- `ctx` outside a lexer rule or one of these handlers is reported as "`ctx` can only be used inside a lexer rule, `ErrorHandling.forLexer` or `ErrorHandling.forParser`".
 
 ## [1.0.0-RC4] - 2026-10-13
 

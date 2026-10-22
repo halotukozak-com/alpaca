@@ -9,9 +9,9 @@ import scala.annotation.publicInBinary
 import scala.quoted.*
 
 /**
- * What [[ErrorHandling.lexer]] builds: `update` returns the strategy together with the updated context.
+ * What [[ErrorHandling.forLexer]] builds: `update` returns the strategy together with the updated context.
  *
- * Not `private`: [[ErrorHandling.lexer]] is inline, so it is constructed wherever that is called.
+ * Not `private`: [[ErrorHandling.forLexer]] is inline, so it is constructed wherever that is called.
  */
 final class CtxUpdatingErrorHandling[Ctx, Err] @publicInBinary private[alpaca] (
   update: (Ctx, Err) => (strategy: Strategy, ctx: Ctx),
@@ -25,7 +25,7 @@ final class CtxUpdatingErrorHandling[Ctx, Err] @publicInBinary private[alpaca] (
 
 // $COVERAGE-OFF$
 /**
- * Builds an [[ErrorHandling.lexer]] handler: its body runs against a local `var` holding the context, with every
+ * Builds an [[ErrorHandling.forLexer]] handler: its body runs against a local `var` holding the context, with every
  * context assignment rewritten into a `copy` of it as in a rule body (see [[rewriteCtxMutations]]), and returns the
  * strategy together with that `var`.
  */
@@ -41,7 +41,7 @@ final class CtxUpdatingErrorHandling[Ctx, Err] @publicInBinary private[alpaca] (
     case _ =>
       // at the call: a handler defined elsewhere is `underlying` there
       errorAndAbort(
-        show"An `ErrorHandling.lexer` handler must be a lambda written directly in its block, as in `error => ErrorHandling.Strategy.SkipOne`",
+        show"An `ErrorHandling.forLexer` handler must be a lambda written directly in its block, as in `error => ErrorHandling.Strategy.SkipOne`",
         Position.ofMacroExpansion,
       )
 
