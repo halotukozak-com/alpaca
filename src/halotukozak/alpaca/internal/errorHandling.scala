@@ -38,7 +38,7 @@ private def updatingErrorHandling[Ctx <: AlpacaCtx: Type, Err: Type](
   given Diagnostics = Diagnostics()
 
   // the error lambda is kept whole, with its own parameter: the types in its body may depend on it (`error.Fields`)
-  val (oldScope, onError) = handler.asTerm match
+  val (oldScope, onError) = handler.asTerm.underlying match
     case ScopedLambda(oldScope, onError @ Lambda(_ :: Nil, _)) => (oldScope, onError)
     case _ =>
       // at the call: a handler defined elsewhere is `underlying` there
@@ -51,7 +51,7 @@ private def updatingErrorHandling[Ctx <: AlpacaCtx: Type, Err: Type](
     val ctxVar = current.asTerm.symbol
     // the handler's method, which declares `current`
     val owner = ctxVar.owner
-    val body = Select.unique(onError, "apply").appliedTo(error.asTerm).changeOwner(owner)
+    val body = '{ ${ onError.asExprOf[Err => Strategy] }($error) }.asTerm.changeOwner(owner)
     val withNewCtx = replaceScope[Ctx](oldScope.symbol, current.asTerm)(PartialFunction.empty).transformTerm(body)(owner)
     val rewritten = rewriteCtxMutations(ctxVar)(withNewCtx)(owner)
     abortOnErrors()

@@ -4,12 +4,12 @@ package internal
 package parser
 
 import halotukozak.alpaca.{rule, ErrorHandling, ParserCtx, ParserError, ProductionDefinition, Result, Rule}
-import halotukozak.alpaca.internal.{fieldsTpeFrom, refinementTpeFrom, withDefault, RevertedArray, RuleOnly, ValidName, *}
+import halotukozak.alpaca.internal.{fieldsTpeFrom, refinementTpeFrom, withDefault, RevertedArray, ValidName, *}
 import halotukozak.alpaca.internal.lexer.Lexeme
 import halotukozak.alpaca.internal.parser.{Tables, *}
 
 import scala.NamedTuple.AnyNamedTuple
-import scala.annotation.{compileTimeOnly, publicInBinary, tailrec}
+import scala.annotation.{publicInBinary, tailrec}
 import scala.collection.mutable
 import scala.quoted.*
 
@@ -35,19 +35,7 @@ abstract class Parser[Ctx <: ParserCtx](
    */
   val root: Rule[?]
 
-  protected final given ParserScope = ParserScope.refl
-
-  /**
-   * The parser context inside an action: read its fields, or assign them (`ctx.count += 1`) to change the context
-   * for the actions that follow. The assignment is rewritten into a `copy`, so the fields can stay `val`s.
-   *
-   * This is compile-time only and can only be used inside parser rule definitions.
-   */
-  transparent inline protected final def ctx: Ctx = ${ ctxImpl[Ctx]('{ parserCtxScope }) }
-
-  // What `ctx` reads: the parser's tables replace it with the context each action runs against.
-  @compileTimeOnly(RuleOnly)
-  inline protected final def parserCtxScope: CtxScope.Of[Ctx] = null.asInstanceOf[CtxScope.Of[Ctx]]
+  protected final given ParserScope.Of[Ctx] = ParserScope.refl
 
   /**
    * Parses a list of lexemes using the defined grammar.
@@ -157,16 +145,19 @@ abstract class Parser[Ctx <: ParserCtx](
     .collect:
       case rule: ValOrDefDef if rule.tpt.tpe <:< TypeRepr.of[Rule[?]] => rule
 
-  val extractName: PartialFunction[Expr[Rule[?]], Seq[String]] =
-    case '{ rule(${ Varargs(cases) }*)(using $_) } =>
-      cases.flatMap:
-        case '{ ($name: ValidName).apply($_ : ProductionDefinition[?])(using $_) } => name.value
+  val extractName: PartialFunction[Term, Seq[String]] =
+    case RuleCall(productions) =>
+      productions.flatMap:
+        case ScopedLambda(_, named) =>
+          named.asExpr match
+            case '{ ($name: ValidName).apply($_ : ProductionDefinition[?])(using $_) } => name.value
+            case _ => None
         case _ => None
 
   val fields = rules
     .flatMap:
       case _: DefDef => Nil
-      case DefinitionRhs(_, rhs) => extractName.applyOrElse(rhs.asExprOf[Rule[?]], _ => Nil)
+      case DefinitionRhs(_, rhs) => extractName.applyOrElse(rhs, _ => Nil)
       case _ =>
         error(show"Define resolutions as the last field of the parser.", Position.ofMacroExpansion)
     .map(name => (name, TypeRepr.of[alpaca.Production]))

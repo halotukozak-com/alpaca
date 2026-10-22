@@ -9,11 +9,11 @@ import scala.reflect.NameTransformer
 // $COVERAGE-OFF$
 
 /**
- * Points a body typed against a [[CtxScope]] -- a lexer rule, a parser action or an `ErrorHandling.forLexer`/`.parser`
+ * Points a body typed against a [[CtxScope]] -- a lexer rule, a parser action or an `ErrorHandling.forLexer`/`.forParser`
  * handler -- at `newCtx`: the scope itself becomes `newCtx` again, and every `ctx` unwrapping it becomes `newCtx`
  * directly, so that [[rewriteCtxMutations]] recognises it.
  *
- * @param scope  the scope the body was typed against: the parameter of the user's lambda, or the parser's given
+ * @param scope  the scope the body was typed against: the parameter of the user's lambda
  * @param newCtx the context the body runs against
  * @param others replacements for other symbols of the user's lambda, such as its bound match
  */
@@ -33,33 +33,15 @@ private[internal] def replaceScope[Ctx <: AlpacaCtx: Type](
     case '[type lexerCtx <: LexerCtx; lexerCtx] => '{ LexerScope.refl[lexerCtx](${ newCtx.asExprOf[lexerCtx] }) }.asTerm
     case _ => '{ CtxScope.refl[Ctx](${ newCtx.asExprOf[Ctx] }) }.asTerm
 
-  // the scope and the proxies inlining `ctx` binds it to when it isn't a stable path, like the parser's given
-  val scopes = scala.collection.mutable.Set(scope)
-
-  // inlining `Parser.ctx` wraps the scope in empty `Inlined`s
-  @tailrec def withoutEmptyInlined(t: Term): Term = t match
-    case Inlined(_, Nil, inner) => withoutEmptyInlined(inner)
-    case _ => t
-
-  def isScope(t: Term): Boolean = scopes(withoutEmptyInlined(t).symbol)
-
   new TreeMap:
     override def transformTerm(t: Term)(owner: Symbol): Term = t match
-      case _ if scopes(t.symbol) => rescoped
+      case _ if t.symbol == scope => rescoped
       case _ if others.isDefinedAt(t.symbol) => others(t.symbol)
-      case Inlined(call, bindings, expansion) =>
-        val kept = bindings.filter:
-          case proxy @ ValDef(_, _, Some(rhs)) if scopes(rhs.symbol) =>
-            scopes += proxy.symbol
-            false
-          case _ => true
-        val transformed = kept.map(binding => transformStatement(binding)(owner).asInstanceOf[Definition])
-        Inlined(call, transformed, transformTerm(expansion)(owner))
       case block: Block => super.transformTerm(block.changeOwner(owner))(owner)
       case t if t.isExpr =>
         t.asExpr match
           // `ctx` unwraps the scope, which is the context itself
-          case '{ ($unwrapped: CtxScope).ctx } if isScope(unwrapped.asTerm) => newCtx
+          case '{ ($unwrapped: CtxScope).ctx } if unwrapped.asTerm.symbol == scope => newCtx
           case _ => super.transformTerm(t)(owner)
       case _ => super.transformTerm(t)(owner)
 }
@@ -193,17 +175,11 @@ private[internal] def rewriteCtxMutations(using
     case Apply(Apply(Select(recv, "applyDynamic"), List(Literal(StringConstant(name)))), List(args)) =>
       (recv, name, args)
 
-  // the binding inlining `Parser.ctx` adds for its `this`, which nothing reads once `ctx` is the context itself; a
-  // binding of a plain reference has no effect to keep
-  def isThisProxy(binding: Definition): Boolean = binding match
-    case ValDef(_, _, Some(_: Ident | _: This)) => true
-    case _ => false
-
   object unwrap:
     def apply(t: Term): Term = unapply(t).value
 
     @tailrec def unapply(t: Term): Some[Term] = t match
-      case Inlined(_, bindings, e) if bindings.forall(isThisProxy) => unapply(e)
+      case Inlined(_, Nil, e) => unapply(e)
       case Typed(e, _) => unapply(e)
       case Block(Nil, e) => unapply(e)
       case Cast(e) => unapply(e)
@@ -250,9 +226,6 @@ private[internal] def rewriteCtxMutations(using
         Assign(ctxRef, carry(copyWith(ctxRef, field, transformTerm(rhs)(owner)), ctxRef).changeOwner(owner))
       case Cast(unwrap(inner)) if isCtxRef(inner) =>
         inner
-      // an inlined `Parser.ctx`: its `this` proxy would refer to the parser from wherever the action ends up
-      case inlined: Inlined if isCtxRef(inlined) =>
-        ctxRef
       case Ident(_) if aliases(tree.symbol) =>
         ctxRef
       case Block(stats, expr) if stats.nonEmpty =>

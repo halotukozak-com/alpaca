@@ -52,10 +52,10 @@ import scala.reflect.NameTransformer
       field.pos.getOrElse(Position.ofMacroExpansion),
     )
 
-  val (oldScope, cases) = rules.asTerm match
+  val (oldScope, cases) = rules.asTerm.underlying match
     case ScopedLambda(oldScope, Lambda(_, Match(_, cases))) => (oldScope, cases)
     case other =>
-      val definition = other.underlying match
+      val definition = other match
         case Lambda(_, body) => body
         case _ => other
       errorAndAbort(

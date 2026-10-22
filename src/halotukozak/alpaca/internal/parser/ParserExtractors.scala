@@ -33,6 +33,22 @@ private[parser] object DefinitionRhs:
       case definition: ValOrDefDef => definition.rhs.map((definition.name, _))
       case _ => None
 
+/**
+ * Matches a `rule(...)` call with its productions. Matched in reflect rather than with a quote pattern, which fails on
+ * the productions' type: it depends on the parser's scope.
+ */
+private[internal] object RuleCall:
+  def unapply(using quotes: Quotes)(term: quotes.reflect.Term): Option[List[quotes.reflect.Term]] =
+    import quotes.reflect.*
+    term match
+      case Apply(TypeApply(Apply(rule, _ :: Nil), _), Typed(Repeated(productions, _), _) :: Nil)
+          if rule.symbol == ruleSymbol =>
+        Some(productions)
+      case _ => None
+
+  private def ruleSymbol(using quotes: Quotes): quotes.reflect.Symbol =
+    quotes.reflect.Symbol.requiredModule("halotukozak.alpaca.parser$package").methodMember("rule").head
+
 /** A production with where it is defined and the action it runs on reduction. */
 private[parser] type ProductionWithAction[Ctx <: ParserCtx] = (
   production: Production,

@@ -47,9 +47,12 @@ object ResolutionScope:
  * are available. Every [[Parser]] provides one.
  */
 @implicitNotFound("`rule`, named productions, and token and rule extractors can only be used inside a parser definition")
-opaque type ParserScope = Unit
+opaque type ParserScope <: { type Ctx <: ParserCtx } = AnyRef & { type Ctx <: ParserCtx }
 object ParserScope:
-  private[alpaca] def refl: ParserScope = ()
+  /** The scope of a parser whose context type is `Ctx0`. */
+  type Of[Ctx0 <: ParserCtx] = ParserScope { type Ctx = Ctx0 }
+
+  private[alpaca] def refl[Ctx <: ParserCtx]: Of[Ctx] = null.asInstanceOf[Of[Ctx]]
 
 /**
  * Collects the conflict resolutions for the parser `ParserType`, each written with `before` or `after` (see [[Resolutions]]).
@@ -109,7 +112,11 @@ type ProductionDefinition[Value] = PartialFunction[Tuple | Lexeme[?, ?], Value]
  * @return a Rule instance
  */
 @compileTimeOnly(ParserOnly)
-inline def rule[Value](@unused inline productions: ProductionDefinition[Value]*)(using ParserScope): Rule[Value] =
+inline def rule(
+  using scope: ParserScope,
+)[Value](
+  @unused inline productions: (CtxScope.Of[scope.Ctx] ?=> ProductionDefinition[Value])*,
+): Rule[Value] =
   null.asInstanceOf[Rule[Value]]
 
 extension (name: String)
