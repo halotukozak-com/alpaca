@@ -73,8 +73,6 @@ import scala.reflect.NameTransformer
         case bound if !tree.symbol.isNoSymbol && bound == tree.symbol =>
           '{ ${ newCtx.asExprOf[Ctx] }.lastRawMatched }.asTerm
 
-      def replaceWithNewCtx(newCtx: Term) = replaceScope[Ctx](oldScope.symbol, newCtx)(boundMatch(newCtx))
-
       // whether `term` refers to the context or to the bound match, i.e. whether its remapping needs the new context
       def readsCtx(term: Term): Boolean =
         val syms = Set(oldScope.symbol, tree.symbol).filterNot(_.isNoSymbol)
@@ -145,7 +143,8 @@ import scala.reflect.NameTransformer
                     if readsCtx(value.asTerm) then
                       createLambda[Ctx => result]:
                         case (methSym, (newCtx: Term) :: Nil) =>
-                          val withNewCtx = replaceWithNewCtx(newCtx).transformTerm(value.asTerm)(methSym)
+                          val withNewCtx = replaceScope[Ctx](oldScope.symbol, newCtx)(boundMatch(newCtx))
+                            .transformTerm(value.asTerm)(methSym)
                           rewriteCtxMutations(newCtx.symbol)(withNewCtx)(methSym)
                     // a value that ignores the context, e.g. `Token["Null"](null)`, gets a wildcard parameter,
                     // otherwise -Wunused:explicits reports the unused one at the user's call site
