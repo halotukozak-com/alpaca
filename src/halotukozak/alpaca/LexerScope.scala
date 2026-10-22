@@ -16,9 +16,7 @@ object CtxScope:
   /** The scope of a context of type `Ctx0`. */
   type Of[Ctx0 <: AlpacaCtx] = CtxScope { type Ctx = Ctx0 }
 
-  // At runtime the scope is the context itself, so neither direction allocates.
-  @publicInBinary private[alpaca] def refl[C <: AlpacaCtx](ctx: C): Of[C] = ctx.asInstanceOf[Of[C]]
-
+  // At runtime the scope is the context itself: the macros cast the context to it, and this casts it back.
   extension (scope: CtxScope) @publicInBinary private[alpaca] def ctx: scope.Ctx = scope.asInstanceOf[scope.Ctx]
 
 /**
@@ -33,8 +31,6 @@ object LexerScope:
   /** The scope of a lexer whose context type is `Ctx0`. */
   type Of[Ctx0 <: LexerCtx] = LexerScope { type Ctx = Ctx0 }
 
-  @publicInBinary private[alpaca] def refl[C <: LexerCtx](ctx: C): Of[C] = ctx.asInstanceOf[Of[C]]
-
 /**
  * Evidence that code runs inside a production of a parser's `rule`, where `ctx` and the token and rule extractors
  * (`MyLexer.NUM(n)`, `Expr(e)`, `Expr.List(es)`) are available. Only `rule` binds one; its `Ctx` member is the parser
@@ -46,5 +42,3 @@ opaque type ProductionScope <: CtxScope & { type Ctx <: ParserCtx } = ParserCtx 
 object ProductionScope:
   /** The scope of a production of a parser whose context type is `Ctx0`. */
   type Of[Ctx0 <: ParserCtx] = ProductionScope { type Ctx = Ctx0 }
-
-  @publicInBinary private[alpaca] def refl[C <: ParserCtx](ctx: C): Of[C] = ctx.asInstanceOf[Of[C]]
