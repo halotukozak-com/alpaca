@@ -67,6 +67,25 @@ private[internal] def createLambda[F: Type](
 }
 
 /**
+ * A context function written in place, `scope ?=> inner`: a lexer's rules or an error handler.
+ * Seen through the empty `Inlined`s wrapping an inline argument and its body, but not with `underlying`, which would also replace
+ * the user's local definitions with their right-hand sides: `count += 1` on a local `var` would assign its initial
+ * value.
+ */
+private[internal] object ScopedLambda:
+  def unapply(using quotes: Quotes)(term: quotes.reflect.Term)
+    : Option[(scope: quotes.reflect.ValDef, inner: quotes.reflect.Term)] = {
+    import quotes.reflect.*
+    def withoutInlined(term: Term): Term = term match
+      case Inlined(_, Nil, expansion) => withoutInlined(expansion)
+      case _ => term
+
+    withoutInlined(term) match
+      case Lambda(scope :: Nil, inner) => Some((scope = scope, inner = withoutInlined(inner)))
+      case _ => None
+  }
+
+/**
  * ToExpr instance for NamedTuple.
  *
  * Allows named tuples to be lifted to expressions during macro expansion

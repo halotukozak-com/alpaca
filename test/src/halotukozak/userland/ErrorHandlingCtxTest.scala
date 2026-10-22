@@ -53,6 +53,21 @@ final class ErrorHandlingCtxTest extends AnyFunSuite with Matchers with LoneElem
     errors.map(error => (error.unexpected, error.skips)) shouldBe List(("??", 0), ("!", 1))
   }
 
+  test("a lexer rule and a handler assign the local vars they capture") {
+    var words = 0
+    var skipped = 0
+    given ErrorHandling[LexerCtx.Default, LexerError.Of[LexerCtx.Default]] = ErrorHandling.forLexer: _ =>
+      skipped += 1
+      ErrorHandling.Strategy.SkipOne
+    val CountingLexer = lexer:
+      case "[a-z]+" =>
+        words += 1
+        Token["WORD"]
+      case " " => Token.Ignored
+    val _ = CountingLexer.tokenize("ab ? cd !")
+    (words, skipped) shouldBe (2, 2)
+  }
+
   test("an ErrorHandling.forLexer handler must be a lambda") {
     val error = typeCheckErrors("""
       val strategy: LexerScope.Of[NotesCtx] ?=> LexerError.Of[NotesCtx] => ErrorHandling.Strategy =

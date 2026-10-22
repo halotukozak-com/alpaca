@@ -52,11 +52,11 @@ import scala.reflect.NameTransformer
       field.pos.getOrElse(Position.ofMacroExpansion),
     )
 
-  val (oldScope, cases) = rules.asTerm.underlying match
-    case Lambda(oldScope :: Nil, Lambda(_, Match(_, cases))) => (oldScope, cases)
+  val (oldScope, cases) = rules.asTerm match
+    case ScopedLambda(oldScope, Lambda(_, Match(_, cases))) => (oldScope, cases)
     case other =>
       val definition = other match
-        case Lambda(_, body) => body
+        case ScopedLambda(_, body) => body
         case _ => other
       errorAndAbort(
         show"Lexer rules must be a list of `case`s written directly in the `lexer` block, as in `case \"[0-9]+\" => Token[\"NUM\"]`",
@@ -68,7 +68,8 @@ import scala.reflect.NameTransformer
 
   val tokens = cases.foldLeft(List.empty[CompiledRule]):
     case (acc, CaseDef(tree, None, body)) =>
-      def replaceWithNewCtx(newCtx: Term) = replaceScope[Ctx](oldScope.symbol, newCtx):
+      // the bound match is the text the rule matched
+      def boundMatch(newCtx: Term): PartialFunction[Symbol, Term] =
         case bound if !tree.symbol.isNoSymbol && bound == tree.symbol =>
           '{ ${ newCtx.asExprOf[Ctx] }.lastRawMatched }.asTerm
 
@@ -142,7 +143,8 @@ import scala.reflect.NameTransformer
                     if readsCtx(value.asTerm) then
                       createLambda[Ctx => result]:
                         case (methSym, (newCtx: Term) :: Nil) =>
-                          val withNewCtx = replaceWithNewCtx(newCtx).transformTerm(value.asTerm)(methSym)
+                          val withNewCtx = replaceScope[Ctx](oldScope.symbol, newCtx)(boundMatch(newCtx))
+                            .transformTerm(value.asTerm)(methSym)
                           rewriteCtxMutations(newCtx.symbol)(withNewCtx)(methSym)
                     // a value that ignores the context, e.g. `Token["Null"](null)`, gets a wildcard parameter,
                     // otherwise -Wunused:explicits reports the unused one at the user's call site
@@ -170,12 +172,14 @@ import scala.reflect.NameTransformer
             case Block(statements, expr) =>
               val ctxManipulation = createLambda[CtxManipulation[Ctx]]:
                 case (methSym, (newCtx: Term) :: Nil) =>
-                  val ctxVar = Symbol.newVal(methSym, "$ctx", TypeRepr.of[Ctx], Flags.Mutable, Symbol.noSymbol)
-                  val withNewCtx = replaceWithNewCtx(Ref(ctxVar)).transformTerm(
-                    Block(statements.map(_.changeOwner(methSym)), Literal(UnitConstant())),
-                  )(methSym)
-                  val rewritten = rewriteCtxMutations(ctxVar)(withNewCtx)(methSym)
-                  Block(List(ValDef(ctxVar, Some(newCtx))), Block(List(rewritten), Ref(ctxVar)))
+                  threadCtx[Ctx, Ctx](
+                    methSym,
+                    newCtx.asExprOf[Ctx],
+                    oldScope.symbol,
+                    Block(statements, Literal(UnitConstant())),
+                    boundMatch(newCtx),
+                  ): (body, ctx) =>
+                    Block(List(body), ctx.getOrElse(newCtx))
 
               extractSimple(ctxManipulation).lift(expr.asExprOf[TokenDef[ValidName, Ctx, Any]])
             case _ => None

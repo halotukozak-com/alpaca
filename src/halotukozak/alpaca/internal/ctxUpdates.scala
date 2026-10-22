@@ -1,9 +1,8 @@
 package halotukozak
 package alpaca
 package internal
-package lexer
 
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 import scala.quoted.*
 import scala.reflect.NameTransformer
 
@@ -18,7 +17,7 @@ import scala.reflect.NameTransformer
  * @param newCtx the context the body runs against
  * @param others replacements for other symbols of the user's lambda, such as its bound match
  */
-private[lexer] def replaceScope[Ctx <: LexerCtx: Type](
+private[internal] def replaceScope[Ctx <: LexerCtx: Type](
   using
   quotes: Quotes,
 )(
@@ -41,6 +40,81 @@ private[lexer] def replaceScope[Ctx <: LexerCtx: Type](
           case _ => super.transformTerm(t)(owner)
       case _ => super.transformTerm(t)(owner)
 }
+
+/**
+ * `body`, typed against `scope`, run against `initial` with its context assignments threaded through a local `var`
+ * (see [[replaceScope]] and [[rewriteCtxMutations]]). `result` builds what the block returns from the body and the
+ * updated context, `None` when the body assigns nothing: then there is no `var`, and the body runs against `initial`
+ * directly. `result` must evaluate the body before the context, as `(body, ctx)` does.
+ *
+ * @param owner   the owner of the block, e.g. the lambda it is the body of
+ * @param initial the context to start from
+ * @param scope   the scope `body` was typed against
+ * @param body    the user's code
+ * @param others  replacements for other symbols of the user's code, as in [[replaceScope]]
+ * @param result  what the block returns, from the rewritten body and the updated context
+ */
+private[internal] def threadCtx[Ctx <: LexerCtx: Type, Result: Type](
+  using
+  quotes: Quotes,
+  diagnostics: Diagnostics,
+)(
+  owner: quotes.reflect.Symbol,
+  initial: Expr[Ctx],
+  scope: quotes.reflect.Symbol,
+  body: quotes.reflect.Term,
+  others: PartialFunction[quotes.reflect.Symbol, quotes.reflect.Term] = PartialFunction.empty,
+)(
+  result: (body: quotes.reflect.Term, ctx: Option[quotes.reflect.Term]) => quotes.reflect.Term,
+): quotes.reflect.Term = {
+  import quotes.reflect.*
+
+  def threaded(current: Expr[Ctx]): Expr[Result] =
+    val ctxSymbol = current.asTerm.symbol
+    // what declares `current`: the quote below, or `owner` for the initial context
+    val ctxOwner = ctxSymbol.owner
+    val replaced = replaceScope[Ctx](scope, current.asTerm)(others).transformTerm(body.changeOwner(ctxOwner))(ctxOwner)
+    val rewritten = rewriteCtxMutations(ctxSymbol)(replaced)(ctxOwner)
+    // in terms: `current` belongs to the splice, so a quote of the caller's must not splice it
+    result(rewritten, Option.when(assigns(rewritten, ctxSymbol))(current.asTerm)).asExprOf[Result]
+
+  // a `var` only for a body that assigns: one never assigned is reported as unset where the code expands
+  if !assignsCtx(body) then threaded(initial).asTerm
+  // a quote re-homes what it splices to the macro's own owner, so `changeOwner` puts it under `owner`
+  else
+    '{
+      // assigned only by the rewritten body, spliced in below
+      @nowarn("msg=unset local variable") var current = $initial
+      ${ threaded('current) }
+    }.asTerm.changeOwner(owner)
+}
+
+/**
+ * Whether `body` assigns a context field: calls a setter through `applyDynamic`, as `ctx.count += 1` does. Read before
+ * the body is rewritten, to tell whether it needs a `var`.
+ */
+private[internal] def assignsCtx(using quotes: Quotes)(body: quotes.reflect.Term): Boolean = {
+  import quotes.reflect.*
+
+  new TreeAccumulator[Boolean]:
+    def foldTree(found: Boolean, tree: Tree)(owner: Symbol): Boolean = found ||
+      (tree match
+        case Apply(Apply(Select(_, "applyDynamic"), List(Literal(StringConstant(name)))), _)
+            if NameTransformer.decode(name).endsWith("_=") =>
+          true
+        case _ => foldOverTree(found, tree)(owner))
+  .foldTree(false, body)(Symbol.spliceOwner)
+}
+
+/** Whether `body` assigns `ctxVar`, i.e. whether [[rewriteCtxMutations]] rewrote any context assignment in it. */
+private[internal] def assigns(using quotes: Quotes)(body: quotes.reflect.Term, ctxVar: quotes.reflect.Symbol): Boolean =
+  import quotes.reflect.*
+  new TreeAccumulator[Boolean]:
+    def foldTree(found: Boolean, tree: Tree)(owner: Symbol): Boolean = found ||
+      (tree match
+        case Assign(lhs, _) if lhs.symbol == ctxVar => true
+        case _ => foldOverTree(found, tree)(owner))
+  .foldTree(false, body)(Symbol.spliceOwner)
 
 /**
  * Rewrites structural field-mutation syntax on a lexer context back into
@@ -96,7 +170,7 @@ private[lexer] def replaceScope[Ctx <: LexerCtx: Type](
  * @param body the rule statements to rewrite
  * @param owner the owner to use when transforming the body
  */
-private[lexer] def rewriteCtxMutations(using
+private[internal] def rewriteCtxMutations(using
   Quotes,
   Diagnostics,
 )(
