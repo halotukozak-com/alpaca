@@ -126,7 +126,7 @@ object Tables:
           cases.iterator
             .flatMap:
               // the scope the production binds, which its `ctx` reads
-              case withoutInlined(Lambda(scope :: Nil, withoutInlined(production))) =>
+              case dropInlined(Lambda(scope :: Nil, dropInlined(production))) =>
                 Some((scope.symbol, extractProductionName(production)))
               case other =>
                 error(show"Unexpected production definition: $other", other.pos)

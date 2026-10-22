@@ -53,10 +53,10 @@ import scala.reflect.NameTransformer
     )
 
   val (oldScope, cases) = rules.asTerm match
-    case withoutInlined(Lambda(oldScope :: Nil, withoutInlined(Lambda(_, Match(_, cases))))) => (oldScope, cases)
+    case dropInlined(Lambda(oldScope :: Nil, dropInlined(Lambda(_, Match(_, cases))))) => (oldScope, cases)
     case other =>
       val definition = other match
-        case withoutInlined(Lambda(_ :: Nil, withoutInlined(body))) => body
+        case dropInlined(Lambda(_ :: Nil, dropInlined(body))) => body
         case _ => other
       errorAndAbort(
         show"Lexer rules must be a list of `case`s written directly in the `lexer` block, as in `case \"[0-9]+\" => Token[\"NUM\"]`",

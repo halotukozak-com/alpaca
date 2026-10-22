@@ -71,10 +71,10 @@ private[internal] def createLambda[F: Type](
  * `underlying`, which would also replace the user's local definitions with their right-hand sides: `count += 1` on a
  * local `var` would assign its initial value.
  */
-private[internal] val withoutInlined: (quotes: Quotes) ?=> PartialFunction[quotes.reflect.Term, quotes.reflect.Term] =
+private[internal] val dropInlined: (quotes: Quotes) ?=> PartialFunction[quotes.reflect.Term, quotes.reflect.Term] =
   import quotes.reflect.*
   {
-    case Inlined(_, Nil, expansion) => withoutInlined(expansion)
+    case Inlined(_, Nil, expansion) => dropInlined(expansion)
     case term => term
   }
 
