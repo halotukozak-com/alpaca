@@ -104,9 +104,9 @@ private[parser] def extractEBNFAndAction[Ctx <: ParserCtx: Type](using Quotes, D
     override def apply(x: Tree): (name: String, bind: Option[Bind], extractor: String | Null) = underlying.apply(x)
 
   object Extractor:
-    // `.List`, `.Option` and `.SeparatedBy` take the `ParserScope` as an argument
+    // `.List`, `.Option` and `.SeparatedBy` take the `RuleScope` as an argument
     val WithoutScope: PartialFunction[Tree, Tree] =
-      case Apply(fn, List(scope)) if scope.tpe <:< TypeRepr.of[ParserScope] => fn
+      case Apply(fn, List(scope)) if scope.tpe <:< TypeRepr.of[RuleScope] => fn
       case other => other
 
     private val Name: PartialFunction[Term, String] =

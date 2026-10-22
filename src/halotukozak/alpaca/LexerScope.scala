@@ -36,3 +36,17 @@ object LexerScope:
   type Of[Ctx0 <: LexerCtx] = LexerScope { type Ctx = Ctx0 }
 
   @publicInBinary private[alpaca] def refl[C <: LexerCtx](ctx: C): Of[C] = ctx.asInstanceOf[Of[C]]
+
+/**
+ * Evidence that code runs inside a production of a parser's `rule`, where `ctx` and the token and rule extractors
+ * (`MyLexer.NUM(n)`, `Expr(e)`, `Expr.List(es)`) are available. Only `rule` binds one; its `Ctx` member is the parser
+ * context type.
+ */
+@implicitNotFound("Token and rule extractors can only be used in a production of a `rule`")
+opaque type RuleScope <: CtxScope & { type Ctx <: ParserCtx } = ParserCtx & { type Ctx <: ParserCtx }
+
+object RuleScope:
+  /** The scope of a production of a parser whose context type is `Ctx0`. */
+  type Of[Ctx0 <: ParserCtx] = RuleScope { type Ctx = Ctx0 }
+
+  @publicInBinary private[alpaca] def refl[C <: ParserCtx](ctx: C): Of[C] = ctx.asInstanceOf[Of[C]]
