@@ -82,8 +82,6 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
           val cpLen = Character.charCount(Character.codePointAt(globalCtx.input, 0))
           val unexpected =
             alpaca.LexerError[LexemeFields](globalCtx.input.subSequence(0, cpLen).toString, fieldNames, globalCtx)
-          // the errors keep the context from before the handler
-          val beforeHandler = globalCtx
           val handled = errorHandling.handle(globalCtx, unexpected)
           globalCtx = handled.ctx
           handled.strategy match {
@@ -91,7 +89,8 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
               val skipped =
                 matcher.findFirst(globalCtx.input, cpLen).fold(cpLen)((firstMatching, _, _) => firstMatching)
               val matchedStr = globalCtx.input.subSequence(0, skipped).toString
-              errors += alpaca.LexerError[LexemeFields](matchedStr, fieldNames, beforeHandler)
+              // a handler assigns `var` fields in place, so keep the fields `unexpected` read before it
+              errors += new alpaca.LexerError(matchedStr, fieldNames, unexpected.fieldValues).asInstanceOf[LexerError]
               globalCtx.lastRawMatched = matchedStr
               globalCtx.input = globalCtx.input.from(skipped)
               Step.Matched(RecoveredToken(matchedStr))

@@ -20,9 +20,18 @@ val NotesLexer = lexer[NotesCtx]:
   case "\n" => Token.Ignored
   case "[a-z]+" => Token["WORD"]
 
+final case class SkipCountCtx(var skips: Int = 0) extends LexerCtx
+
+given ErrorHandling[SkipCountCtx, LexerError.Of[SkipCountCtx]] = ErrorHandling.lexer: _ =>
+  ctx.skips += 1
+  ErrorHandling.Strategy.SkipToNextMatch
+
+val SkipCountLexer = lexer[SkipCountCtx]:
+  case "[a-z]+" => Token["WORD"]
+
 final case class SkipBudgetCtx(var skipsLeft: Int = 1, var seen: List[String] = Nil) extends ParserCtx
 
-given ErrorHandling[SkipBudgetCtx, ParserError] = ErrorHandling.parser[SkipBudgetCtx]: error =>
+given ErrorHandling[SkipBudgetCtx, ParserError] = ErrorHandling.parser: error =>
   ctx.seen :+= error.unexpected.fold("end")(_.text)
   if ctx.skipsLeft == 0 then ErrorHandling.Strategy.Stop
   else
@@ -57,6 +66,12 @@ final class ErrorHandlingCtxTest extends AnyFunSuite with Matchers with LoneElem
     val Result.Failure(ctx, _, errors) = NotesLexer.tokenize("a##b").runtimeChecked
     ctx.notes shouldBe List("# on line 1")
     errors.map(error => (error.unexpected, error.notes)) shouldBe List(("##", Nil))
+  }
+
+  test("a SkipToNextMatch error keeps the var fields from before its handler ran") {
+    val Result.Failure(ctx, _, errors) = SkipCountLexer.tokenize("a??b!c").runtimeChecked
+    ctx.skips shouldBe 2
+    errors.map(error => (error.unexpected, error.skips)) shouldBe List(("??", 0), ("!", 1))
   }
 
   test("ErrorHandling.parser changes the parser context in place, as the actions do") {
