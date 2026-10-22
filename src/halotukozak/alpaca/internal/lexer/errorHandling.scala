@@ -21,10 +21,10 @@ import scala.quoted.*
   import quotes.reflect.*
   given Diagnostics = Diagnostics()
 
-  val (oldScope, oldError, body) = handler.asTerm.underlying match
-    case Lambda(oldScope :: Nil, Lambda(oldError :: Nil, body)) => (oldScope, oldError, body)
+  val (oldScope, oldError, body) = handler.asTerm match
+    case dropInlined(Lambda(oldScope :: Nil, dropInlined(Lambda(oldError :: Nil, body)))) => (oldScope, oldError, body)
     case _ =>
-      // at the call: a handler defined elsewhere is `underlying` there
+      // at the call: a handler defined elsewhere has its position there
       errorAndAbort(
         show"An `ErrorHandling.forLexer` handler must be a lambda written directly in its block, as in `error => ErrorHandling.Strategy.SkipOne`",
         Position.ofMacroExpansion,

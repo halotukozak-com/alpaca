@@ -10,6 +10,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `ErrorHandling.forLexer: error => ...` builds a lexer error handler in which `ctx` works as in a rule body: assigning a field (`ctx.skipped += 1`) changes the context the lexer goes on with, so the fields can stay `val`s.
 
+### Fixed
+
+- A lexer rule or error handler can assign a local `var` it captures; it failed to compile with "Reassignment to val".
+
 ## [1.0.0-RC4] - 2026-10-13
 
 ### Changed

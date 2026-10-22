@@ -52,11 +52,11 @@ import scala.reflect.NameTransformer
       field.pos.getOrElse(Position.ofMacroExpansion),
     )
 
-  val (oldScope, cases) = rules.asTerm.underlying match
-    case Lambda(oldScope :: Nil, Lambda(_, Match(_, cases))) => (oldScope, cases)
+  val (oldScope, cases) = rules.asTerm match
+    case dropInlined(Lambda(oldScope :: Nil, dropInlined(Lambda(_, Match(_, cases))))) => (oldScope, cases)
     case other =>
       val definition = other match
-        case Lambda(_, body) => body
+        case dropInlined(Lambda(_ :: Nil, dropInlined(body))) => body
         case _ => other
       errorAndAbort(
         show"Lexer rules must be a list of `case`s written directly in the `lexer` block, as in `case \"[0-9]+\" => Token[\"NUM\"]`",
