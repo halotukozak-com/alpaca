@@ -67,6 +67,18 @@ private[internal] def createLambda[F: Type](
 }
 
 /**
+ * A context function written in place whose body is itself a lambda, `scope ?=> params => body`: a lexer's rules or an
+ * error handler. Seen through the `Inlined` wrapping an inline argument.
+ */
+private[internal] object ScopedLambda:
+  def unapply(using quotes: Quotes)(term: quotes.reflect.Term)
+    : Option[(scope: quotes.reflect.ValDef, inner: quotes.reflect.Term)] =
+    import quotes.reflect.*
+    term.underlying match
+      case Lambda(scope :: Nil, inner @ Lambda(_, _)) => Some((scope = scope, inner = inner))
+      case _ => None
+
+/**
  * ToExpr instance for NamedTuple.
  *
  * Allows named tuples to be lifted to expressions during macro expansion

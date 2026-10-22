@@ -38,8 +38,8 @@ private def updatingErrorHandling[Ctx <: AlpacaCtx: Type, Err: Type](
   given Diagnostics = Diagnostics()
 
   // the error lambda is kept whole, with its own parameter: the types in its body may depend on it (`error.Fields`)
-  val (oldScope, onError) = handler.asTerm.underlying match
-    case Lambda(oldScope :: Nil, onError @ Lambda(_ :: Nil, _)) => (oldScope, onError)
+  val (oldScope, onError) = handler.asTerm match
+    case ScopedLambda(oldScope, onError @ Lambda(_ :: Nil, _)) => (oldScope, onError)
     case _ =>
       // at the call: a handler defined elsewhere is `underlying` there
       errorAndAbort(
