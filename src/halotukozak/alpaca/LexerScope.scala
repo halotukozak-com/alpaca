@@ -43,10 +43,10 @@ object LexerScope:
  * context type.
  */
 @implicitNotFound("Token and rule extractors can only be used in a production of a `rule`")
-opaque type RuleScope <: CtxScope & { type Ctx <: ParserCtx } = ParserCtx & { type Ctx <: ParserCtx }
+opaque type ProductionScope <: CtxScope & { type Ctx <: ParserCtx } = ParserCtx & { type Ctx <: ParserCtx }
 
-object RuleScope:
+object ProductionScope:
   /** The scope of a production of a parser whose context type is `Ctx0`. */
-  type Of[Ctx0 <: ParserCtx] = RuleScope { type Ctx = Ctx0 }
+  type Of[Ctx0 <: ParserCtx] = ProductionScope { type Ctx = Ctx0 }
 
   @publicInBinary private[alpaca] def refl[C <: ParserCtx](ctx: C): Of[C] = ctx.asInstanceOf[Of[C]]

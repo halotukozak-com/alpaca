@@ -15,7 +15,7 @@ import scala.quoted.*
   updatingErrorHandling[Ctx, LexerError.Of[Ctx]](handler, "ErrorHandling.forLexer")
 
 @publicInBinary private[alpaca] def parserErrorHandlingImpl[Ctx <: ParserCtx: Type](
-  handler: Expr[RuleScope.Of[Ctx] ?=> ParserError => Strategy],
+  handler: Expr[ProductionScope.Of[Ctx] ?=> ParserError => Strategy],
 )(using Quotes,
 ): Expr[ErrorHandling[Ctx]] =
   updatingErrorHandling[Ctx, ParserError](handler, "ErrorHandling.forParser")

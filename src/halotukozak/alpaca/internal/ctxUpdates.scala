@@ -32,7 +32,7 @@ private[internal] def replaceScope[Ctx <: AlpacaCtx: Type](
   def rescoped: Term = Type.of[Ctx] match
     case '[type lexerCtx <: LexerCtx; lexerCtx] => '{ LexerScope.refl[lexerCtx](${ newCtx.asExprOf[lexerCtx] }) }.asTerm
     case '[type parserCtx <: ParserCtx; parserCtx] =>
-      '{ RuleScope.refl[parserCtx](${ newCtx.asExprOf[parserCtx] }) }.asTerm
+      '{ ProductionScope.refl[parserCtx](${ newCtx.asExprOf[parserCtx] }) }.asTerm
     case _ => '{ CtxScope.refl[Ctx](${ newCtx.asExprOf[Ctx] }) }.asTerm
 
   new TreeMap:
