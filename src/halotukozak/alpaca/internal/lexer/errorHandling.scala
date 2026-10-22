@@ -5,7 +5,7 @@ package lexer
 
 import halotukozak.alpaca.ErrorHandling.Strategy
 
-import scala.annotation.publicInBinary
+import scala.annotation.{nowarn, publicInBinary}
 import scala.quoted.*
 
 // $COVERAGE-OFF$
@@ -44,7 +44,8 @@ import scala.quoted.*
   '{
     new ErrorHandling[Ctx, LexerError.Of[Ctx]]:
       private def update(initial: Ctx, error: LexerError.Of[Ctx]): (strategy: Strategy, ctx: Ctx) =
-        var current = initial
+        // assigned only by the rewritten handler, spliced in below
+        @nowarn("msg=unset local variable") var current = initial
         // the strategy first, so `ctx` is the context the handler left
         (strategy = ${ run('current, 'error) }, ctx = current)
 
