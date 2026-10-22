@@ -37,7 +37,7 @@ private[lexer] def replaceScope[Ctx <: LexerCtx: Type](
       case t if t.isExpr =>
         t.asExpr match
           // `ctx` unwraps the scope, which is the context itself
-          case '{ ($unwrapped: CtxScope).ctx } if unwrapped.asTerm.symbol == scope => newCtx
+          case '{ ($unwrapped: LexerScope).ctx } if unwrapped.asTerm.symbol == scope => newCtx
           case _ => super.transformTerm(t)(owner)
       case _ => super.transformTerm(t)(owner)
 }
