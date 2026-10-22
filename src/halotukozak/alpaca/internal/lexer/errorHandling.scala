@@ -45,20 +45,22 @@ final class CtxUpdatingErrorHandling[Ctx, Err] @publicInBinary private[alpaca] (
         Position.ofMacroExpansion,
       )
 
-  val update = createLambda[(Ctx, LexerError.Of[Ctx]) => (strategy: Strategy, ctx: Ctx)]:
-    case (methSym, (newCtx: Term) :: (newError: Term) :: Nil) =>
-      val ctxVar = Symbol.newVal(methSym, "$ctx", TypeRepr.of[Ctx], Flags.Mutable, Symbol.noSymbol)
-      val strategy = Symbol.newVal(methSym, "$strategy", TypeRepr.of[Strategy], Flags.EmptyFlags, Symbol.noSymbol)
-      val withNewCtx = replaceScope[Ctx](oldScope.symbol, Ref(ctxVar)):
-        case error if error == oldError.symbol => newError
-      .transformTerm(body.changeOwner(methSym))(methSym)
-      val rewritten = rewriteCtxMutations(ctxVar)(withNewCtx)(methSym)
-      Block(
-        List(ValDef(ctxVar, Some(newCtx)), ValDef(strategy, Some(rewritten.changeOwner(strategy)))),
-        '{ (strategy = ${ Ref(strategy).asExprOf[Strategy] }, ctx = ${ Ref(ctxVar).asExprOf[Ctx] }) }.asTerm,
-      )
+  def run(current: Expr[Ctx], error: Expr[LexerError.Of[Ctx]]): Expr[Strategy] =
+    val ctxVar = current.asTerm.symbol
+    // the handler's lambda, which declares `current`
+    val owner = ctxVar.owner
+    val withNewCtx = replaceScope[Ctx](oldScope.symbol, current.asTerm):
+      case symbol if symbol == oldError.symbol => error.asTerm
+    .transformTerm(body.changeOwner(owner))(owner)
+    rewriteCtxMutations(ctxVar)(withNewCtx)(owner).asExprOf[Strategy]
 
   abortOnErrors()
-  '{ new CtxUpdatingErrorHandling[Ctx, LexerError.Of[Ctx]]($update) }
+  '{
+    new CtxUpdatingErrorHandling[Ctx, LexerError.Of[Ctx]]((initial, error) =>
+      var current = initial
+      // the strategy first, so `ctx` is the context the handler left
+      (strategy = ${ run('current, 'error) }, ctx = current),
+    )
+  }
 }
 // $COVERAGE-ON$
