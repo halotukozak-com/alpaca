@@ -28,9 +28,11 @@ private[internal] def replaceScope[Ctx <: AlpacaCtx: Type](
 ): quotes.reflect.TreeMap = {
   import quotes.reflect.*
 
-  // a lexer's `Token` needs its own scope type back
+  // a lexer's `Token` and a parser's extractors need their own scope type back
   def rescoped: Term = Type.of[Ctx] match
     case '[type lexerCtx <: LexerCtx; lexerCtx] => '{ LexerScope.refl[lexerCtx](${ newCtx.asExprOf[lexerCtx] }) }.asTerm
+    case '[type parserCtx <: ParserCtx; parserCtx] =>
+      '{ ProductionScope.refl[parserCtx](${ newCtx.asExprOf[parserCtx] }) }.asTerm
     case _ => '{ CtxScope.refl[Ctx](${ newCtx.asExprOf[Ctx] }) }.asTerm
 
   new TreeMap:

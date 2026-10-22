@@ -43,11 +43,11 @@ object ResolutionScope:
   private[alpaca] def refl[ParserType <: parser.Parser[?]]: ResolutionScope[ParserType] = ()
 
 /**
- * Evidence that code runs inside a parser definition, where `rule`, named productions, and token and rule extractors
- * are available. Every [[Parser]] provides one; its `Ctx` member is the parser context type, which `ctx` has in the
- * productions of a `rule`.
+ * Evidence that code runs inside a parser definition, where `rule` and named productions are available. Every
+ * [[Parser]] provides one; its `Ctx` member is the parser context type, which the productions of a `rule` bind as
+ * their [[ProductionScope]].
  */
-@implicitNotFound("`rule`, named productions, and token and rule extractors can only be used inside a parser definition")
+@implicitNotFound("`rule` and named productions can only be used inside a parser definition")
 opaque type ParserScope <: { type Ctx <: ParserCtx } = AnyRef & { type Ctx <: ParserCtx }
 object ParserScope:
   /** The scope of a parser whose context type is `Ctx0`. */
@@ -116,7 +116,7 @@ type ProductionDefinition[Value] = PartialFunction[Tuple | Lexeme[?, ?], Value]
 inline def rule(
   using scope: ParserScope,
 )[Value](
-  @unused inline productions: (CtxScope.Of[scope.Ctx] ?=> ProductionDefinition[Value])*,
+  @unused inline productions: (ProductionScope.Of[scope.Ctx] ?=> ProductionDefinition[Value])*,
 ): Rule[Value] =
   null.asInstanceOf[Rule[Value]]
 
@@ -186,7 +186,8 @@ sealed trait Rule[Value]:
    * @return Some(result) if the match succeeds
    */
   @compileTimeOnly(RuleOnly)
-  inline def unapply(@unused x: Any)(using ParserScope): Option[Value] = null.asInstanceOf[Option[Value]]
+  inline def unapply(@unused x: Any)(using @unused scope: ProductionScope): Option[Value] =
+    null.asInstanceOf[Option[Value]]
 
   /**
    * Pattern matching extractor for lists of this rule.
@@ -196,7 +197,7 @@ sealed trait Rule[Value]:
    * @return a partial function that extracts a list of results
    */
   @compileTimeOnly(RuleOnly)
-  inline def List(using ParserScope): PartialFunction[Any, List[Value]] =
+  inline def List(using @unused scope: ProductionScope): PartialFunction[Any, List[Value]] =
     null.asInstanceOf[PartialFunction[Any, List[Value]]]
 
   /**
@@ -207,7 +208,7 @@ sealed trait Rule[Value]:
    * @return a partial function that extracts an optional result
    */
   @compileTimeOnly(RuleOnly)
-  inline def Option(using ParserScope): PartialFunction[Any, Option[Value]] =
+  inline def Option(using @unused scope: ProductionScope): PartialFunction[Any, Option[Value]] =
     null.asInstanceOf[PartialFunction[Any, Option[Value]]]
 
   /**
@@ -221,7 +222,8 @@ sealed trait Rule[Value]:
    * @tparam Separator a token type or a rule's `.type`
    */
   @compileTimeOnly(RuleOnly)
-  inline def SeparatedBy[Separator](using ParserScope): PartialFunction[Any, List[Value | SepValue[Separator]]] =
+  inline def SeparatedBy[Separator](using @unused scope: ProductionScope)
+    : PartialFunction[Any, List[Value | SepValue[Separator]]] =
     null.asInstanceOf[PartialFunction[Any, List[Value | SepValue[Separator]]]]
 
 /**

@@ -85,8 +85,9 @@ final class ParserMacroErrorsTest extends AnyFunSuite with Matchers with LoneEle
   test("every production that is not a `case` lambda is reported, without follow-up errors") {
     typeCheckErrors("""
     object ReferencedProductionParser extends Parser:
-      val first: ProductionDefinition[Int] = { case ErrLexer.NUM(n) => n.value }
-      val second: ProductionDefinition[Int] = { case ErrLexer.PLUS(_) => 0 }
+      // no extractors, which only a production written in place can use
+      val first: ProductionDefinition[Int] = { case _ => 1 }
+      val second: ProductionDefinition[Int] = { case _ => 0 }
       val root: Rule[Int] = rule(
         first,
         second,
