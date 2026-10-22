@@ -70,7 +70,7 @@ private[internal] def threadCtx[Ctx <: AlpacaCtx: Type, Result: Type](
   body: quotes.reflect.Term,
   others: PartialFunction[quotes.reflect.Symbol, quotes.reflect.Term] = PartialFunction.empty,
 )(
-  result: (body: quotes.reflect.Term, ctx: Option[Expr[Ctx]]) => Expr[Result],
+  result: (body: quotes.reflect.Term, ctx: Option[quotes.reflect.Term]) => quotes.reflect.Term,
 ): quotes.reflect.Term = {
   import quotes.reflect.*
 
@@ -81,7 +81,8 @@ private[internal] def threadCtx[Ctx <: AlpacaCtx: Type, Result: Type](
     val replaced =
       replaceScope[Ctx](scope, current.asTerm)(others).transformTerm(body.changeOwner(quoteOwner))(quoteOwner)
     val rewritten = rewriteCtxMutations(ctxVar)(replaced)(quoteOwner)
-    result(rewritten, Option.when(assigns(rewritten, ctxVar))(current))
+    // in terms: `current` belongs to the splice, so a quote of the caller's must not splice it
+    result(rewritten, Option.when(assigns(rewritten, ctxVar))(current.asTerm)).asExprOf[Result]
 
   // a quote re-homes what it splices to the macro's own owner, so `changeOwner` puts it under `owner`
   '{

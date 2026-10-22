@@ -180,7 +180,7 @@ import scala.reflect.NameTransformer
                     Block(statements, Literal(UnitConstant())),
                     boundMatch(newCtx),
                   ): (body, ctx) =>
-                    '{ ${ body.asExprOf[Unit] }; ${ ctx.getOrElse(newCtx.asExprOf[Ctx]) } }
+                    Block(List(body), ctx.getOrElse(newCtx))
 
               extractSimple(ctxManipulation).lift(expr.asExprOf[TokenDef[ValidName, Ctx, Any]])
             case _ => None

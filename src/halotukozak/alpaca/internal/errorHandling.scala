@@ -58,7 +58,8 @@ private def updatingErrorHandling[Ctx <: AlpacaCtx: Type, Err: Type](
     val ctxVar = current.asTerm.symbol
     // the handler's method, which declares `current`
     val owner = ctxVar.owner
-    val body = '{ ${ onError.asExprOf[Err => Strategy] }($error) }.asTerm.changeOwner(owner)
+    // in terms, not a quote: `error` belongs to the splice, so a quote of this macro must not splice it
+    val body = Select.unique(onError, "apply").appliedTo(error.asTerm).changeOwner(owner)
     val withNewCtx = replaceScope[Ctx](oldScope.symbol, current.asTerm)(PartialFunction.empty).transformTerm(body)(owner)
     val rewritten = rewriteCtxMutations(ctxVar)(withNewCtx)(owner)
     abortOnErrors()
