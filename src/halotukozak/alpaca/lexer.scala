@@ -127,8 +127,9 @@ object Token:
 // empirically stumbles on downstream, even though the two only differ in
 // which stable path they're attached to.
 /**
- * The lexer context inside a `lexer` rule body. Read its fields, or assign them (`ctx.count += 1`) to change the
- * context for the tokens that follow: the assignment is rewritten into a `copy`, so the fields can stay `val`s.
+ * The lexer context inside a `lexer` rule body or an [[ErrorHandling.forLexer]] handler. Read its fields, or assign
+ * them (`ctx.count += 1`) to change the context for the tokens that follow: the assignment is rewritten into a `copy`,
+ * so the fields can stay `val`s.
  */
 transparent inline def ctx[Ctx <: LexerCtx: LexerScope.Of as scope]: Ctx = ${ ctxImpl[Ctx]('scope) }
 

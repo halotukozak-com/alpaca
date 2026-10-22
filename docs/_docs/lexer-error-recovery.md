@@ -211,4 +211,31 @@ MyLexer.tokenize("a @ b /* c") match
   case Result.Success(_, _) => ()
 ```
 
+### Changing the Context from a Handler
+
+A handler written as a plain lambda gets the context as a value: it can read the fields, but not assign them. Build it with `ErrorHandling.forLexer` instead, and `ctx` works as in a rule body. Assigning a field changes the context the lexer goes on with, so the fields can stay `val`s:
+
+```scala
+import halotukozak.alpaca.*
+
+case class CountingCtx(line: Line = Line.Start, skipped: Int = 0) extends LexerCtx
+
+given ErrorHandling[CountingCtx, LexerError.Of[CountingCtx]] = ErrorHandling.forLexer: error =>
+  ctx.skipped += 1
+  if ctx.peek(2) == "/*" then ErrorHandling.Strategy.Stop else ErrorHandling.Strategy.SkipOne
+
+val CountingLexer = lexer[CountingCtx]:
+  case "[a-z]+" => Token["WORD"]
+  case "\\s+" => Token.Ignored
+
+CountingLexer.tokenize("a @ b ! c") match
+  case Result.Failure(ctx, recovered, errors) =>
+    println(ctx.skipped)                               // 2
+    println(recovered.map(_.map(_.skipped)))           // Some(List(0, 1, 2))
+    println(errors.map(e => (e.unexpected, e.skipped))) // List((@,0), (!,1))
+  case Result.Success(_, _) => ()
+```
+
+Each error keeps the context from before its handler ran, as a lexeme keeps the context from before its rule. You do not need a field to collect the errors: the `Result.Failure` lists every one, with the context's fields.
+
 Note that the BrainFuck lexer from [Getting Started](getting-started.md) handles unknown characters with a `"." => Token.Ignored` catch-all pattern instead. That is the recommended approach when unknown input is not an error at all, as BrainFuck comments are: a catch-all produces no `LexerError`.

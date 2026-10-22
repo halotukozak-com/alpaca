@@ -10,6 +10,39 @@ import scala.reflect.NameTransformer
 // $COVERAGE-OFF$
 
 /**
+ * Points a lexer rule body or an `ErrorHandling.forLexer` handler, typed against the scope its lambda binds, at `newCtx`:
+ * the scope itself becomes `newCtx` again, and every `ctx` unwrapping it becomes `newCtx` directly, so that
+ * [[rewriteCtxMutations]] recognises it.
+ *
+ * @param scope  the scope parameter of the user's lambda
+ * @param newCtx the context the body runs against
+ * @param others replacements for other symbols of the user's lambda, such as its bound match
+ */
+private[lexer] def replaceScope[Ctx <: LexerCtx: Type](
+  using
+  quotes: Quotes,
+)(
+  scope: quotes.reflect.Symbol,
+  newCtx: quotes.reflect.Term,
+)(
+  others: PartialFunction[quotes.reflect.Symbol, quotes.reflect.Term],
+): quotes.reflect.TreeMap = {
+  import quotes.reflect.*
+
+  new TreeMap:
+    override def transformTerm(t: Term)(owner: Symbol): Term = t match
+      case _ if t.symbol == scope => '{ LexerScope.refl[Ctx](${ newCtx.asExprOf[Ctx] }) }.asTerm
+      case _ if others.isDefinedAt(t.symbol) => others(t.symbol)
+      case block: Block => super.transformTerm(block.changeOwner(owner))(owner)
+      case t if t.isExpr =>
+        t.asExpr match
+          // `ctx` unwraps the scope, which is the context itself
+          case '{ ($unwrapped: LexerScope).ctx } if unwrapped.asTerm.symbol == scope => newCtx
+          case _ => super.transformTerm(t)(owner)
+      case _ => super.transformTerm(t)(owner)
+}
+
+/**
  * Rewrites structural field-mutation syntax on a lexer context back into
  * functional updates, so that a `case class` context with immutable (`val`)
  * fields can still be "mutated" with ordinary syntax inside a lexer rule:

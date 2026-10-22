@@ -6,8 +6,9 @@ import scala.annotation.{implicitNotFound, publicInBinary}
 // In its own file because an opaque type is transparent to the whole file that declares it: next to `Token` and `ctx`,
 // `LexerScope` would be just the context.
 /**
- * Evidence that code runs inside a `lexer` rule, where `ctx` and `Token[...]` are available. Only the `lexer` macro
- * creates one; its `Ctx` member is the lexer context type.
+ * Evidence that code runs inside a `lexer` rule or an [[ErrorHandling.forLexer]] handler, where `ctx` and `Token[...]`
+ * are available. Only the `lexer` macro and `ErrorHandling.forLexer` create one; its `Ctx` member is the lexer context
+ * type.
  */
 @implicitNotFound("`ctx` and `Token` can only be used inside a lexer rule")
 opaque type LexerScope <: { type Ctx <: LexerCtx } = LexerCtx & { type Ctx <: LexerCtx }

@@ -68,19 +68,9 @@ import scala.reflect.NameTransformer
 
   val tokens = cases.foldLeft(List.empty[CompiledRule]):
     case (acc, CaseDef(tree, None, body)) =>
-      def replaceWithNewCtx(newCtx: Term) = new TreeMap:
-        override def transformTerm(t: Term)(owner: Symbol): Term = t match
-          case _ if t.symbol == oldScope.symbol => '{ LexerScope.refl[Ctx](${ newCtx.asExprOf[Ctx] }) }.asTerm
-          case _ if !tree.symbol.isNoSymbol && t.symbol == tree.symbol =>
-            '{ ${ newCtx.asExprOf[Ctx] }.lastRawMatched }.asTerm
-          case block: Block => super.transformTerm(block.changeOwner(owner))(owner)
-          case t if t.isExpr =>
-            t.asExpr match
-              // `ctx` unwraps the scope, which is the context itself; use `newCtx` directly so `rewriteCtxMutations`
-              // recognises it
-              case '{ ($scope: LexerScope).ctx } if scope.asTerm.symbol == oldScope.symbol => newCtx
-              case _ => super.transformTerm(t)(owner)
-          case _ => super.transformTerm(t)(owner)
+      def replaceWithNewCtx(newCtx: Term) = replaceScope[Ctx](oldScope.symbol, newCtx):
+        case bound if !tree.symbol.isNoSymbol && bound == tree.symbol =>
+          '{ ${ newCtx.asExprOf[Ctx] }.lastRawMatched }.asTerm
 
       // whether `term` refers to the context or to the bound match, i.e. whether its remapping needs the new context
       def readsCtx(term: Term): Boolean =

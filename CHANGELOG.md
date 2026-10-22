@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `ErrorHandling.forLexer: error => ...` builds a lexer error handler in which `ctx` works as in a rule body: assigning a field (`ctx.skipped += 1`) changes the context the lexer goes on with, so the fields can stay `val`s.
+
 ## [1.0.0-RC4] - 2026-10-13
 
 ### Changed
