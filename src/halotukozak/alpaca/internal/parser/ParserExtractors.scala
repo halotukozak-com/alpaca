@@ -37,7 +37,7 @@ private[parser] val DefinitionRhs
  */
 private[internal] val RuleCall: (quotes: Quotes) ?=> PartialFunction[quotes.reflect.Term, List[quotes.reflect.Term]] = {
   import quotes.reflect.*
-  val rule = Symbol.requiredModule("halotukozak.alpaca.parser$package").methodMember("rule").head
+  val rule = Symbol.requiredMethod("halotukozak.alpaca.rule")
 
   {
     case Apply(TypeApply(Apply(fn, _ :: Nil), _), Typed(Repeated(productions, _), _) :: Nil) if fn.symbol == rule =>
