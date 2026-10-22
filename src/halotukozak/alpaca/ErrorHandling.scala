@@ -45,7 +45,9 @@ object ErrorHandling:
    * @tparam Ctx the lexer context
    * @param handler the strategy for an error, written directly as a lambda
    */
-  inline def forLexer[Ctx <: LexerCtx](
+  // `transparent` so it expands while `handler` is typed, before the `applyDynamic` of an assignment is inlined into
+  // its compile error, as `lexer` does
+  transparent inline def forLexer[Ctx <: LexerCtx](
     inline handler: LexerScope.Of[Ctx] ?=> LexerError.Of[Ctx] => Strategy,
   ): ErrorHandling[Ctx] =
     ${ internal.lexerErrorHandlingImpl[Ctx]('{ handler }) }

@@ -128,6 +128,10 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     typeCheckErrors("""
       def bump(using CountingCtx) = ctx.count += 1
     """).map(_.message) shouldBe List(CtxOutsideScope)
+    typeCheckErrors("""
+      CountingCtx().applyDynamic("count_=")(1)
+    """).map(_.message) shouldBe
+      List("Lexer context fields can only be assigned inside a lexer rule or an error handler")
   }
 
   test("Token is a compile error outside a lexer rule") {

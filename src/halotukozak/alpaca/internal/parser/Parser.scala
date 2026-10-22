@@ -3,7 +3,7 @@ package alpaca
 package internal
 package parser
 
-import halotukozak.alpaca.{rule, ErrorHandling, ParserCtx, ParserError, ProductionDefinition, Result, Rule}
+import halotukozak.alpaca.{ErrorHandling, ParserCtx, ParserError, ProductionDefinition, Result, Rule}
 import halotukozak.alpaca.internal.{fieldsTpeFrom, refinementTpeFrom, withDefault, RevertedArray, ValidName, *}
 import halotukozak.alpaca.internal.lexer.Lexeme
 import halotukozak.alpaca.internal.parser.{Tables, *}

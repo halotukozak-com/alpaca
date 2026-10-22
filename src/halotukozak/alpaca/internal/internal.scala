@@ -83,7 +83,7 @@ private[internal] object ScopedLambda:
     withoutInlined(term) match
       case Lambda(scope :: Nil, inner) => Some((scope = scope, inner = withoutInlined(inner)))
       case _ => None
-}
+  }
 
 /**
  * ToExpr instance for NamedTuple.

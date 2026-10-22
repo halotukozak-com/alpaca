@@ -5,7 +5,7 @@ import alpaca.internal.*
 import alpaca.internal.lexer.{IgnoredToken as _, Token as _, *}
 
 import scala.NamedTuple.AnyNamedTuple
-import scala.annotation.{compileTimeOnly, publicInBinary}
+import scala.annotation.{compileTimeOnly, publicInBinary, unused}
 import scala.quoted.*
 
 /**
@@ -204,6 +204,12 @@ trait LexerCtx extends AlpacaCtx:
     lastRawMatched = prev.lastRawMatched
     lastLexeme = prev.lastLexeme
     this
+
+  // inline, unlike a parser context's: `lexer` and `ErrorHandling.forLexer` rewrite an assignment while it is typed,
+  // before this is inlined into the error, so an assignment anywhere else is reported then
+  /** Not meant to be called: assigning a context field outside a lexer rule or handler is a compile error. */
+  inline def applyDynamic(@unused inline name: String)(@unused inline args: Any*): Any =
+    compiletime.error("Lexer context fields can only be assigned inside a lexer rule or an error handler")
 
 object LexerCtx:
 

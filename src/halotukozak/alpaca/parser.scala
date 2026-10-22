@@ -311,7 +311,12 @@ final class ParserException private[alpaca] (val errors: ::[ParserError])
  * Assigning a field in an action (`ctx.functions += name`) is rewritten into a `copy`, so the fields can stay `val`s,
  * as in a lexer context.
  */
-trait ParserCtx extends AlpacaCtx
+trait ParserCtx extends AlpacaCtx:
+  // `@compileTimeOnly`, not an inline `compiletime.error` as a lexer context's: a parser's `rule` drops its productions
+  // only after inlining what they call, so the error would fire in every action
+  /** Not meant to be called: assigning a context field outside a parser action or handler is a compile error. */
+  @compileTimeOnly("Parser context fields can only be assigned inside a parser action or an error handler")
+  def applyDynamic(@unused name: String)(@unused args: Any*): Any = throw UnsupportedOperationException(name)
 
 /**
  * Type representing conflict resolution rules for the parser.
