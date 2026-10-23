@@ -106,7 +106,6 @@ Rule bodies can span multiple statements. Use intermediate variables and return 
 
 ```scala sc-hidden sc-name:func-lexer-defs
 import halotukozak.alpaca.*
-import scala.collection.mutable
 
 val BrainLexer = lexer:
   case "\\+" => Token["inc"]
@@ -124,7 +123,7 @@ enum BrainAST:
   case Inc, Dec
 
 case class BrainParserCtx(
-  functions: mutable.Set[String] = mutable.Set.empty,
+  functions: Set[String] = Set.empty,
 ) extends ParserCtx
 ```
 
@@ -137,7 +136,8 @@ object FunctionDefParser extends Parser[BrainParserCtx]:
     case (BrainLexer.functionName(name), BrainLexer.functionOpen(_),
           Operation.List(ops), BrainLexer.functionClose(_)) =>
       val funcName = name.value
-      require(ctx.functions.add(funcName), s"Function $funcName already defined")
+      require(!ctx.functions(funcName), s"Function $funcName already defined")
+      ctx.functions += funcName
       BrainAST.FunctionDef(funcName, ops)
 
   val Operation: Rule[BrainAST] = rule(

@@ -6,7 +6,7 @@ import halotukozak.alpaca.internal.lexer.{Lexeme, Token}
 import halotukozak.alpaca.internal.parser.{Production as _, *}
 
 import scala.NamedTuple.AnyNamedTuple
-import scala.annotation.{compileTimeOnly, implicitNotFound, unused}
+import scala.annotation.{compileTimeOnly, unused}
 import scala.quoted.*
 
 /**
@@ -32,26 +32,6 @@ type Parser[Ctx <: ParserCtx] = parser.Parser[Ctx]
 opaque type Resolutions[ParserType <: parser.Parser[?]] = Set[ConflictResolution]
 
 /**
- * Evidence that code runs inside [[resolutions]], where `production`, `Production(...)` and `before`/`after` are
- * available. Gives `production` the parser it refers to.
- *
- * @tparam ParserType the parser's singleton type
- */
-@implicitNotFound("`production`, `Production(...)`, `before` and `after` can only be used inside resolutions(...)")
-opaque type ResolutionScope[ParserType <: parser.Parser[?]] = Unit
-object ResolutionScope:
-  private[alpaca] def refl[ParserType <: parser.Parser[?]]: ResolutionScope[ParserType] = ()
-
-/**
- * Evidence that code runs inside a parser definition, where `rule`, named productions, and token and rule extractors
- * are available. Every [[Parser]] provides one.
- */
-@implicitNotFound("`rule`, named productions, and token and rule extractors can only be used inside a parser definition")
-opaque type ParserScope = Unit
-object ParserScope:
-  private[alpaca] def refl: ParserScope = ()
-
-/**
  * Collects the conflict resolutions for the parser `ParserType`, each written with `before` or `after` (see [[Resolutions]]).
  *
  * @param elements the resolutions; inside them, `production.<name>` refers to `ParserType`'s named productions
@@ -66,7 +46,6 @@ def resolutions[ParserType <: parser.Parser[?]](elements: (ResolutionScope[Parse
  *
  * This is compile-time only and can be used only inside [[resolutions]].
  */
-@compileTimeOnly(ConflictResolutionOnly)
 transparent inline def production[ParserType <: parser.Parser[?]: ResolutionScope]: ProductionSelector =
   ${ productionImpl[ParserType] }
 
@@ -108,8 +87,11 @@ type ProductionDefinition[Value] = PartialFunction[Tuple | Lexeme[?, ?], Value]
  * @param productions one or more productions that define this rule
  * @return a Rule instance
  */
-@compileTimeOnly(ParserOnly)
-inline def rule[Value](@unused inline productions: ProductionDefinition[Value]*)(using ParserScope): Rule[Value] =
+inline def rule(
+  using scope: ParserScope,
+)[Value](
+  @unused inline productions: (ProductionScope.Of[scope.Ctx] ?=> ProductionDefinition[Value])*,
+): Rule[Value] =
   null.asInstanceOf[Rule[Value]]
 
 extension (name: String)
@@ -137,7 +119,6 @@ extension (name: String)
    * @tparam Value the result type produced by this production
    * @return the original production, annotated with the given name
    */
-  @compileTimeOnly(ParserOnly)
   inline def apply[Value](production: ProductionDefinition[Value])(using ParserScope): production.type = production
 
 /**
@@ -177,8 +158,8 @@ sealed trait Rule[Value]:
    * @param x the value to match
    * @return Some(result) if the match succeeds
    */
-  @compileTimeOnly(RuleOnly)
-  inline def unapply(@unused x: Any)(using ParserScope): Option[Value] = null.asInstanceOf[Option[Value]]
+  inline def unapply(@unused x: Any)(using @unused scope: ProductionScope): Option[Value] =
+    null.asInstanceOf[Option[Value]]
 
   /**
    * Pattern matching extractor for lists of this rule.
@@ -187,8 +168,7 @@ sealed trait Rule[Value]:
    *
    * @return a partial function that extracts a list of results
    */
-  @compileTimeOnly(RuleOnly)
-  inline def List(using ParserScope): PartialFunction[Any, List[Value]] =
+  inline def List(using @unused scope: ProductionScope): PartialFunction[Any, List[Value]] =
     null.asInstanceOf[PartialFunction[Any, List[Value]]]
 
   /**
@@ -198,8 +178,7 @@ sealed trait Rule[Value]:
    *
    * @return a partial function that extracts an optional result
    */
-  @compileTimeOnly(RuleOnly)
-  inline def Option(using ParserScope): PartialFunction[Any, Option[Value]] =
+  inline def Option(using @unused scope: ProductionScope): PartialFunction[Any, Option[Value]] =
     null.asInstanceOf[PartialFunction[Any, Option[Value]]]
 
   /**
@@ -212,8 +191,8 @@ sealed trait Rule[Value]:
    *
    * @tparam Separator a token type or a rule's `.type`
    */
-  @compileTimeOnly(RuleOnly)
-  inline def SeparatedBy[Separator](using ParserScope): PartialFunction[Any, List[Value | SepValue[Separator]]] =
+  inline def SeparatedBy[Separator](using @unused scope: ProductionScope)
+    : PartialFunction[Any, List[Value | SepValue[Separator]]] =
     null.asInstanceOf[PartialFunction[Any, List[Value | SepValue[Separator]]]]
 
 /**
@@ -292,16 +271,23 @@ final class ParserException private[alpaca] (val errors: ::[ParserError])
   extends RuntimeException(errors.map(_.message).mkString("\n"))
 
 /**
- * The base of every parser context: state carried through a parse, such as a symbol table, read and changed as
+ * The base of every parser context: state carried through a parse, such as a symbol table, read and assigned as
  * `ctx` in the actions and returned in the [[Result]].
  *
  * A context must be a case class whose fields all have default values, since the parser builds the initial context
  * from those defaults:
  * {{{
- * case class BrainParserCtx(functions: mutable.Set[String] = mutable.Set.empty) extends ParserCtx
+ * case class BrainParserCtx(functions: Set[String] = Set.empty) extends ParserCtx
  * }}}
+ * Assigning a field in an action (`ctx.functions += name`) is rewritten into a `copy`, so the fields can stay `val`s,
+ * as in a lexer context.
  */
-trait ParserCtx
+trait ParserCtx extends Product, Selectable:
+  // `@compileTimeOnly`, not an inline `compiletime.error` as a lexer context's: a parser's `rule` drops its productions
+  // only after inlining what they call, so the error would fire in every action
+  /** Not meant to be called: assigning a context field outside a parser action is a compile error. */
+  @compileTimeOnly("Parser context fields can only be assigned inside a parser action")
+  def applyDynamic(@unused name: String)(@unused args: Any*): Any = throw UnsupportedOperationException(name)
 
 /**
  * Type representing conflict resolution rules for the parser.
@@ -323,7 +309,6 @@ extension (@unused inline first: Production | Token[?, ?, ?]) {
    * @param others the productions and tokens that win over this one
    * @return a conflict resolution rule
    */
-  @compileTimeOnly(ConflictResolutionOnly)
   inline infix def after[ParserType <: parser.Parser[?]: ResolutionScope](
     @unused inline others: (Production | Token[?, ?, ?])*,
   ): ConflictResolution =
@@ -340,7 +325,6 @@ extension (@unused inline first: Production | Token[?, ?, ?]) {
    * @param others the productions and tokens this one wins over
    * @return a conflict resolution rule
    */
-  @compileTimeOnly(ConflictResolutionOnly)
   inline infix def before[ParserType <: parser.Parser[?]: ResolutionScope](
     @unused inline others: (Production | Token[?, ?, ?])*,
   ): ConflictResolution =

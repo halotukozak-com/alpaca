@@ -9,6 +9,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - `ErrorHandling.forLexer: error => ...` builds a lexer error handler in which `ctx` works as in a rule body: assigning a field (`ctx.skipped += 1`) changes the context the lexer goes on with, so the fields can stay `val`s.
+- A parser context's fields can be `val`s: `ctx.count += 1` in an action is rewritten into a `copy` that the following reductions see, as in a lexer. `var` fields and mutable collections still change in place.
+- `AlpacaCtx`, a lexer or a parser context: `LexerCtx | ParserCtx`.
+
+### Changed
+
+- **Breaking:** in a parser action, `ctx` is the top-level `halotukozak.alpaca.ctx`, as in a lexer rule, instead of a `Parser` member: each production of `rule` binds a `ProductionScope` (`ProductionScope.Of[Ctx] ?=> ...`), as a lexer rule binds a `LexerScope`, and `ParserScope` carries the parser's context type.
+- `ctx` outside a lexer rule, a parser action or an `ErrorHandling.forLexer` handler is reported as "`ctx` can only be used inside a lexer rule, a parser action or `ErrorHandling.forLexer`".
+- Token and rule extractors (`MyLexer.NUM(n)`, `Expr(e)`, `Expr.List(es)`) take a `ProductionScope`, which only a production of `rule` binds: elsewhere in a parser they are reported as "Token and rule extractors can only be used in a production of a `rule`". `ParserScope` covers `rule` and named productions.
 
 ### Fixed
 

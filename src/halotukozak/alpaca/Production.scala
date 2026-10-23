@@ -4,7 +4,7 @@ package alpaca
 import halotukozak.alpaca.internal.*
 import halotukozak.alpaca.internal.lexer.Token
 
-import scala.annotation.{compileTimeOnly, unused}
+import scala.annotation.unused
 
 // In its own file because an opaque type is transparent to the whole file that declares it.
 /**
@@ -25,7 +25,6 @@ object Production:
    * @param symbols the symbols on the right-hand side of the production
    * @return a production reference
    */
-  @compileTimeOnly(ConflictResolutionOnly)
   inline def apply[ParserType <: parser.Parser[?]: ResolutionScope](@unused inline symbols: (Rule[?] | Token[?, ?, ?])*)
     : Production =
     null

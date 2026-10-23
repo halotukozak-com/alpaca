@@ -3,14 +3,14 @@ package alpaca
 package internal
 package lexer
 
-import halotukozak.alpaca.internal.{Printable, RuleOnly, Showable, ValidName}
+import halotukozak.alpaca.internal.{Printable, Showable, ValidName}
 import halotukozak.alpaca.{LexerCtx, SepValue}
 import halotukozak.mcodec.MCodec
 import halotukozak.regex.{Regex, RegexParseError, RegexParser, TokenMatcher}
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.annotation.unchecked.uncheckedVariance as uv
-import scala.annotation.{compileTimeOnly, publicInBinary, unused}
+import scala.annotation.{publicInBinary, unused}
 import scala.quoted.*
 
 /**
@@ -176,16 +176,14 @@ private[alpaca] final case class DefinedToken[
   private[lexer] remapping: Ctx => Value,
 ) extends Token[Name, Ctx, Value]:
 
-  @compileTimeOnly(RuleOnly)
-  inline def unapply(@unused x: Any)(using ParserScope): Option[LexemeTpe] = null.asInstanceOf[Option[LexemeTpe]]
-  @compileTimeOnly(RuleOnly)
-  inline def List(using ParserScope): PartialFunction[Any, List[LexemeTpe]] =
+  inline def unapply(@unused x: Any)(using @unused scope: ProductionScope): Option[LexemeTpe] =
+    null.asInstanceOf[Option[LexemeTpe]]
+  inline def List(using @unused scope: ProductionScope): PartialFunction[Any, List[LexemeTpe]] =
     null.asInstanceOf[PartialFunction[Any, List[LexemeTpe]]]
-  @compileTimeOnly(RuleOnly)
-  inline def Option(using ParserScope): PartialFunction[Any, Option[LexemeTpe]] =
+  inline def Option(using @unused scope: ProductionScope): PartialFunction[Any, Option[LexemeTpe]] =
     null.asInstanceOf[PartialFunction[Any, Option[LexemeTpe]]]
-  @compileTimeOnly(RuleOnly)
-  inline def SeparatedBy[Separator](using ParserScope): PartialFunction[Any, List[LexemeTpe | SepValue[Separator]]] =
+  inline def SeparatedBy[Separator](using @unused scope: ProductionScope)
+    : PartialFunction[Any, List[LexemeTpe | SepValue[Separator]]] =
     null.asInstanceOf[PartialFunction[Any, List[LexemeTpe | SepValue[Separator]]]]
 
 /**

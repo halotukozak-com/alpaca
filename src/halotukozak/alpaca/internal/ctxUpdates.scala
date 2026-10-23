@@ -1,7 +1,6 @@
 package halotukozak
 package alpaca
 package internal
-package lexer
 
 import scala.annotation.tailrec
 import scala.quoted.*
@@ -10,15 +9,15 @@ import scala.reflect.NameTransformer
 // $COVERAGE-OFF$
 
 /**
- * Points a lexer rule body or an `ErrorHandling.forLexer` handler, typed against the scope its lambda binds, at `newCtx`:
- * the scope itself becomes `newCtx` again, and every `ctx` unwrapping it becomes `newCtx` directly, so that
- * [[rewriteCtxMutations]] recognises it.
+ * Points a body typed against a [[CtxScope]] -- a lexer rule, a parser action or an `ErrorHandling.forLexer`
+ * handler -- at `newCtx`: the scope itself becomes `newCtx` again, and every `ctx` unwrapping it becomes `newCtx`
+ * directly, so that [[rewriteCtxMutations]] recognises it.
  *
- * @param scope  the scope parameter of the user's lambda
+ * @param scope  the scope the body was typed against: the parameter of the user's lambda
  * @param newCtx the context the body runs against
  * @param others replacements for other symbols of the user's lambda, such as its bound match
  */
-private[lexer] def replaceScope[Ctx <: LexerCtx: Type](
+private[internal] def replaceScope[Ctx <: AlpacaCtx: Type](
   using
   quotes: Quotes,
 )(
@@ -29,23 +28,81 @@ private[lexer] def replaceScope[Ctx <: LexerCtx: Type](
 ): quotes.reflect.TreeMap = {
   import quotes.reflect.*
 
+  // the scope is the context itself, cast to the scope's type: a lexer's `Token` and a parser's extractors need it
+  lazy val rescoped: Term = scope.termRef.widen.asType match
+    case '[scopeType] => '{ ${ newCtx.asExpr }.asInstanceOf[scopeType] }.asTerm
+
   new TreeMap:
     override def transformTerm(t: Term)(owner: Symbol): Term = t match
-      case _ if t.symbol == scope => '{ LexerScope.refl[Ctx](${ newCtx.asExprOf[Ctx] }) }.asTerm
+      case _ if t.symbol == scope => rescoped
       case _ if others.isDefinedAt(t.symbol) => others(t.symbol)
       case block: Block => super.transformTerm(block.changeOwner(owner))(owner)
       case t if t.isExpr =>
         t.asExpr match
           // `ctx` unwraps the scope, which is the context itself
-          case '{ ($unwrapped: LexerScope).ctx } if unwrapped.asTerm.symbol == scope => newCtx
+          case '{ ($unwrapped: CtxScope).ctx } if unwrapped.asTerm.symbol == scope => newCtx
           case _ => super.transformTerm(t)(owner)
       case _ => super.transformTerm(t)(owner)
 }
 
 /**
- * Rewrites structural field-mutation syntax on a lexer context back into
- * functional updates, so that a `case class` context with immutable (`val`)
- * fields can still be "mutated" with ordinary syntax inside a lexer rule:
+ * `body`, typed against `scope`, run against `initial` with its context assignments threaded through a local `var`
+ * (see [[replaceScope]] and [[rewriteCtxMutations]]). `result` builds what the block returns from the rewritten body
+ * and the `var`, which holds the context the body leaves; it must evaluate the body first, as `(body, ctx)` does.
+ *
+ * @param owner   the owner of the block, e.g. the lambda it is the body of
+ * @param initial the context to start from
+ * @param scope   the scope `body` was typed against
+ * @param body    the user's code
+ * @param others  replacements for other symbols of the user's code, as in [[replaceScope]]
+ * @param result  what the block returns, from the rewritten body and the updated context
+ */
+private[internal] def threadCtx[Ctx <: AlpacaCtx: Type, Body: Type, Result: Type](
+  using
+  quotes: Quotes,
+  diagnostics: Diagnostics,
+)(
+  owner: quotes.reflect.Symbol,
+  initial: Expr[Ctx],
+  scope: quotes.reflect.Symbol,
+  body: quotes.reflect.Term,
+  others: PartialFunction[quotes.reflect.Symbol, quotes.reflect.Term] = PartialFunction.empty,
+)(
+  result: (body: Expr[Body], ctx: Expr[Ctx]) => Expr[Result],
+): Expr[Result] = {
+  import quotes.reflect.*
+
+  // a `Symbol.newVal`, not a `var` in a quote: one the body never assigns is reported as unset where the code expands
+  val ctxVar = Symbol.newVal(owner, "$ctx", TypeRepr.of[Ctx], Flags.Mutable, Symbol.noSymbol)
+  val replaced = replaceScope[Ctx](scope, Ref(ctxVar))(others).transformTerm(body.changeOwner(owner))(owner)
+  val rewritten = rewriteCtxMutations(ctxVar)(replaced)(owner)
+  // a quote in `result` re-homes what it splices to the macro's own owner, so `changeOwner` puts it back under `owner`
+  val returned = result(rewritten.asExprOf[Body], Ref(ctxVar).asExprOf[Ctx]).asTerm.changeOwner(owner)
+  Block(List(ValDef(ctxVar, Some(initial.asTerm))), returned).asExprOf[Result]
+}
+
+/**
+ * Whether `body` assigns a context field: calls a setter through `applyDynamic`, as `ctx.count += 1` does. Read before
+ * the body is rewritten, e.g. to tell whether a parser action needs to hand an updated context back.
+ */
+private[internal] def assignsCtx(using quotes: Quotes)(body: quotes.reflect.Term): Boolean = {
+  import quotes.reflect.*
+
+  new TreeAccumulator[Boolean]:
+    def foldTree(found: Boolean, tree: Tree)(owner: Symbol): Boolean = found ||
+      (tree match
+        case Apply(Apply(Select(_, "applyDynamic"), List(Literal(StringConstant(name)))), _)
+            if NameTransformer.decode(name).endsWith("_=") =>
+          true
+        case _ => foldOverTree(found, tree)(owner))
+  .foldTree(false, body)(Symbol.spliceOwner)
+}
+
+/**
+ * Rewrites structural field-mutation syntax on a lexer or parser context back
+ * into functional updates, so that a `case class` context with immutable
+ * (`val`) fields can still be "mutated" with ordinary syntax inside a lexer
+ * rule, a parser action or an error handler:
  *
  * {{{
  * case class Ctx(count: Int = 0) extends LexerCtx
@@ -68,7 +125,7 @@ private[lexer] def replaceScope[Ctx <: LexerCtx: Type](
  * in the first place: the real setter is used directly, the assignment
  * mutates in place, and this class leaves it untouched.
  *
- * Engine-internal bookkeeping (`input`, `lastRawMatched`, `lastLexeme`) is
+ * A lexer context's engine-internal bookkeeping (`input`, `lastRawMatched`, `lastLexeme`) is
  * ''not'' preserved by a `case class`'s generated `copy()` — it only knows
  * about its own constructor fields. Each rewritten update therefore carries
  * it over explicitly (see `LexerCtx.carryEngineStateFrom`), so that e.g. a
@@ -96,7 +153,7 @@ private[lexer] def replaceScope[Ctx <: LexerCtx: Type](
  * @param body the rule statements to rewrite
  * @param owner the owner to use when transforming the body
  */
-private[lexer] def rewriteCtxMutations(using
+private[internal] def rewriteCtxMutations(using
   Quotes,
   Diagnostics,
 )(
@@ -108,9 +165,10 @@ private[lexer] def rewriteCtxMutations(using
 ): quotes.reflect.Term = {
   import quotes.reflect.*
 
+  // a cast to the `ctx` facade; one to a scope, which `Token` and the extractors read, is no context
   val Cast: PartialFunction[Term, Term] =
-    case TypeApply(Select(inner, "asInstanceOf" | "$asInstanceOf$"), _) => inner
-    case Select(inner, "$asInstanceOf$") => inner
+    case cast @ TypeApply(Select(inner, "asInstanceOf" | "$asInstanceOf$"), _) if cast.tpe <:< TypeRepr.of[AlpacaCtx] =>
+      inner
 
   val SetterName: PartialFunction[String, String] = Function.unlift: encoded =>
     val decoded = NameTransformer.decode(encoded)
@@ -139,8 +197,11 @@ private[lexer] def rewriteCtxMutations(using
       case targs => TypeApply(recv.select(copySym), targs.map(Inferred(_)))
     applied.appliedToArgs(args)
 
+  // only a lexer context has engine state; a parser context is just its fields
   def carry(newCtx: Term, oldCtx: Term): Term =
-    '{ ${ newCtx.asExprOf[LexerCtx] }.carryEngineStateFrom(${ oldCtx.asExprOf[LexerCtx] }) }.asTerm
+    if newCtx.tpe <:< TypeRepr.of[LexerCtx] then
+      '{ ${ newCtx.asExprOf[LexerCtx] }.carryEngineStateFrom(${ oldCtx.asExprOf[LexerCtx] }) }.asTerm
+    else newCtx
 
   val ctxRef = Ref(ctxVar)
   val aliases = scala.collection.mutable.Set(ctxVar)

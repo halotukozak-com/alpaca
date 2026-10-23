@@ -116,15 +116,18 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     assert(!typeChecks("""LexerCtx.Default().lastRawMatched = "x""""))
   }
 
+  private val CtxOutsideScope =
+    "`ctx` can only be used inside a lexer rule, a parser action or `ErrorHandling.forLexer`"
+
   test("ctx and its field assignments are compile errors outside a lexer rule") {
     case class CountingCtx(count: Int = 0) extends LexerCtx
     typeCheckErrors("""
       given CountingCtx = CountingCtx()
       ctx.count
-    """).map(_.message) shouldBe List("`ctx` and `Token` can only be used inside a lexer rule")
+    """).map(_.message) shouldBe List(CtxOutsideScope)
     typeCheckErrors("""
       def bump(using CountingCtx) = ctx.count += 1
-    """).map(_.message) shouldBe List("`ctx` and `Token` can only be used inside a lexer rule")
+    """).map(_.message) shouldBe List(CtxOutsideScope)
     typeCheckErrors("""
       CountingCtx().applyDynamic("count_=")(1)
     """).map(_.message) shouldBe List("Lexer context fields can only be assigned inside a lexer rule")
@@ -134,7 +137,6 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     typeCheckErrors("""Token["X"]""").map(_.message) shouldBe
       List("`ctx` and `Token` can only be used inside a lexer rule")
     assert(!typeChecks("""val scope: LexerScope.Of[LexerCtx.Default] = LexerCtx.Default()"""))
-    assert(!typeChecks("""LexerScope.refl(LexerCtx.Default())"""))
   }
 
   test("Token carries the lexer's context type, and only a lexer rule provides it") {
@@ -196,8 +198,8 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
     )
   }
 
-  private val outsideParser =
-    "`rule`, named productions, and token and rule extractors can only be used inside a parser definition"
+  private val outsideParser = "`rule` and named productions can only be used inside a parser definition"
+  private val outsideProduction = "Token and rule extractors can only be used in a production of a `rule`"
   private val outsideResolutions =
     "`production`, `Production(...)`, `before` and `after` can only be used inside resolutions(...)"
 
@@ -206,7 +208,15 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
 
   test("the parser DSL outside a parser is reported") {
     errors("""val r: Rule[Int] = rule { case WordLexer.WORD(_) => 1 }""") should contain(outsideParser)
-    errors("""(null: Any) match { case WordLexer.WORD(_) => () }""") should contain(outsideParser)
+    errors("""(null: Any) match { case WordLexer.WORD(_) => () }""") should contain(outsideProduction)
+  }
+
+  test("token and rule extractors outside a production are reported") {
+    errors("""
+    object ExtractingParser extends Parser:
+      val words = (null: Any) match { case WordLexer.WORD(_) => 1 }
+      val root: Rule[Int] = rule { case WordLexer.WORD(_) => 1 }
+    """) should contain(outsideProduction)
   }
 
   test("the resolutions DSL outside resolutions is reported") {

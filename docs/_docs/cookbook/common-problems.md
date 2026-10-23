@@ -93,7 +93,7 @@ See [Guards Not Supported](../lexer-error-recovery.md#guards-not-supported).
 
 ### "can only be used inside a lexer rule"
 
-**Why:** `Token[...]` and `Token.Ignored` exist only in the body of a `case` in a `lexer` block, and `ctx` only there or in a handler built with `ErrorHandling.forLexer` (see [Changing the Context from a Handler](../lexer-error-recovery.md#changing-the-context-from-a-handler)). To keep a token around, keep its lexer and refer to it as `MyLexer.NAME`.
+**Why:** `Token[...]` and `Token.Ignored` exist only in the body of a `case` in a `lexer` block, and `ctx` only there, in a parser action or in a handler built with `ErrorHandling.forLexer` (see [Changing the Context from a Handler](../lexer-error-recovery.md#changing-the-context-from-a-handler)). To keep a token around, keep its lexer and refer to it as `MyLexer.NAME`.
 
 **Fix:** use them inside a rule.
 
@@ -106,7 +106,7 @@ val BrainLexer = lexer:
 val inc = BrainLexer.inc
 ```
 
-The parser's equivalent, "can only be used inside a parser definition", means `rule` or an extractor was used outside an `object ... extends Parser`.
+The parser's equivalents: "can only be used inside a parser definition" means `rule` or a named production was used outside an `object ... extends Parser`, and "can only be used in a production of a `rule`" means a token or rule extractor, such as `MyLexer.NUM(n)`, was used outside the `case` of a production.
 
 ### A pattern declared first doesn't win
 
