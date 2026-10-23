@@ -56,16 +56,15 @@ private def updatingErrorHandling[Ctx <: AlpacaCtx: Type, Err: Type](
 
   // outside the splice below, which brings its own `Quotes` that the handler's trees do not belong to
   def handle(initial: Expr[Ctx], error: Expr[Err]): Expr[(strategy: Strategy, ctx: Ctx)] =
-    // in terms: `initial` and `error` belong to the splice, so a quote of this macro must not splice them
-    val initialCtx = initial.asTerm
-    // the handler's lambda, which takes the initial context
-    val owner = initialCtx.symbol.owner
-    // `error` re-wrapped as this macro's own: as it is, it belongs to the splice
+    // `initial` and `error` belong to the splice: a quote of this macro splices them re-wrapped as its own
+    val initialCtx = initial.asTerm.asExprOf[Ctx]
     val call = '{ ${ onError.asExprOf[Err => Strategy] }(${ error.asTerm.asExprOf[Err] }) }.asTerm
-    val handled = threadCtx[Ctx](owner, initialCtx, oldScope.symbol, call): (strategy, ctx) =>
-      '{ (strategy = ${ strategy.asExprOf[Strategy] }, ctx = ${ ctx.asExprOf[Ctx] }) }.asTerm.changeOwner(owner)
+    // the handler's lambda, which takes the initial context
+    val owner = initial.asTerm.symbol.owner
+    val handled = threadCtx[Ctx, Strategy, (strategy: Strategy, ctx: Ctx)](owner, initialCtx, oldScope.symbol, call):
+      (strategy, ctx) => '{ (strategy = $strategy, ctx = $ctx) }
     abortOnErrors()
-    handled.asExprOf[(strategy: Strategy, ctx: Ctx)]
+    handled
 
   // the lexer or parser of `Ctx` gives the handler its own errors; the strategy comes first, so `ctx` is the context
   // the handler left
