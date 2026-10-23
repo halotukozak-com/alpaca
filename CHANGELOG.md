@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [1.0.0-RC5] - 2026-10-23
+
 ### Added
 
 - `ErrorHandling.forLexer: error => ...` builds a lexer error handler in which `ctx` works as in a rule body: assigning a field (`ctx.skipped += 1`) changes the context the lexer goes on with, so the fields can stay `val`s.
@@ -19,6 +21,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Breaking:** in a parser action, `ctx` is the top-level `halotukozak.alpaca.ctx`, as in a lexer rule, instead of a `Parser` member: each production of `rule` binds a `ProductionScope` (`ProductionScope.Of[Ctx] ?=> ...`), as a lexer rule binds a `LexerScope`, and `ParserScope` carries the parser's context type.
 - `ctx` outside a lexer rule, a parser action or one of these handlers is reported as "`ctx` can only be used inside a lexer rule, a parser action, `ErrorHandling.forLexer` or `ErrorHandling.forParser`".
 - Assigning a lexer context's field outside a lexer rule or handler is reported as "Lexer context fields can only be assigned inside a lexer rule or an error handler".
+- `Token` outside a lexer rule, an `ErrorHandling.forLexer` handler included, is reported as "`Token` can only be used inside a lexer rule" instead of "`ctx` and `Token` can only be used inside a lexer rule".
 - Token and rule extractors (`MyLexer.NUM(n)`, `Expr(e)`, `Expr.List(es)`) take a `ProductionScope`, which only a production of `rule` binds: elsewhere in a parser they are reported as "Token and rule extractors can only be used in a production of a `rule`". `ParserScope` covers `rule` and named productions.
 
 ### Fixed
@@ -335,7 +338,8 @@ First release.
 - Parser contexts (`ParserCtx`) and `parse` returning `(ctx, result | Null)`.
 - `DebugSettings` to dump the generated tables during compilation.
 
-[Unreleased]: https://github.com/halotukozak-com/alpaca/compare/v1.0.0-RC4...HEAD
+[Unreleased]: https://github.com/halotukozak-com/alpaca/compare/v1.0.0-RC5...HEAD
+[1.0.0-RC5]: https://github.com/halotukozak-com/alpaca/compare/v1.0.0-RC4...v1.0.0-RC5
 [1.0.0-RC4]: https://github.com/halotukozak-com/alpaca/compare/v1.0.0-RC3...v1.0.0-RC4
 [1.0.0-RC3]: https://github.com/halotukozak-com/alpaca/compare/v1.0.0-RC2...v1.0.0-RC3
 [1.0.0-RC2]: https://github.com/halotukozak-com/alpaca/compare/v1.0.0-RC1...v1.0.0-RC2
