@@ -22,7 +22,7 @@ import scala.collection.mutable
 transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca] (
   onTokenMatch: (Token[?, Ctx, ?], String, Ctx) => Ctx,
   initialCtx: () => Ctx,
-)(using errorHandling: ErrorHandling[Ctx, alpaca.LexerError.Of[Ctx]],
+)(using errorHandling: ErrorHandling[Ctx],
 ) extends Selectable:
   /** The lexer's tokens by name, as a named tuple: what `MyLexer.NAME` selects. */
   type Fields <: AnyNamedTuple
@@ -82,7 +82,7 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
           val cpLen = Character.charCount(Character.codePointAt(globalCtx.input, 0))
           val unexpected =
             alpaca.LexerError[LexemeFields](globalCtx.input.subSequence(0, cpLen).toString, fieldNames, globalCtx)
-          val handled = errorHandling.handle(globalCtx, unexpected)
+          val handled = errorHandling(globalCtx, unexpected)
           globalCtx = handled.ctx
           handled.strategy match {
             case Strategy.SkipToNextMatch =>

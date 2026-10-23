@@ -8,9 +8,11 @@ import scala.annotation.{implicitNotFound, publicInBinary}
 // `CtxScope` anyway: they are declared as `CtxScope`s, which only holds where `CtxScope` is transparent.
 /**
  * Evidence that code runs where `ctx` is available: a `lexer` rule, a parser action, or an [[ErrorHandling.forLexer]]
- * handler. Its `Ctx` member is the context type.
+ * or [[ErrorHandling.forParser]] handler. Its `Ctx` member is the context type.
  */
-@implicitNotFound("`ctx` can only be used inside a lexer rule, a parser action or `ErrorHandling.forLexer`")
+@implicitNotFound(
+  "`ctx` can only be used inside a lexer rule, a parser action, `ErrorHandling.forLexer` or `ErrorHandling.forParser`",
+)
 opaque type CtxScope <: { type Ctx <: AlpacaCtx } = AlpacaCtx & { type Ctx <: AlpacaCtx }
 
 object CtxScope:
@@ -21,11 +23,10 @@ object CtxScope:
   extension (scope: CtxScope) @publicInBinary private[alpaca] def ctx: scope.Ctx = scope.asInstanceOf[scope.Ctx]
 
 /**
- * Evidence that code runs inside a `lexer` rule or an [[ErrorHandling.forLexer]] handler, where `ctx` and `Token[...]`
- * are available. Only the `lexer` macro and `ErrorHandling.forLexer` create one; its `Ctx` member is the lexer context
- * type.
+ * Evidence that code runs inside a `lexer` rule, where `ctx` and `Token[...]` are available. Only the `lexer` macro
+ * creates one; its `Ctx` member is the lexer context type.
  */
-@implicitNotFound("`ctx` and `Token` can only be used inside a lexer rule")
+@implicitNotFound("`Token` can only be used inside a lexer rule")
 opaque type LexerScope <: CtxScope & { type Ctx <: LexerCtx } = LexerCtx & { type Ctx <: LexerCtx }
 
 object LexerScope:

@@ -15,7 +15,7 @@ import scala.reflect.NameTransformer
 // $COVERAGE-OFF$
 @publicInBinary private[alpaca] def createLexerImpl[Ctx <: LexerCtx: Type](
   rules: Expr[LexerScope.Of[Ctx] ?=> LexerDefinition[Ctx]],
-  errorHandling: Expr[ErrorHandling[Ctx, LexerError.Of[Ctx]]],
+  errorHandling: Expr[ErrorHandling[Ctx]],
 )(using quotes: Quotes,
 ): Expr[Lexer[Ctx]] = {
   import quotes.reflect.*

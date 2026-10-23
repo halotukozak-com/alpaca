@@ -12,7 +12,7 @@ final case class NotesCtx(
   notes: List[String] = Nil,
 ) extends LexerCtx
 
-given ErrorHandling[NotesCtx, LexerError.Of[NotesCtx]] = ErrorHandling.forLexer: error =>
+given ErrorHandling[NotesCtx] = ErrorHandling.forLexer: error =>
   ctx.notes :+= s"${error.unexpected} on line ${error.line}"
   if ctx.peek(1) == "#" then ErrorHandling.Strategy.SkipToNextMatch else ErrorHandling.Strategy.SkipOne
 
@@ -22,12 +22,33 @@ val NotesLexer = lexer[NotesCtx]:
 
 final case class SkipCountCtx(var skips: Int = 0) extends LexerCtx
 
-given ErrorHandling[SkipCountCtx, LexerError.Of[SkipCountCtx]] = ErrorHandling.forLexer: _ =>
+given ErrorHandling[SkipCountCtx] = ErrorHandling.forLexer: _ =>
   ctx.skips += 1
   ErrorHandling.Strategy.SkipToNextMatch
 
 val SkipCountLexer = lexer[SkipCountCtx]:
   case "[a-z]+" => Token["WORD"]
+
+final case class SkipBudgetCtx(skipsLeft: Int = 1, seen: List[String] = Nil) extends ParserCtx
+
+given ErrorHandling[SkipBudgetCtx] = ErrorHandling.forParser: error =>
+  ctx.seen :+= error.unexpected.fold("end")(_.text)
+  if ctx.skipsLeft == 0 then ErrorHandling.Strategy.Stop
+  else
+    ctx.skipsLeft -= 1
+    ErrorHandling.Strategy.SkipOne
+
+val SumLexer = lexer:
+  case "\\+" => Token["+"]
+  case value @ "[0-9]+" => Token["Num"](value.toInt)
+
+object SkipBudgetParser extends Parser[SkipBudgetCtx]:
+  val Sum: Rule[Int] = rule(
+    { case (Sum(sum), SumLexer.`+`(_), SumLexer.Num(lexeme)) => sum + lexeme.value },
+    { case SumLexer.Num(lexeme) => lexeme.value },
+  )
+  val root: Rule[Int] = rule:
+    case Sum(result) => result
 
 final class ErrorHandlingCtxTest extends AnyFunSuite with Matchers with LoneElement:
 
@@ -53,10 +74,31 @@ final class ErrorHandlingCtxTest extends AnyFunSuite with Matchers with LoneElem
     errors.map(error => (error.unexpected, error.skips)) shouldBe List(("??", 0), ("!", 1))
   }
 
+  test("ErrorHandling.forParser assigns immutable context fields the parser goes on with") {
+    val result = SkipBudgetParser.parse(SumLexer.tokenize("1++2++3").getOrThrow)
+    result.ctx shouldBe SkipBudgetCtx(skipsLeft = 0, seen = List("+", "+"))
+  }
+
+  test("token and rule extractors in an ErrorHandling.forParser handler are reported") {
+    typeCheckErrors("""
+      ErrorHandling.forParser[SkipBudgetCtx]: _ =>
+        (null: Any) match { case SumLexer.Num(_) => () }
+        ErrorHandling.Strategy.Stop
+    """).map(_.message) should contain("Token and rule extractors can only be used in a production of a `rule`")
+  }
+
+  test("a token in a lexer error handler is a compile error") {
+    typeCheckErrors("""
+      ErrorHandling.forLexer[NotesCtx]: _ =>
+        val _ = Token["WORD"]
+        ErrorHandling.Strategy.Stop
+    """).map(_.message) should contain("`Token` can only be used inside a lexer rule")
+  }
+
   test("a lexer rule and a handler assign the local vars they capture") {
     var words = 0
     var skipped = 0
-    given ErrorHandling[LexerCtx.Default, LexerError.Of[LexerCtx.Default]] = ErrorHandling.forLexer: _ =>
+    given ErrorHandling[LexerCtx.Default] = ErrorHandling.forLexer: _ =>
       skipped += 1
       ErrorHandling.Strategy.SkipOne
     val CountingLexer = lexer:
@@ -68,9 +110,19 @@ final class ErrorHandlingCtxTest extends AnyFunSuite with Matchers with LoneElem
     (words, skipped) shouldBe (2, 2)
   }
 
+  test("a handler for a context that is both a lexer and a parser context is reported") {
+    val error = typeCheckErrors("""
+      case class BothCtx() extends LexerCtx, ParserCtx
+      ErrorHandling.forLexer[BothCtx](_ => ErrorHandling.Strategy.Stop)
+    """).loneElement
+    error.message shouldBe
+      "`BothCtx` is both a `LexerCtx` and a `ParserCtx`; give the lexer and the parser a context each"
+    error.lineContent.trim shouldBe "ErrorHandling.forLexer[BothCtx](_ => ErrorHandling.Strategy.Stop)"
+  }
+
   test("an ErrorHandling.forLexer handler must be a lambda") {
     val error = typeCheckErrors("""
-      val strategy: LexerScope.Of[NotesCtx] ?=> LexerError.Of[NotesCtx] => ErrorHandling.Strategy =
+      val strategy: CtxScope.Of[NotesCtx] ?=> LexerError.Of[NotesCtx] => ErrorHandling.Strategy =
         _ => ErrorHandling.Strategy.Stop
       ErrorHandling.forLexer[NotesCtx](strategy)
     """).loneElement

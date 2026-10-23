@@ -40,7 +40,6 @@ The parser context collects defined function names and the errors found so far (
 
 ```scala sc-name:cl-parser sc-compile-with:cl-lexer
 import halotukozak.alpaca.*
-import scala.collection.mutable
 
 enum BrainAST:
   case Root(ops: List[BrainAST])
@@ -49,8 +48,8 @@ enum BrainAST:
   case Inc, Dec
 
 case class BrainParserCtx(
-  functions: mutable.Set[String] = mutable.Set.empty,
-  errors: mutable.ListBuffer[String] = mutable.ListBuffer.empty,
+  functions: Set[String] = Set.empty,
+  errors: List[String] = Nil,
 ) extends ParserCtx
 
 object BrainParser extends Parser[BrainParserCtx]:
@@ -67,18 +66,19 @@ object BrainParser extends Parser[BrainParserCtx]:
   val FunctionDef: Rule[BrainAST] = rule:
     case (BrainLexer.functionName(name), BrainLexer.functionOpen(_),
           Operation.List(ops), BrainLexer.functionClose(_)) =>
-      if !ctx.functions.add(name.value) then
-        ctx.errors.addOne(s"${name.line}:${name.column}: function ${name.value} is already defined")
+      if ctx.functions(name.value) then
+        ctx.errors :+= s"${name.line}:${name.column}: function ${name.value} is already defined"
+      ctx.functions += name.value
       BrainAST.FunctionDef(name.value, ops)
 
   val FunctionCall: Rule[BrainAST] = rule:
     case (BrainLexer.functionName(name), BrainLexer.functionCall(_)) =>
       if !ctx.functions.contains(name.value) then
-        ctx.errors.addOne(s"${name.line}:${name.column}: function ${name.value} is not defined")
+        ctx.errors :+= s"${name.line}:${name.column}: function ${name.value} is not defined"
       BrainAST.FunctionCall(name.value)
 ```
 
-Collecting errors instead of throwing lets one run report all of them.
+Collecting errors instead of throwing lets one run report all of them. The parser reports syntax errors in its `Result.Failure` on its own; `errors` is only for the checks the rules make. Each `:+=` and `+=` is rewritten into a `copy` of the context, so the reductions that follow see the new value.
 
 ## Running It
 

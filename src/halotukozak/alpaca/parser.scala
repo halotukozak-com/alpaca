@@ -285,8 +285,8 @@ final class ParserException private[alpaca] (val errors: ::[ParserError])
 trait ParserCtx extends Product, Selectable:
   // `@compileTimeOnly`, not an inline `compiletime.error` as a lexer context's: a parser's `rule` drops its productions
   // only after inlining what they call, so the error would fire in every action
-  /** Not meant to be called: assigning a context field outside a parser action is a compile error. */
-  @compileTimeOnly("Parser context fields can only be assigned inside a parser action")
+  /** Not meant to be called: assigning a context field outside a parser action or handler is a compile error. */
+  @compileTimeOnly("Parser context fields can only be assigned inside a parser action or an error handler")
   def applyDynamic(@unused name: String)(@unused args: Any*): Any = throw UnsupportedOperationException(name)
 
 /**
@@ -334,7 +334,7 @@ extension (@unused inline first: Production | Token[?, ?, ?]) {
 object ParserCtx:
 
   /** Default error handler for any [[ParserCtx]]: stop at the first input that does not match the grammar. */
-  given ErrorHandling[ParserCtx, ParserError] = (_, _) => ErrorHandling.Strategy.Stop
+  given [Ctx <: ParserCtx] => ErrorHandling[Ctx] = ErrorHandling.stopping
 
   /** A parser context with no state: the context of `extends Parser` without a type argument. */
   final case class Empty(

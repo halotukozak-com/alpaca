@@ -63,7 +63,7 @@ In the context, `column` and `line` are the position right after the last match.
 
 > **Note:** Context fields are read by name on lexemes and lexer errors, so the names of their public members are reserved, for example `name`, `value`, `text`, `toString` and `selectDynamic` (members of `Lexeme`), `unexpected` and `message` (members of `LexerError`), and `getClass`, `eq` or `synchronized`, which every object has. The `lexer` macro reports a field with one of these names as a compile error.
 
-State fields are ordinary immutable `val` case-class parameters. Writing `ctx.count += 1` in a rule body still type-checks and does the expected thing -- the `lexer` macro rewrites every such assignment into a functional `copy` before the rule is compiled. A field of a mutable collection type (e.g., `scala.collection.mutable.Stack`) works too: you mutate the collection in place and never reassign the field.
+State fields are ordinary immutable `val` case-class parameters. Writing `ctx.count += 1` in a rule body still type-checks and does the expected thing -- the `lexer` macro rewrites every such assignment into a functional `copy` before the rule is compiled. A field of a mutable collection type (e.g., `scala.collection.mutable.Stack`) works too: you mutate the collection in place and never reassign the field. Every lexeme keeps a snapshot of the context's fields, though, and a mutable collection is shared by all of them, so each snapshot shows its final contents; an immutable value keeps the contents at match time.
 
 ## Custom Context
 

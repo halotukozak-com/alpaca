@@ -39,7 +39,7 @@ transparent inline def lexer[Ctx <: LexerCtx](
   using Ctx withDefault LexerCtx.Default,
 )(
   inline rules: LexerScope.Of[Ctx] ?=> LexerDefinition[Ctx],
-)(using errorHandling: ErrorHandling[Ctx, LexerError.Of[Ctx]],
+)(using errorHandling: ErrorHandling[Ctx],
 ): Lexer[Ctx] =
   ${ createLexerImpl[Ctx]('{ rules }, '{ errorHandling }) }
 
@@ -131,7 +131,7 @@ object Token:
  * (`ctx.count += 1`) to change the context for the tokens that follow. The assignment is rewritten into a `copy`, so
  * the fields can stay `val`s.
  *
- * In a parser action it is the parser context, the same way.
+ * In a parser action or an [[ErrorHandling.forParser]] handler it is the parser context, the same way.
  */
 transparent inline def ctx[Ctx <: AlpacaCtx: CtxScope.Of as scope]: Ctx = ${ ctxImpl[Ctx]('scope) }
 
@@ -205,11 +205,11 @@ trait LexerCtx extends Product, Selectable:
     lastLexeme = prev.lastLexeme
     this
 
-  // inline, unlike a parser context's: `lexer` rewrites an assignment while it is typed, before this is inlined into
-  // the error, so an assignment anywhere else is reported then
-  /** Not meant to be called: assigning a context field outside a lexer rule is a compile error. */
+  // inline, unlike a parser context's: `lexer` and `ErrorHandling.forLexer` rewrite an assignment while it is typed,
+  // before this is inlined into the error, so an assignment anywhere else is reported then
+  /** Not meant to be called: assigning a context field outside a lexer rule or handler is a compile error. */
   inline def applyDynamic(@unused inline name: String)(@unused inline args: Any*): Any =
-    compiletime.error("Lexer context fields can only be assigned inside a lexer rule")
+    compiletime.error("Lexer context fields can only be assigned inside a lexer rule or an error handler")
 
 object LexerCtx:
 
@@ -229,7 +229,7 @@ object LexerCtx:
   }
 
   /** Default error handler for any [[LexerCtx]]: stop at the first unrecognised character and report it. */
-  given ErrorHandling[LexerCtx, LexerError] = (_, _) => ErrorHandling.Strategy.Stop
+  given [Ctx <: LexerCtx] => ErrorHandling[Ctx] = ErrorHandling.stopping
 
   /**
    * A lexer context with no fields, so lexemes and errors carry no position. Use it when you need neither line nor

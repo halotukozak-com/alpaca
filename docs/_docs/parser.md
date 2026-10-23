@@ -257,12 +257,12 @@ BrainParser.parse(BrainLexer.tokenize("[+").getOrThrow) match
 
 ### Error Recovery
 
-By default the parser stops at the first error, so `errors` has one element. An `ErrorHandling[Ctx, ParserError]` for your parser context can tell it to skip the unexpected input and go on instead -- the same `ErrorHandling` type the lexer uses, with `ParserError` as its error type (see [Error Recovery](lexer-error-recovery.md#error-handling-strategies)). Every skip is still reported as a `ParserError`, and if parsing then reaches the end, its value is the failure's `recovered`:
+By default the parser stops at the first error, so `errors` has one element. An `ErrorHandling[Ctx]` for your parser context, built with `ErrorHandling.forParser`, can tell it to skip the unexpected input and go on instead -- as a lexer's is built with `ErrorHandling.forLexer` (see [Error Recovery](lexer-error-recovery.md#error-handling-strategies)). Every skip is still reported as a `ParserError`, and if parsing then reaches the end, its value is the failure's `recovered`:
 
 ```scala sc-compile-with:brain-tokenize
 case class RecoveringCtx() extends ParserCtx
 
-given ErrorHandling[RecoveringCtx, ParserError] = (ctx, error) => ErrorHandling.Strategy.SkipOne
+given ErrorHandling[RecoveringCtx] = ErrorHandling.forParser(_ => ErrorHandling.Strategy.SkipOne)
 
 object RecoveringParser extends Parser[RecoveringCtx]:
   val root: Rule[Int] = rule:
@@ -283,7 +283,30 @@ RecoveringParser.parse(BrainLexer.tokenize("++>+").getOrThrow) match
 
 The end of the input cannot be skipped, so an error there stops the parser whatever the strategy.
 
-The strategy receives the parser context and the `ParserError`, so it can decide per error -- for example skip stray separators but stop on anything else. Define the `given` where the parser is defined, or in the context's companion object.
+The handler is given the `ParserError`, so it can decide per error -- for example skip stray separators but stop on anything else. Define the `given` where the parser is defined, or in the context's companion object.
+
+In the handler, `ctx` works as in the parser's actions: assigning a field changes the context the parser goes on with.
+
+```scala sc-compile-with:brain-tokenize
+case class BudgetCtx(skipsLeft: Int = 1) extends ParserCtx
+
+given ErrorHandling[BudgetCtx] = ErrorHandling.forParser: _ =>
+  if ctx.skipsLeft == 0 then ErrorHandling.Strategy.Stop
+  else
+    ctx.skipsLeft -= 1
+    ErrorHandling.Strategy.SkipOne
+
+object BudgetParser extends Parser[BudgetCtx]:
+  val root: Rule[Int] = rule:
+    case BrainLexer.inc.List(incs) => incs.size
+
+BudgetParser.parse(BrainLexer.tokenize("+>+<+").getOrThrow) match
+  case Result.Failure(ctx, recovered, errors) =>
+    println(ctx.skipsLeft)                             // 0
+    println(recovered)                                 // None: the second skip was refused
+    println(errors.flatMap(_.unexpected).map(_.text))  // List(>, <)
+  case Result.Success(_, _) => ()
+```
 
 ## Conflict Resolution
 

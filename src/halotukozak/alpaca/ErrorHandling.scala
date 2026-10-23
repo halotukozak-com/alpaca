@@ -1,48 +1,51 @@
 package halotukozak
 package alpaca
 
+import scala.annotation.publicInBinary
+
 /**
  * How tokenizing or parsing goes on after input that is not accepted.
  *
  * Whatever the strategy, the error is reported in the [[Result.Failure]] that `tokenize` or `parse` returns; the
- * strategy only decides whether the run stops there or skips past the input and goes on. It is given the context and
- * the error, so it can decide per error.
+ * strategy only decides whether the run stops there or skips past the input and goes on. It is given the error, and
+ * reads and changes the context as `ctx`, so it can decide per error.
  *
- * The lexer looks for an `ErrorHandling[Ctx, LexerError.Of[Ctx]]` for its context (an `ErrorHandling[Ctx, LexerError]`
- * also fits), the parser for an `ErrorHandling[Ctx, ParserError]` for its context. Both default to
- * [[ErrorHandling.Strategy.Stop]]; define a `given` for your context type to change that:
+ * The lexer and the parser look for an `ErrorHandling` for their context, which defaults to
+ * [[ErrorHandling.Strategy.Stop]]. Define a `given` for your context type, built with [[ErrorHandling.forLexer]] or
+ * [[ErrorHandling.forParser]], to change that:
  * {{{
- * given ErrorHandling[MyLexerCtx, LexerError] = (ctx, error) => ErrorHandling.Strategy.SkipOne
- * given ErrorHandling[MyParserCtx, ParserError] = (ctx, error) => ErrorHandling.Strategy.SkipToNextMatch
- * }}}
- *
- * A lexer handler declared for `LexerError.Of[MyLexerCtx]` reads the context's fields with their types.
- *
- * To change the context from a handler, build it with [[ErrorHandling.forLexer]], where `ctx` works as in a lexer
- * rule:
- * {{{
- * given ErrorHandling[MyLexerCtx, LexerError.Of[MyLexerCtx]] = ErrorHandling.forLexer: error =>
+ * given ErrorHandling[MyLexerCtx] = ErrorHandling.forLexer: error =>
  *   ctx.skipped += 1
  *   ErrorHandling.Strategy.SkipOne
+ * given ErrorHandling[MyParserCtx] = ErrorHandling.forParser(_ => ErrorHandling.Strategy.SkipToNextMatch)
  * }}}
  *
  * @tparam Ctx the lexer or parser context this applies to
- * @tparam Err the error it is given: [[LexerError]] for the lexer, [[ParserError]] for the parser
  */
-trait ErrorHandling[-Ctx, -Err] extends ((Ctx, Err) => ErrorHandling.Strategy):
-  /** The strategy for `error`, and the context to go on with: `ctx` itself unless built by [[ErrorHandling.forLexer]]. */
-  private[alpaca] def handle[C <: Ctx](ctx: C, error: Err): (strategy: ErrorHandling.Strategy, ctx: C) =
-    (strategy = apply(ctx, error), ctx = ctx)
+opaque type ErrorHandling[Ctx <: AlpacaCtx] = (Ctx, LexerError | ParserError) => (
+  strategy: ErrorHandling.Strategy,
+  ctx: Ctx,
+)
 
 object ErrorHandling:
+  @publicInBinary private[alpaca] def apply[Ctx <: AlpacaCtx](
+    handle: (Ctx, LexerError | ParserError) => (strategy: Strategy, ctx: Ctx),
+  ): ErrorHandling[Ctx] =
+    handle
+
+  extension [Ctx <: AlpacaCtx](errorHandling: ErrorHandling[Ctx])
+    /** The strategy for an error, and the context to go on with. */
+    private[alpaca] def apply(ctx: Ctx, error: LexerError | ParserError): (strategy: Strategy, ctx: Ctx) =
+      errorHandling(ctx, error)
 
   /**
-   * A lexer error handler that can change the context. In `handler`, `ctx` is the lexer context as in a rule body:
+   * A lexer error handler. In `handler`, the error carries the context's fields with their types (`error.line`).
+   * It can also change the context. In `handler`, `ctx` is the lexer context as in a rule body:
    * assigning its fields (`ctx.count += 1`) changes the context the lexer goes on with, so they can stay `val`s.
    * {{{
    * case class MyCtx(line: Line = Line.Start, skipped: Int = 0) extends LexerCtx
    *
-   * given ErrorHandling[MyCtx, LexerError.Of[MyCtx]] = ErrorHandling.forLexer: error =>
+   * given ErrorHandling[MyCtx] = ErrorHandling.forLexer: error =>
    *   ctx.skipped += 1
    *   ErrorHandling.Strategy.SkipOne
    * }}}
@@ -54,9 +57,36 @@ object ErrorHandling:
   // `transparent` so it expands while `handler` is typed, before the `applyDynamic` of an assignment is inlined into
   // its compile error, as `lexer` does
   transparent inline def forLexer[Ctx <: LexerCtx](
-    inline handler: LexerScope.Of[Ctx] ?=> LexerError.Of[Ctx] => Strategy,
-  ): ErrorHandling[Ctx, LexerError.Of[Ctx]] =
-    ${ internal.lexer.errorHandlingImpl[Ctx]('{ handler }) }
+    inline handler: CtxScope.Of[Ctx] ?=> LexerError.Of[Ctx] => Strategy,
+  ): ErrorHandling[Ctx] =
+    ${ internal.lexerErrorHandlingImpl[Ctx]('{ handler }) }
+
+  /**
+   * A parser error handler, which can change the context. In `handler`, `ctx` is the parser context as in an action:
+   * assigning its fields (`ctx.skipsLeft -= 1`) changes the context the parser goes on with, so they can stay `val`s.
+   * {{{
+   * case class MyCtx(skipsLeft: Int = 3) extends ParserCtx
+   *
+   * given ErrorHandling[MyCtx] = ErrorHandling.forParser: error =>
+   *   if ctx.skipsLeft == 0 then ErrorHandling.Strategy.Stop
+   *   else
+   *     ctx.skipsLeft -= 1
+   *     ErrorHandling.Strategy.SkipOne
+   * }}}
+   *
+   * @tparam Ctx the parser context
+   * @param handler the strategy for an error, written directly as a lambda
+   */
+  inline def forParser[Ctx <: ParserCtx](
+    inline handler: CtxScope.Of[Ctx] ?=> ParserError => Strategy,
+  ): ErrorHandling[Ctx] =
+    ${ internal.parserErrorHandlingImpl[Ctx]('{ handler }) }
+
+  // the default: stop at the first error
+  private val stop = ErrorHandling[AlpacaCtx]((ctx, _) => (strategy = Strategy.Stop, ctx = ctx))
+
+  /** Stops at the first error: what a lexer or parser does without a handler for its context. */
+  private[alpaca] def stopping[Ctx <: AlpacaCtx]: ErrorHandling[Ctx] = stop.asInstanceOf[ErrorHandling[Ctx]]
 
   /** What to do with input that is not accepted: one character for the lexer, one lexeme for the parser. */
   enum Strategy:

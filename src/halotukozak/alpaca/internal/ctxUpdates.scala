@@ -9,7 +9,7 @@ import scala.reflect.NameTransformer
 // $COVERAGE-OFF$
 
 /**
- * Points a body typed against a [[CtxScope]] -- a lexer rule, a parser action or an `ErrorHandling.forLexer`
+ * Points a body typed against a [[CtxScope]] -- a lexer rule, a parser action or an `ErrorHandling.forLexer`/`.forParser`
  * handler -- at `newCtx`: the scope itself becomes `newCtx` again, and every `ctx` unwrapping it becomes `newCtx`
  * directly, so that [[rewriteCtxMutations]] recognises it.
  *
@@ -72,8 +72,9 @@ private[internal] def threadCtx[Ctx <: AlpacaCtx: Type, Body: Type, Result: Type
 ): Expr[Result] = {
   import quotes.reflect.*
 
-  // a `Symbol.newVal`, not a `var` in a quote: one the body never assigns is reported as unset where the code expands
-  val ctxVar = Symbol.newVal(owner, "$ctx", TypeRepr.of[Ctx], Flags.Mutable, Symbol.noSymbol)
+  // a `var` only when the body assigns a field: one it never assigns is reported as unset where the code expands
+  val flags = if assignsCtx(body) then Flags.Mutable else Flags.EmptyFlags
+  val ctxVar = Symbol.newVal(owner, "$ctx", TypeRepr.of[Ctx], flags, Symbol.noSymbol)
   val replaced = replaceScope[Ctx](scope, Ref(ctxVar))(others).transformTerm(body.changeOwner(owner))(owner)
   val rewritten = rewriteCtxMutations(ctxVar)(replaced)(owner)
   // a quote in `result` re-homes what it splices to the macro's own owner, so `changeOwner` puts it back under `owner`

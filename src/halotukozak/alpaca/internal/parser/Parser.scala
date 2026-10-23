@@ -25,7 +25,7 @@ abstract class Parser[Ctx <: ParserCtx](
   using Ctx withDefault ParserCtx.Empty,
 )(using
   tables: Tables[Ctx],
-  errorHandling: ErrorHandling[Ctx, ParserError],
+  errorHandling: ErrorHandling[Ctx],
 ):
 
   /**
@@ -84,7 +84,9 @@ abstract class Parser[Ctx <: ParserCtx](
           val error = ParserError(remaining.headOption, expected, last)
           errors += error
           // the end of the input cannot be skipped
-          errorHandling(ctx, error) match
+          val handled = errorHandling(ctx, error)
+          ctx = handled.ctx
+          handled.strategy match
             case ErrorHandling.Strategy.SkipOne if remaining.nonEmpty => loop(remaining.tail)
             case ErrorHandling.Strategy.SkipToNextMatch if remaining.nonEmpty =>
               loop(remaining.tail.dropWhile(lexeme => !expectedTerminals.contains(Terminal(Printable(lexeme.name)))))
