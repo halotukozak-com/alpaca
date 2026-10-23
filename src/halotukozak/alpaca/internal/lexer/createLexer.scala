@@ -172,14 +172,14 @@ import scala.reflect.NameTransformer
             case Block(statements, expr) =>
               val ctxManipulation = createLambda[CtxManipulation[Ctx]]:
                 case (methSym, (newCtx: Term) :: Nil) =>
-                  threadCtx[Ctx, Ctx](
+                  threadCtx[Ctx](
                     methSym,
-                    newCtx.asExprOf[Ctx],
+                    newCtx,
                     oldScope.symbol,
                     Block(statements, Literal(UnitConstant())),
                     boundMatch(newCtx),
                   ): (body, ctx) =>
-                    Block(List(body), ctx.getOrElse(newCtx))
+                    Block(List(body), ctx)
 
               extractSimple(ctxManipulation).lift(expr.asExprOf[TokenDef[ValidName, Ctx, Any]])
             case _ => None
