@@ -29,7 +29,7 @@ private[internal] def replaceScope[Ctx <: AlpacaCtx: Type](
   import quotes.reflect.*
 
   // the scope is the context itself, cast to the scope's type: a lexer's `Token` and a parser's extractors need it
-  def rescoped: Term = scope.termRef.widen.asType match
+  lazy val rescoped: Term = scope.termRef.widen.asType match
     case '[scopeType] => '{ ${ newCtx.asExpr }.asInstanceOf[scopeType] }.asTerm
 
   new TreeMap:
@@ -73,23 +73,24 @@ private[internal] def threadCtx[Ctx <: AlpacaCtx: Type, Result: Type](
 ): quotes.reflect.Term = {
   import quotes.reflect.*
 
-  def threaded(current: Expr[Ctx]): Expr[Result] =
+  // `None` without a `var`: the body runs against `initial`
+  def threaded(current: Expr[Ctx], updated: Option[Term]): Expr[Result] =
     val ctxSymbol = current.asTerm.symbol
     // what declares `current`: the quote below, or `owner` for the initial context
     val ctxOwner = ctxSymbol.owner
     val replaced = replaceScope[Ctx](scope, current.asTerm)(others).transformTerm(body.changeOwner(ctxOwner))(ctxOwner)
     val rewritten = rewriteCtxMutations(ctxSymbol)(replaced)(ctxOwner)
     // in terms: `current` belongs to the splice, so a quote of the caller's must not splice it
-    result(rewritten, Option.when(assigns(rewritten, ctxSymbol))(current.asTerm)).asExprOf[Result]
+    result(rewritten, updated).asExprOf[Result]
 
   // a `var` only for a body that assigns: one never assigned is reported as unset where the code expands
-  if !assignsCtx(body) then threaded(initial).asTerm
+  if !assignsCtx(body) then threaded(initial, None).asTerm
   // a quote re-homes what it splices to the macro's own owner, so `changeOwner` puts it under `owner`
   else
     '{
       // assigned only by the rewritten body, spliced in below
       @nowarn("msg=unset local variable") var current = $initial
-      ${ threaded('current) }
+      ${ threaded('current, Some('current.asTerm)) }
     }.asTerm.changeOwner(owner)
 }
 
@@ -109,16 +110,6 @@ private[internal] def assignsCtx(using quotes: Quotes)(body: quotes.reflect.Term
         case _ => foldOverTree(found, tree)(owner))
   .foldTree(false, body)(Symbol.spliceOwner)
 }
-
-/** Whether `body` assigns `ctxVar`, i.e. whether [[rewriteCtxMutations]] rewrote any context assignment in it. */
-private[internal] def assigns(using quotes: Quotes)(body: quotes.reflect.Term, ctxVar: quotes.reflect.Symbol): Boolean =
-  import quotes.reflect.*
-  new TreeAccumulator[Boolean]:
-    def foldTree(found: Boolean, tree: Tree)(owner: Symbol): Boolean = found ||
-      (tree match
-        case Assign(lhs, _) if lhs.symbol == ctxVar => true
-        case _ => foldOverTree(found, tree)(owner))
-  .foldTree(false, body)(Symbol.spliceOwner)
 
 /**
  * Rewrites structural field-mutation syntax on a lexer or parser context back
