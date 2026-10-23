@@ -185,7 +185,6 @@ sealed trait Rule[Value]:
    * @param x the value to match
    * @return Some(result) if the match succeeds
    */
-  @compileTimeOnly(RuleOnly)
   inline def unapply(@unused x: Any)(using @unused scope: ProductionScope): Option[Value] =
     null.asInstanceOf[Option[Value]]
 
@@ -196,7 +195,6 @@ sealed trait Rule[Value]:
    *
    * @return a partial function that extracts a list of results
    */
-  @compileTimeOnly(RuleOnly)
   inline def List(using @unused scope: ProductionScope): PartialFunction[Any, List[Value]] =
     null.asInstanceOf[PartialFunction[Any, List[Value]]]
 
@@ -207,7 +205,6 @@ sealed trait Rule[Value]:
    *
    * @return a partial function that extracts an optional result
    */
-  @compileTimeOnly(RuleOnly)
   inline def Option(using @unused scope: ProductionScope): PartialFunction[Any, Option[Value]] =
     null.asInstanceOf[PartialFunction[Any, Option[Value]]]
 
@@ -221,7 +218,6 @@ sealed trait Rule[Value]:
    *
    * @tparam Separator a token type or a rule's `.type`
    */
-  @compileTimeOnly(RuleOnly)
   inline def SeparatedBy[Separator](using @unused scope: ProductionScope)
     : PartialFunction[Any, List[Value | SepValue[Separator]]] =
     null.asInstanceOf[PartialFunction[Any, List[Value | SepValue[Separator]]]]
