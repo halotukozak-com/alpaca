@@ -48,7 +48,7 @@ object ErrorHandling:
   // `transparent` so it expands while `handler` is typed, before the `applyDynamic` of an assignment is inlined into
   // its compile error, as `lexer` does
   transparent inline def forLexer[Ctx <: LexerCtx](
-    inline handler: LexerScope.Of[Ctx] ?=> LexerError.Of[Ctx] => Strategy,
+    inline handler: CtxScope.Of[Ctx] ?=> LexerError.Of[Ctx] => Strategy,
   ): ErrorHandling[Ctx] =
     ${ internal.lexerErrorHandlingImpl[Ctx]('{ handler }) }
 

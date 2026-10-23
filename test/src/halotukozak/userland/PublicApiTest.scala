@@ -136,7 +136,7 @@ final class PublicApiTest extends AnyFunSuite with Matchers:
 
   test("Token is a compile error outside a lexer rule") {
     typeCheckErrors("""Token["X"]""").map(_.message) shouldBe
-      List("`ctx` and `Token` can only be used inside a lexer rule")
+      List("`Token` can only be used inside a lexer rule")
     assert(!typeChecks("""val scope: LexerScope.Of[LexerCtx.Default] = LexerCtx.Default()"""))
   }
 
