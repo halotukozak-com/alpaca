@@ -56,25 +56,28 @@ private[internal] def replaceScope[Ctx <: AlpacaCtx: Type](
  * @param others  replacements for other symbols of the user's code, as in [[replaceScope]]
  * @param result  what the block returns, from the rewritten body and the updated context
  */
-private[internal] def threadCtx[Ctx <: AlpacaCtx: Type](
+private[internal] def threadCtx[Ctx <: AlpacaCtx: Type, Body: Type, Result: Type](
   using
   quotes: Quotes,
   diagnostics: Diagnostics,
 )(
   owner: quotes.reflect.Symbol,
-  initial: quotes.reflect.Term,
+  initial: Expr[Ctx],
   scope: quotes.reflect.Symbol,
   body: quotes.reflect.Term,
   others: PartialFunction[quotes.reflect.Symbol, quotes.reflect.Term] = PartialFunction.empty,
 )(
-  result: (body: quotes.reflect.Term, ctx: quotes.reflect.Term) => quotes.reflect.Term,
-): quotes.reflect.Term = {
+  result: (body: Expr[Body], ctx: Expr[Ctx]) => Expr[Result],
+): Expr[Result] = {
   import quotes.reflect.*
 
+  // a `Symbol.newVal`, not a `var` in a quote: one the body never assigns is reported as unset where the code expands
   val ctxVar = Symbol.newVal(owner, "$ctx", TypeRepr.of[Ctx], Flags.Mutable, Symbol.noSymbol)
   val replaced = replaceScope[Ctx](scope, Ref(ctxVar))(others).transformTerm(body.changeOwner(owner))(owner)
   val rewritten = rewriteCtxMutations(ctxVar)(replaced)(owner)
-  Block(List(ValDef(ctxVar, Some(initial))), result(rewritten, Ref(ctxVar)))
+  // a quote in `result` re-homes what it splices to the macro's own owner, so `changeOwner` puts it back under `owner`
+  val returned = result(rewritten.asExprOf[Body], Ref(ctxVar).asExprOf[Ctx]).asTerm.changeOwner(owner)
+  Block(List(ValDef(ctxVar, Some(initial.asTerm))), returned).asExprOf[Result]
 }
 
 /**
