@@ -313,7 +313,7 @@ final class ParserException private[alpaca] (val errors: ::[ParserError])
  * Assigning a field in an action (`ctx.functions += name`) is rewritten into a `copy`, so the fields can stay `val`s,
  * as in a lexer context.
  */
-trait ParserCtx extends AlpacaCtx:
+trait ParserCtx extends Product, Selectable:
   // `@compileTimeOnly`, not an inline `compiletime.error` as a lexer context's: a parser's `rule` drops its productions
   // only after inlining what they call, so the error would fire in every action
   /** Not meant to be called: assigning a context field outside a parser action is a compile error. */
