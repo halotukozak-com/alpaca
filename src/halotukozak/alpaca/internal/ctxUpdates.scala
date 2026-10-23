@@ -179,15 +179,14 @@ private[internal] def rewriteCtxMutations(using
     case Apply(Apply(Select(recv, "applyDynamic"), List(Literal(StringConstant(name)))), List(args)) =>
       (recv, name, args)
 
-  object unwrap:
-    def apply(t: Term): Term = unapply(t).value
+  @tailrec def unwrapped(term: Term): Term = term match
+    case Inlined(_, Nil, e) => unwrapped(e)
+    case Typed(e, _) => unwrapped(e)
+    case Block(Nil, e) => unwrapped(e)
+    case Cast(e) => unwrapped(e)
+    case _ => term
 
-    @tailrec def unapply(t: Term): Some[Term] = t match
-      case Inlined(_, Nil, e) => unapply(e)
-      case Typed(e, _) => unapply(e)
-      case Block(Nil, e) => unapply(e)
-      case Cast(e) => unapply(e)
-      case _ => Some(t)
+  val unwrap: PartialFunction[Term, Term] = { case term => unwrapped(term) }
 
   def copyWith(recv: Term, field: String, value: Term): Term =
     val cls = recv.tpe.typeSymbol
