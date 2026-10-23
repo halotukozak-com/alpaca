@@ -4,8 +4,8 @@ package alpaca
 import scala.annotation.{implicitNotFound, publicInBinary}
 
 // The scopes have a file of their own because an opaque type is transparent to the whole file that declares it: next to
-// `Token` and `ctx`, a scope would be just the context. They share it because `LexerScope` and `ProductionScope` are
-// declared as `CtxScope`s, which only holds where `CtxScope` is transparent.
+// `Token`, `ctx` or `rule`, a scope would be just what it hides. `LexerScope` and `ProductionScope` must share it with
+// `CtxScope` anyway: they are declared as `CtxScope`s, which only holds where `CtxScope` is transparent.
 /**
  * Evidence that code runs where `ctx` is available: a `lexer` rule, a parser action, or an [[ErrorHandling.forLexer]]
  * or [[ErrorHandling.forParser]] handler. Its `Ctx` member is the context type.
@@ -45,3 +45,27 @@ opaque type ProductionScope <: CtxScope & { type Ctx <: ParserCtx } = ParserCtx 
 object ProductionScope:
   /** The scope of a production of a parser whose context type is `Ctx0`. */
   type Of[Ctx0 <: ParserCtx] = ProductionScope { type Ctx = Ctx0 }
+
+/**
+ * Evidence that code runs inside [[resolutions]], where `production`, `Production(...)` and `before`/`after` are
+ * available. Gives `production` the parser it refers to.
+ *
+ * @tparam ParserType the parser's singleton type
+ */
+@implicitNotFound("`production`, `Production(...)`, `before` and `after` can only be used inside resolutions(...)")
+opaque type ResolutionScope[ParserType <: internal.parser.Parser[?]] = Unit
+object ResolutionScope:
+  private[alpaca] def refl[ParserType <: internal.parser.Parser[?]]: ResolutionScope[ParserType] = ()
+
+/**
+ * Evidence that code runs inside a parser definition, where `rule` and named productions are available. Every
+ * [[Parser]] provides one; its `Ctx` member is the parser context type, which the productions of a `rule` bind as
+ * their [[ProductionScope]].
+ */
+@implicitNotFound("`rule` and named productions can only be used inside a parser definition")
+opaque type ParserScope <: { type Ctx <: ParserCtx } = AnyRef & { type Ctx <: ParserCtx }
+object ParserScope:
+  /** The scope of a parser whose context type is `Ctx0`. */
+  type Of[Ctx0 <: ParserCtx] = ParserScope { type Ctx = Ctx0 }
+
+  private[alpaca] def refl[Ctx <: ParserCtx]: Of[Ctx] = null.asInstanceOf[Of[Ctx]]
