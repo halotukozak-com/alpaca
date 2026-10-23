@@ -46,7 +46,6 @@ def resolutions[ParserType <: parser.Parser[?]](elements: (ResolutionScope[Parse
  *
  * This is compile-time only and can be used only inside [[resolutions]].
  */
-@compileTimeOnly(ConflictResolutionOnly)
 transparent inline def production[ParserType <: parser.Parser[?]: ResolutionScope]: ProductionSelector =
   ${ productionImpl[ParserType] }
 
@@ -310,7 +309,6 @@ extension (@unused inline first: Production | Token[?, ?, ?]) {
    * @param others the productions and tokens that win over this one
    * @return a conflict resolution rule
    */
-  @compileTimeOnly(ConflictResolutionOnly)
   inline infix def after[ParserType <: parser.Parser[?]: ResolutionScope](
     @unused inline others: (Production | Token[?, ?, ?])*,
   ): ConflictResolution =
@@ -327,7 +325,6 @@ extension (@unused inline first: Production | Token[?, ?, ?]) {
    * @param others the productions and tokens this one wins over
    * @return a conflict resolution rule
    */
-  @compileTimeOnly(ConflictResolutionOnly)
   inline infix def before[ParserType <: parser.Parser[?]: ResolutionScope](
     @unused inline others: (Production | Token[?, ?, ?])*,
   ): ConflictResolution =
