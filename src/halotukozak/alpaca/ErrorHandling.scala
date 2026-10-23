@@ -22,12 +22,21 @@ import scala.annotation.publicInBinary
  *
  * @tparam Ctx the lexer or parser context this applies to
  */
-final class ErrorHandling[Ctx <: AlpacaCtx] @publicInBinary private[alpaca] (
-  /** The strategy for an error, and the context to go on with. */
-  private[alpaca] val handle: (Ctx, LexerError | ParserError) => (strategy: ErrorHandling.Strategy, ctx: Ctx),
+opaque type ErrorHandling[Ctx <: AlpacaCtx] = (Ctx, LexerError | ParserError) => (
+  strategy: ErrorHandling.Strategy,
+  ctx: Ctx,
 )
 
 object ErrorHandling:
+  @publicInBinary private[alpaca] def apply[Ctx <: AlpacaCtx](
+    handle: (Ctx, LexerError | ParserError) => (strategy: Strategy, ctx: Ctx),
+  ): ErrorHandling[Ctx] =
+    handle
+
+  extension [Ctx <: AlpacaCtx](errorHandling: ErrorHandling[Ctx])
+    /** The strategy for an error, and the context to go on with. */
+    private[alpaca] def handle(ctx: Ctx, error: LexerError | ParserError): (strategy: Strategy, ctx: Ctx) =
+      errorHandling(ctx, error)
 
   /**
    * A lexer error handler. In `handler`, the error carries the context's fields with their types (`error.line`).
