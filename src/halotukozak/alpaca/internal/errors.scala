@@ -6,15 +6,6 @@ import scala.quoted.*
 // $COVERAGE-OFF$
 
 /**
- * Error message for methods that should only be called during parser definition.
- *
- * This constant is used in @compileTimeOnly annotations to indicate that a method
- * was called outside of its intended context. It appears in compile errors when
- * parser-related methods are called outside the parser definition scope.
- */
-private[alpaca] final val ParserOnly = "Should never be called outside the parser definition"
-
-/**
  * Error message for methods that should only be called during conflict resolution.
  *
  * This constant is used in @compileTimeOnly annotations to indicate that a method

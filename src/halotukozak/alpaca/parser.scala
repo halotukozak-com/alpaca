@@ -88,7 +88,6 @@ type ProductionDefinition[Value] = PartialFunction[Tuple | Lexeme[?, ?], Value]
  * @param productions one or more productions that define this rule
  * @return a Rule instance
  */
-@compileTimeOnly(ParserOnly)
 inline def rule(
   using scope: ParserScope,
 )[Value](
@@ -121,7 +120,6 @@ extension (name: String)
    * @tparam Value the result type produced by this production
    * @return the original production, annotated with the given name
    */
-  @compileTimeOnly(ParserOnly)
   inline def apply[Value](production: ProductionDefinition[Value])(using ParserScope): production.type = production
 
 /**
