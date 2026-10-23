@@ -3,8 +3,9 @@ package alpaca
 
 import scala.annotation.{implicitNotFound, publicInBinary}
 
-// In its own file because an opaque type is transparent to the whole file that declares it: next to `Token` and `ctx`,
-// `LexerScope` would be just the context.
+// The scopes have a file of their own because an opaque type is transparent to the whole file that declares it: next to
+// `Token` and `ctx`, a scope would be just the context. They share it because `LexerScope` and `ProductionScope` are
+// declared as `CtxScope`s, which only holds where `CtxScope` is transparent.
 /**
  * Evidence that code runs where `ctx` is available: a `lexer` rule, a parser action, or an [[ErrorHandling.forLexer]]
  * handler. Its `Ctx` member is the context type.
