@@ -82,7 +82,7 @@ transparent abstract class Lexer[Ctx <: LexerCtx] @publicInBinary private[alpaca
           val cpLen = Character.charCount(Character.codePointAt(globalCtx.input, 0))
           val unexpected =
             alpaca.LexerError[LexemeFields](globalCtx.input.subSequence(0, cpLen).toString, fieldNames, globalCtx)
-          val handled = errorHandling.handle(globalCtx, unexpected)
+          val handled = errorHandling(globalCtx, unexpected)
           globalCtx = handled.ctx
           handled.strategy match {
             case Strategy.SkipToNextMatch =>
