@@ -161,9 +161,10 @@ private[internal] def rewriteCtxMutations(using
 ): quotes.reflect.Term = {
   import quotes.reflect.*
 
+  // a cast to the `ctx` facade; one to a scope, which `Token` and the extractors read, is no context
   val Cast: PartialFunction[Term, Term] =
-    case TypeApply(Select(inner, "asInstanceOf" | "$asInstanceOf$"), _) => inner
-    case Select(inner, "$asInstanceOf$") => inner
+    case cast @ TypeApply(Select(inner, "asInstanceOf" | "$asInstanceOf$"), _) if cast.tpe <:< TypeRepr.of[AlpacaCtx] =>
+      inner
 
   val SetterName: PartialFunction[String, String] = Function.unlift: encoded =>
     val decoded = NameTransformer.decode(encoded)
@@ -219,8 +220,7 @@ private[internal] def rewriteCtxMutations(using
         // to the ambient macro-body owner instead of `owner` -- confirmed under -Xcheck-macros
         // ("Block contains definition with different owners"). changeOwner puts it back.
         Assign(ctxRef, carry(copyWith(ctxRef, field, transformTerm(rhs)(owner)), ctxRef).changeOwner(owner))
-      // a cast to the `ctx` facade; one to a scope, which `Token` and the extractors read, stays
-      case cast @ Cast(unwrap(inner)) if isCtxRef(inner) && cast.tpe <:< TypeRepr.of[AlpacaCtx] =>
+      case Cast(unwrap(inner)) if isCtxRef(inner) =>
         inner
       case Ident(_) if aliases(tree.symbol) =>
         ctxRef
