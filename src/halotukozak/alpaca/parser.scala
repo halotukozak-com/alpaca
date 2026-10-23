@@ -6,7 +6,7 @@ import halotukozak.alpaca.internal.lexer.{Lexeme, Token}
 import halotukozak.alpaca.internal.parser.{Production as _, *}
 
 import scala.NamedTuple.AnyNamedTuple
-import scala.annotation.{compileTimeOnly, implicitNotFound, unused}
+import scala.annotation.{compileTimeOnly, unused}
 import scala.quoted.*
 
 /**
@@ -30,30 +30,6 @@ type Parser[Ctx <: ParserCtx] = parser.Parser[Ctx]
  * @tparam ParserType the parser's singleton type
  */
 opaque type Resolutions[ParserType <: parser.Parser[?]] = Set[ConflictResolution]
-
-/**
- * Evidence that code runs inside [[resolutions]], where `production`, `Production(...)` and `before`/`after` are
- * available. Gives `production` the parser it refers to.
- *
- * @tparam ParserType the parser's singleton type
- */
-@implicitNotFound("`production`, `Production(...)`, `before` and `after` can only be used inside resolutions(...)")
-opaque type ResolutionScope[ParserType <: parser.Parser[?]] = Unit
-object ResolutionScope:
-  private[alpaca] def refl[ParserType <: parser.Parser[?]]: ResolutionScope[ParserType] = ()
-
-/**
- * Evidence that code runs inside a parser definition, where `rule` and named productions are available. Every
- * [[Parser]] provides one; its `Ctx` member is the parser context type, which the productions of a `rule` bind as
- * their [[ProductionScope]].
- */
-@implicitNotFound("`rule` and named productions can only be used inside a parser definition")
-opaque type ParserScope <: { type Ctx <: ParserCtx } = AnyRef & { type Ctx <: ParserCtx }
-object ParserScope:
-  /** The scope of a parser whose context type is `Ctx0`. */
-  type Of[Ctx0 <: ParserCtx] = ParserScope { type Ctx = Ctx0 }
-
-  private[alpaca] def refl[Ctx <: ParserCtx]: Of[Ctx] = null.asInstanceOf[Of[Ctx]]
 
 /**
  * Collects the conflict resolutions for the parser `ParserType`, each written with `before` or `after` (see [[Resolutions]]).
