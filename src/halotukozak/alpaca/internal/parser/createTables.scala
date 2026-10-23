@@ -112,7 +112,7 @@ object Tables:
                 ):
                   case (body, None) => body
                   case (body, Some(updated)) =>
-                    '{ CtxUpdated(${ body.asExprOf[Any] }, ${ updated.asExprOf[Ctx] }) }.asTerm
+                    '{ CtxUpdated[Ctx](${ body.asExprOf[Any] }, ${ updated.asExprOf[Ctx] }) }.asTerm
 
           // the production with its name, if it is named
           def extractProductionName(production: Term): (Tree, ValidName | Null) = production.asExpr match

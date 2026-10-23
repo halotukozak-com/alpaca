@@ -29,7 +29,7 @@ private[parser] type Action[-Ctx <: ParserCtx] = (Ctx, RevertedArray[Any]) => An
  * What an action that assigns context fields returns: its `value`, and the context the parse goes on with. Only
  * such actions allocate one; the rest return their value directly.
  */
-private[parser] final case class CtxUpdated(value: Any, ctx: ParserCtx)
+private[parser] final case class CtxUpdated[+Ctx <: ParserCtx](value: Any, ctx: Ctx)
 
 @publicInBinary private[parser] object CtxUpdated
 
