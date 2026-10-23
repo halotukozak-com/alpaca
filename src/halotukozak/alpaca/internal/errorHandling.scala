@@ -9,7 +9,7 @@ import scala.quoted.*
 
 // $COVERAGE-OFF$
 @publicInBinary private[alpaca] def lexerErrorHandlingImpl[Ctx <: LexerCtx: Type](
-  handler: Expr[LexerScope.Of[Ctx] ?=> LexerError.Of[Ctx] => Strategy],
+  handler: Expr[CtxScope.Of[Ctx] ?=> LexerError.Of[Ctx] => Strategy],
 )(using Quotes,
 ): Expr[ErrorHandling[Ctx]] =
   updatingErrorHandling[Ctx, LexerError.Of[Ctx]](handler, "ErrorHandling.forLexer")
