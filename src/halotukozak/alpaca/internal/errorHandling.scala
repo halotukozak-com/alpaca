@@ -68,6 +68,6 @@ private def updatingErrorHandling[Ctx <: AlpacaCtx: Type, Err: Type](
 
   // the lexer or parser of `Ctx` gives the handler its own errors; the strategy comes first, so `ctx` is the context
   // the handler left
-  '{ new ErrorHandling[Ctx]((initial, error) => ${ handle('initial, '{ error.asInstanceOf[Err] }) }) }
+  '{ ErrorHandling[Ctx]((initial, error) => ${ handle('initial, '{ error.asInstanceOf[Err] }) }) }
 }
 // $COVERAGE-ON$
