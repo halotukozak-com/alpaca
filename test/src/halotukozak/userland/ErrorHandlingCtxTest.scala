@@ -87,6 +87,14 @@ final class ErrorHandlingCtxTest extends AnyFunSuite with Matchers with LoneElem
     """).map(_.message) should contain("Token and rule extractors can only be used in a production of a `rule`")
   }
 
+  test("a token in a lexer error handler is a compile error") {
+    typeCheckErrors("""
+      ErrorHandling.forLexer[NotesCtx]: _ =>
+        val _ = Token["WORD"]
+        ErrorHandling.Strategy.Stop
+    """).map(_.message) should contain("`Token` can only be used inside a lexer rule")
+  }
+
   test("a lexer rule and a handler assign the local vars they capture") {
     var words = 0
     var skipped = 0
@@ -114,7 +122,7 @@ final class ErrorHandlingCtxTest extends AnyFunSuite with Matchers with LoneElem
 
   test("an ErrorHandling.forLexer handler must be a lambda") {
     val error = typeCheckErrors("""
-      val strategy: LexerScope.Of[NotesCtx] ?=> LexerError.Of[NotesCtx] => ErrorHandling.Strategy =
+      val strategy: CtxScope.Of[NotesCtx] ?=> LexerError.Of[NotesCtx] => ErrorHandling.Strategy =
         _ => ErrorHandling.Strategy.Stop
       ErrorHandling.forLexer[NotesCtx](strategy)
     """).loneElement

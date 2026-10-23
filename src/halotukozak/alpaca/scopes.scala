@@ -23,11 +23,10 @@ object CtxScope:
   extension (scope: CtxScope) @publicInBinary private[alpaca] def ctx: scope.Ctx = scope.asInstanceOf[scope.Ctx]
 
 /**
- * Evidence that code runs inside a `lexer` rule or an [[ErrorHandling.forLexer]] handler, where `ctx` and `Token[...]`
- * are available. Only the `lexer` macro and `ErrorHandling.forLexer` create one; its `Ctx` member is the lexer context
- * type.
+ * Evidence that code runs inside a `lexer` rule, where `ctx` and `Token[...]` are available. Only the `lexer` macro
+ * creates one; its `Ctx` member is the lexer context type.
  */
-@implicitNotFound("`ctx` and `Token` can only be used inside a lexer rule")
+@implicitNotFound("`Token` can only be used inside a lexer rule")
 opaque type LexerScope <: CtxScope & { type Ctx <: LexerCtx } = LexerCtx & { type Ctx <: LexerCtx }
 
 object LexerScope:
