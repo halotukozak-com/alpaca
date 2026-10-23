@@ -2,7 +2,6 @@ package halotukozak
 package alpaca
 package internal
 
-import scala.annotation.nowarn
 import scala.quoted.*
 import scala.reflect.NameTransformer
 
@@ -47,9 +46,8 @@ private[internal] def replaceScope[Ctx <: AlpacaCtx: Type](
 
 /**
  * `body`, typed against `scope`, run against `initial` with its context assignments threaded through a local `var`
- * (see [[replaceScope]] and [[rewriteCtxMutations]]). `result` builds what the block returns from the body and the
- * updated context, `None` when the body assigns nothing: then there is no `var`, and the body runs against `initial`
- * directly. `result` must evaluate the body before the context, as `(body, ctx)` does.
+ * (see [[replaceScope]] and [[rewriteCtxMutations]]). `result` builds what the block returns from the rewritten body
+ * and the `var`, which holds the context the body leaves; it must evaluate the body first, as `(body, ctx)` does.
  *
  * @param owner   the owner of the block, e.g. the lambda it is the body of
  * @param initial the context to start from
@@ -58,45 +56,30 @@ private[internal] def replaceScope[Ctx <: AlpacaCtx: Type](
  * @param others  replacements for other symbols of the user's code, as in [[replaceScope]]
  * @param result  what the block returns, from the rewritten body and the updated context
  */
-private[internal] def threadCtx[Ctx <: AlpacaCtx: Type, Result: Type](
+private[internal] def threadCtx[Ctx <: AlpacaCtx: Type](
   using
   quotes: Quotes,
   diagnostics: Diagnostics,
 )(
   owner: quotes.reflect.Symbol,
-  initial: Expr[Ctx],
+  initial: quotes.reflect.Term,
   scope: quotes.reflect.Symbol,
   body: quotes.reflect.Term,
   others: PartialFunction[quotes.reflect.Symbol, quotes.reflect.Term] = PartialFunction.empty,
 )(
-  result: (body: quotes.reflect.Term, ctx: Option[quotes.reflect.Term]) => quotes.reflect.Term,
+  result: (body: quotes.reflect.Term, ctx: quotes.reflect.Term) => quotes.reflect.Term,
 ): quotes.reflect.Term = {
   import quotes.reflect.*
 
-  // `None` without a `var`: the body runs against `initial`
-  def threaded(current: Expr[Ctx], updated: Option[Term]): Expr[Result] =
-    val ctxSymbol = current.asTerm.symbol
-    // what declares `current`: the quote below, or `owner` for the initial context
-    val ctxOwner = ctxSymbol.owner
-    val replaced = replaceScope[Ctx](scope, current.asTerm)(others).transformTerm(body.changeOwner(ctxOwner))(ctxOwner)
-    val rewritten = rewriteCtxMutations(ctxSymbol)(replaced)(ctxOwner)
-    // in terms: `current` belongs to the splice, so a quote of the caller's must not splice it
-    result(rewritten, updated).asExprOf[Result]
-
-  // a `var` only for a body that assigns: one never assigned is reported as unset where the code expands
-  if !assignsCtx(body) then threaded(initial, None).asTerm
-  // a quote re-homes what it splices to the macro's own owner, so `changeOwner` puts it under `owner`
-  else
-    '{
-      // assigned only by the rewritten body, spliced in below
-      @nowarn("msg=unset local variable") var current = $initial
-      ${ threaded('current, Some('current.asTerm)) }
-    }.asTerm.changeOwner(owner)
+  val ctxVar = Symbol.newVal(owner, "$ctx", TypeRepr.of[Ctx], Flags.Mutable, Symbol.noSymbol)
+  val replaced = replaceScope[Ctx](scope, Ref(ctxVar))(others).transformTerm(body.changeOwner(owner))(owner)
+  val rewritten = rewriteCtxMutations(ctxVar)(replaced)(owner)
+  Block(List(ValDef(ctxVar, Some(initial))), result(rewritten, Ref(ctxVar)))
 }
 
 /**
  * Whether `body` assigns a context field: calls a setter through `applyDynamic`, as `ctx.count += 1` does. Read before
- * the body is rewritten, to tell whether it needs a `var`.
+ * the body is rewritten, e.g. to tell whether a parser action needs to hand an updated context back.
  */
 private[internal] def assignsCtx(using quotes: Quotes)(body: quotes.reflect.Term): Boolean = {
   import quotes.reflect.*
