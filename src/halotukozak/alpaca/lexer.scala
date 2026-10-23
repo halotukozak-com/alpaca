@@ -168,7 +168,7 @@ transparent inline def ctx[Ctx <: AlpacaCtx: CtxScope.Of as scope]: Ctx = ${ ctx
  * }}}
  * A field whose type has a `given` [[Tracking]], like [[Line]] or [[Column]], is updated after every match.
  */
-trait LexerCtx extends AlpacaCtx:
+trait LexerCtx extends Product, Selectable:
   // Engine state. `private`, not `private[alpaca]`: private members aren't inherited, so a user context may have
   // fields with the same names. The library reads and writes them through the `engine*` extensions in the companion.
   private var lastLexeme: Lexeme[?, ?] | Null = compiletime.uninitialized
