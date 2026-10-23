@@ -58,14 +58,12 @@ private def updatingErrorHandling[Ctx <: AlpacaCtx: Type, Err: Type](
   def handle(initial: Expr[Ctx], error: Expr[Err]): Expr[(strategy: Strategy, ctx: Ctx)] =
     // in terms: `initial` and `error` belong to the splice, so a quote of this macro must not splice them
     val initialCtx = initial.asTerm
-    val handled = threadCtx[Ctx, (strategy: Strategy, ctx: Ctx)](
-      // the handler's lambda, which takes the initial context
-      initialCtx.symbol.owner,
-      initial,
-      oldScope.symbol,
-      Select.unique(onError, "apply").appliedTo(error.asTerm),
-    ): (strategy, ctx) =>
-      '{ (strategy = ${ strategy.asExprOf[Strategy] }, ctx = ${ ctx.getOrElse(initialCtx).asExprOf[Ctx] }) }.asTerm
+    // the handler's lambda, which takes the initial context
+    val owner = initialCtx.symbol.owner
+    val handled =
+      threadCtx[Ctx](owner, initialCtx, oldScope.symbol, Select.unique(onError, "apply").appliedTo(error.asTerm)):
+        (strategy, ctx) =>
+          '{ (strategy = ${ strategy.asExprOf[Strategy] }, ctx = ${ ctx.asExprOf[Ctx] }) }.asTerm.changeOwner(owner)
     abortOnErrors()
     handled.asExprOf[(strategy: Strategy, ctx: Ctx)]
 
