@@ -35,7 +35,7 @@ object ErrorHandling:
 
   extension [Ctx <: AlpacaCtx](errorHandling: ErrorHandling[Ctx])
     /** The strategy for an error, and the context to go on with. */
-    private[alpaca] def handle(ctx: Ctx, error: LexerError | ParserError): (strategy: Strategy, ctx: Ctx) =
+    private[alpaca] def apply(ctx: Ctx, error: LexerError | ParserError): (strategy: Strategy, ctx: Ctx) =
       errorHandling(ctx, error)
 
   /**

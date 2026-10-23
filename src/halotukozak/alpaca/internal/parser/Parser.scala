@@ -84,7 +84,7 @@ abstract class Parser[Ctx <: ParserCtx](
           val error = ParserError(remaining.headOption, expected, last)
           errors += error
           // the end of the input cannot be skipped
-          val handled = errorHandling.handle(ctx, error)
+          val handled = errorHandling(ctx, error)
           ctx = handled.ctx
           handled.strategy match
             case ErrorHandling.Strategy.SkipOne if remaining.nonEmpty => loop(remaining.tail)
