@@ -79,6 +79,14 @@ final class ErrorHandlingCtxTest extends AnyFunSuite with Matchers with LoneElem
     result.ctx shouldBe SkipBudgetCtx(skipsLeft = 0, seen = List("+", "+"))
   }
 
+  test("token and rule extractors in an ErrorHandling.forParser handler are reported") {
+    typeCheckErrors("""
+      ErrorHandling.forParser[SkipBudgetCtx]: _ =>
+        (null: Any) match { case SumLexer.Num(_) => () }
+        ErrorHandling.Strategy.Stop
+    """).map(_.message) should contain("Token and rule extractors can only be used in a production of a `rule`")
+  }
+
   test("a lexer rule and a handler assign the local vars they capture") {
     var words = 0
     var skipped = 0
