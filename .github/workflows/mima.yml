@@ -49,7 +49,7 @@ jobs:
           java-version: 21
           distribution: 'temurin'
       - name: Setup coursier cache
-        uses: coursier/cache-action@v8.1
+        uses: coursier/cache-action@v8.2
       - uses: VirtusLab/scala-cli-setup@v1
       - name: Check binary and TASTy compatibility
         id: mima
