@@ -121,7 +121,7 @@ object `package` extends Module:
       description = "Another Lexer Parser And Compiler Alpaca",
       organization = "com.halotukozak",
       url = "https://alpaca.halotukozak.com/docs/index.html",
-      licenses = Seq(License.ApacheVersion2),
+      licenses = Seq(License.`Apache-2.0`),
       versionControl = VersionControl.github("halotukozak-com", "alpaca"),
       developers = Seq(
         Developer("halotukozak", "Bartłomiej Kozak", "https://github.com/halotukozak"),
