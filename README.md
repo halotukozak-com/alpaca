@@ -228,3 +228,7 @@ Created by [halotukozak](https://github.com/halotukozak) and [Corvette653](https
 ---
 
 Made with ❤️ and coffee
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
