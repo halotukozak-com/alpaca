@@ -148,7 +148,7 @@ object `package` extends Module:
       override def sourcesFolders = super.sourcesFolders :+ os.sub / "src-jvm-native"
 
   object js extends Shared with ScalaJSModule:
-    def scalaJSVersion = "1.22.0"
+    def scalaJSVersion = "1.23.0"
 
     object test extends SharedTests with ScalaJSTests
 
