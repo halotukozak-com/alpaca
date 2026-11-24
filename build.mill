@@ -153,7 +153,7 @@ object `package` extends Module:
     object test extends SharedTests with ScalaJSTests
 
   object native extends Shared with ScalaNativeModule:
-    def scalaNativeVersion = "0.5.12"
+    def scalaNativeVersion = "0.5.13"
 
     object test extends SharedTests with ScalaNativeTests:
       // tests that need a real filesystem, which Scala.js doesn't have
